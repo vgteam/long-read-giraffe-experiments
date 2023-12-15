@@ -563,7 +563,7 @@ rule experiment_correctness_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "barchart.py {input.tsv} --title '{wildcards.expname} Correctness' --y_label 'Correct Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Correctness' --y_label 'Correct Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule compared_named_from_compared:
     input:
@@ -605,7 +605,7 @@ rule experiment_qq_plot_from_compared:
         runtime=30,
         slurm_partition=choose_partition(30)
     shell:
-        "Rscript scripts/plot-qq.R {input.tsv} {output}"
+        "Rscript plot-qq.R {input.tsv} {output}"
 
 rule experiment_pr_plot_from_compared:
     input:
@@ -618,7 +618,7 @@ rule experiment_pr_plot_from_compared:
         runtime=30,
         slurm_partition=choose_partition(30)
     shell:
-        "Rscript scripts/plot-pr.R {input.tsv} {output}"
+        "Rscript plot-pr.R {input.tsv} {output}"
 
 rule stats_from_alignments:
     input:
@@ -672,7 +672,7 @@ rule experiment_mapping_rate_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "barchart.py {input.tsv} --title '{wildcards.expname} Mapping Rate' --y_label 'Mapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Mapping Rate' --y_label 'Mapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 for subset in KNOWN_SUBSETS:
     for stage in ["aligned", "compared"]:
@@ -837,7 +837,7 @@ rule chain_coverage_histogram:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Fraction Covered' --y_label 'Items' --x_label 'Coverage' --no_n --save {output}"
+        "python3 histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Fraction Covered' --y_label 'Items' --x_label 'Coverage' --no_n --save {output}"
 
 rule time_used_histogram:
     input:
@@ -851,7 +851,7 @@ rule time_used_histogram:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Time Used, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Time (s)' --no_n --save {output}"
+        "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Time Used, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Time (s)' --no_n --save {output}"
 
 rule stage_time_histogram:
     input:
@@ -865,7 +865,7 @@ rule stage_time_histogram:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Stage {wildcards.stage} Time, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Time (s)' --no_n --save {output}"
+        "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Stage {wildcards.stage} Time, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Time (s)' --no_n --save {output}"
 
 rule average_stage_time_barchart:
     input:
@@ -878,7 +878,7 @@ rule average_stage_time_barchart:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "barchart.py {input.tsv} --categories {STAGES} --title '{wildcards.tech} {wildcards.realness} Mean Stage Times' --y_label 'Time (s)' --x_label 'Stage' --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --categories {STAGES} --title '{wildcards.tech} {wildcards.realness} Mean Stage Times' --y_label 'Time (s)' --x_label 'Stage' --no_n --save {output}"
 
 rule length_by_mapping_histogram:
     input:
@@ -892,7 +892,7 @@ rule length_by_mapping_histogram:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Read Length, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Length (bp)' --no_n --categories mapped unmapped --category_labels Mapped Unmapped --legend_overlay 'best' --save {output}"
+        "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Read Length, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Length (bp)' --no_n --categories mapped unmapped --category_labels Mapped Unmapped --legend_overlay 'best' --save {output}"
 
 
 rule length_by_correctness_histogram:
@@ -906,7 +906,7 @@ rule length_by_correctness_histogram:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length for {wildcards.mapper}' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories correct incorrect off-reference --category_labels Correct Incorrect 'Off Reference' --legend_overlay 'best' --stack --save {output}"
+        "python3 histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length for {wildcards.mapper}' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories correct incorrect off-reference --category_labels Correct Incorrect 'Off Reference' --legend_overlay 'best' --stack --save {output}"
 
 
 
