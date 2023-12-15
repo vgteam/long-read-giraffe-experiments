@@ -1,7 +1,6 @@
-GRAPHS_DIR = "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
-READS_DIR = "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads"
-REFS_DIR = "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references"
-WORK_DIR = "trash/exp"
+GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
+READS_DIR = config.get("reads_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads"
+REFS_DIR = config.get("refs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references"
 
 # What stages does the Giraffe mapper report times for?
 STAGES = ["minimizer", "seed", "tree", "fragment", "chain", "align", "winner"]

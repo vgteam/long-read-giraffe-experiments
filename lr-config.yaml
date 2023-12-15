@@ -1,0 +1,78 @@
+experiments:
+  exp1:
+    control:
+      realness: real
+      subset: 100k
+      reference: chm13
+      mapper: "giraffe-k31.w50.W"
+    vary:
+      tech: ["r9", "r10", "hifi"]
+      sample: ["HG002", "hifi"]
+      trimmedness: ["", ".trimmed"]
+    constrain:
+      - realness: real
+        tech: hifi
+        sample: HiFi
+        trimmedness: ""
+      - realness: real
+        tech: r9
+        sample: "HG002"
+        trimmedness: ".trimmed"
+      - realness: real
+        tech: r10
+        sample: "HG002"
+        trimmedness: ".trimmed"
+  r9_minimizers:
+    control:
+      realness: real
+      subset: 100k
+      reference: chm13
+      tech: r9
+      mapper: giraffe
+    vary:
+      sample: ["HG002", "hifi"]
+      trimmedness: ["", ".trimmed"]
+      mapper: ["giraffe-k31.w50.W", "giraffe-k21.w50.W", "giraffe-k15.w50.W", "giraffe-k31.w40.W", "giraffe-k21.w40.W", "giraffe-k15.w40.W", "giraffe-k31.w60.W", "giraffe-k21.w60.W", "giraffe-k15.w60.W"]
+    constrain:
+      - realness: real
+        tech: hifi
+        sample: HiFi
+        trimmedness: ""
+      - realness: real
+        tech: r9
+        sample: "HG002"
+        trimmedness: ".trimmed"
+      - realness: real
+        tech: r10
+        sample: "HG002"
+        trimmedness: ".trimmed"
+  hifi_accuracy:
+    control:
+      realness: sim
+      subset: 1m
+      reference: chm13
+      tech: hifi
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W", "winnowmap", "minimap2"]
+  r10_accuracy:
+    control:
+      realness: sim
+      subset: 1m
+      reference: chm13
+      tech: r10
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W", "winnowmap", "minimap2"]
+  r10_accuracy_small:
+    control:
+      realness: sim
+      subset: 1k
+      reference: chm13
+      tech: r10
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W", "winnowmap"]
