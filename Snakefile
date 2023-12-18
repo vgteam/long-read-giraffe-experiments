@@ -570,7 +570,8 @@ rule subset_base_fastq_gz:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "bgzip -d <{input.base_fastq} | head -n {params.lines} >{output.fastq}"
+        # We need to account for bgzip getting upset that we close the pipe before it is done writing.
+        "(bgzip -d <{input.base_fastq} || true) | head -n {params.lines} >{output.fastq}"
 
 rule extract_fastq_from_gam:
     input:
