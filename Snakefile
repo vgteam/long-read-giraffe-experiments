@@ -1,5 +1,103 @@
+###############
+#
+###############
+
+# Set a default config file. This can be overridden with --configfile.
+configfile: "lr-config.yaml"
+
+# Where are the input graphs?
+#
+# For each reference (here "chm13"), this directory must contain:
+#
+# hprc-v1.1-mc-chm13.d9.gbz
+# hprc-v1.1-mc-chm13.d9.dist
+#
+# Also, it must either be writable, or already contain zipcode and minimizer
+# indexes for each set of minimizer indexing parameters (here "k31.w50.W"),
+# named like:
+#
+# hprc-v1.1-mc-chm13.d9.k31.w50.W.withzip.min
+# hprc-v1.1-mc-chm13.d9.k31.w50.W.zipcodes
+#
 GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
+# Where are the reads to use?
+#
+# This directory must have "real" and "sim" subdirectories. Within each, there
+# must be a subdirectory for the sequencing technology, and within each of
+# those, a subdirectory for the sample.
+#
+# For real reads, each sample directory must have a ".fq.gz" or ".fastq.gz" file.
+# The name of the file must contain the sample name. If the directory is not
+# writable, and you want to trim adapters off nanopore reads, there must also
+# be a ".trimmed.fq.gz" or ".trimmed.fastq.gz" version of this file, with the
+# first 100 and last 10 bases trimmed off. Also, there must be
+# "{basename}-{subset}.fq" files for each subset size in reads ("1k", "1m:,
+# etc.) that you want to work with. "_" and "." are also accepted for setting
+# off the subset, and that ".fastq" is alos accepted as the extension.
+#
+# For simulated reads, each sample directory must have files
+# "{sample}-sim-{tech}-{subset}.gam" for each subset size as a number (100, 1000,
+# 1000000, etc.) that you want to work with. If the directory is not writable,
+# it must already have abbreviated versions ("1k" or "1m" instead of the full
+# number) of the GAM files, and the corresponding extracted ".fq" files.
+#
+# Simulated reads should be made with the "make_pbsim_reads.sh" script in this
+# repository.
+#
+# A fully filled out reads directory might look like:
+#.
+#├── real
+#│   ├── hifi
+#│   │   └── HiFi
+#│   │       ├── HiFi_reads_10k.fq
+#│   │       ├── HiFi_reads_1k.fq
+#│   │       ├── HiFi_reads_1m.fq
+#│   │       └── HiFi_reads.fq.gz
+#│   └── r10
+#│       └── HG002
+#│           ├── HG002_1_R1041_UL_Guppy_6.3.7_5mc_cg_sup_prom_pass.fastq.gz
+#│           ├── HG002_1_R1041_UL_Guppy_6.3.7_5mc_cg_sup_prom_pass.trimmed.fastq.gz
+#│           ├── HG002_1_R1041_UL_Guppy_6.3.7_5mc_cg_sup_prom_pass.trimmed.10k.fastq
+#│           ├── HG002_1_R1041_UL_Guppy_6.3.7_5mc_cg_sup_prom_pass.trimmed.1k.fastq
+#│           └── HG002_1_R1041_UL_Guppy_6.3.7_5mc_cg_sup_prom_pass.trimmed.1m.fastq
+#└── sim
+#    ├── hifi
+#    │   └── HG002
+#    │       ├── HG002-sim-hifi-1000.gam
+#    │       ├── HG002-sim-hifi-10000.gam
+#    │       ├── HG002-sim-hifi-1000000.gam
+#    │       ├── HG002-sim-hifi-10k.fq
+#    │       ├── HG002-sim-hifi-10k.gam
+#    │       ├── HG002-sim-hifi-1k.fq
+#    │       ├── HG002-sim-hifi-1k.gam
+#    │       ├── HG002-sim-hifi-1m.fq
+#    │       └── HG002-sim-hifi-1m.gam
+#    └── r10
+#        └── HG002
+#            ├── HG002-sim-r10-1000.gam
+#            ├── HG002-sim-r10-10000.gam
+#            ├── HG002-sim-r10-1000000.gam
+#            ├── HG002-sim-r10-10k.fq
+#            ├── HG002-sim-r10-10k.gam
+#            ├── HG002-sim-r10-1k.fq
+#            ├── HG002-sim-r10-1k.gam
+#            ├── HG002-sim-r10-1m.fq
+#            └── HG002-sim-r10-1m.gam
 READS_DIR = config.get("reads_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads"
+# Where are the linear reference files?
+#
+# For each reference name (here "chm13") this directory must contain:
+#
+# A FASTA file with PanSN-style (CHM13#0#chr1) contig names: 
+# chm13-pansn.fa
+#
+# Index files for Minimap2 for each preset (here "hifi", can also be "ont"):
+# chm13-pansn.hifi.mmi
+# 
+# A Winnowmap repetitive kmers file:
+# chm13-pansn.repetitive_k15.txt
+#
+# TODO: Right now these indexes must be manually generated.
 REFS_DIR = config.get("refs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references"
 
 # What stages does the Giraffe mapper report times for?
@@ -10,7 +108,7 @@ STAGES = ["minimizer", "seed", "tree", "fragment", "chain", "align", "winner"]
 KNOWN_SUBSETS = ["1k", "10k", "100k", "1m"]
 CHUNK_SIZE = 10000
 
-# For each Slurm partition name, what ios its max wall time in minutes?
+# For each Slurm partition name, what is its max wall time in minutes?
 # TODO: Put this in the config
 SLURM_PARTITIONS = [
     ("short", 60),
@@ -141,6 +239,22 @@ def indexed_graph(wildcards):
     new_indexes.update(indexes)
     return new_indexes
 
+def base_fastq(wildcards):
+    """
+    Find a full compressed FASTQ for a real sample, based on realness, sample,
+    tech, and trimmedness.
+    """
+    full_gz_pattern = os.path.join(READS_DIR, "{realness}/{tech}/{sample}/*{sample}*{trimmedness}.f*q.gz".format(**wildcards))
+    results = glob.glob(full_gz_pattern)
+    if wildcards["trimmedness"] != ".trimmed":
+        # Don't match trimmed files when not trimmed.
+        results = [r for r in results if ".trimmed" not in r]
+    if len(results) == 0:
+        raise FileNotFoundError(f"No files found matching {full_gz_pattern}")
+    elif len(results) > 1:
+        raise AmbiguousRuleException("Multiple files matched " + full_gz_pattern)
+    return results[0]
+
 def fastq(wildcards):
     """
     Find a FASTQ from realness, tech, sample, trimmedness, and subset.
@@ -149,26 +263,28 @@ def fastq(wildcards):
     being able to make a FASTQ from a GAM.
     """
     import glob
-    fastq_pattern = os.path.join(READS_DIR, "{realness}/{tech}/*{sample}*{trimmedness}[._-]{subset}.f*q".format(**wildcards))
     fastq_by_sample_pattern = os.path.join(READS_DIR, "{realness}/{tech}/{sample}/*{sample}*{trimmedness}[._-]{subset}.f*q".format(**wildcards))
-    results = glob.glob(fastq_pattern) + glob.glob(fastq_by_sample_pattern)
+    results = glob.glob(fastq_by_sample_pattern)
+    if wildcards["trimmedness"] != ".trimmed":
+        # Don't match trimmed files when not trimmed.
+        results = [r for r in results if ".trimmed" not in r]
     if len(results) == 0:
-        # Maybe there's a GAM to extract from? GAMs are always under per-sample directories.
-        gam_pattern = os.path.join(READS_DIR, "{realness}/{tech}/{sample}/*{sample}*{trimmedness}[._-]{subset}.gam".format(**wildcards))
-        results = glob.glob(gam_pattern)
-        if len(results) == 0:
-            if wildcards["realness"] == "sim":
-                # TODO: We give up and assume we can make this subset.
-                results = [os.path.join(READS_DIR, "{realness}/{tech}/{sample}/{sample}-{realness}-{tech}{trimmedness}-{subset}.gam".format(**wildcards))]
-            else:
-                # For real files we don't know the file to make the subset from.
-                raise FileNotFoundError(f"No files found matching {fastq_pattern} or {gam_pattern}")
-        if len(results) > 1:
-            raise AmbiguousRuleException("Multiple files matched " + gam_pattern)
-        # Replace the extension
-        return results[0][:-3] + "fq"
-    if len(results) > 1:
-        raise AmbiguousRuleException("Multiple files matched " + fastq_pattern + " and " + fastq_by_sample_pattern)
+        if wildcards["realness"] == "real":
+            # Make sure there's a full .fq.gz to extract from (i.e. this doesn't raise)
+            full_file = base_fastq(wildcards)
+            # And compute the subset name
+            without_gz = os.path.splitext(full_file)[0]
+            without_fq = os.path.splitext(without_gz)[0]
+            return without_fq + ".{subset}.fq".format(**wildcards)
+        elif wildcards["realness"] == "sim":
+            # Assume we can get this FASTQ.
+            # For simulated reads we assume the right subset GAM is there. We
+            # don't want to deal with the 1k/1000 difference here.
+            return os.path.join(READS_DIR, "{realness}/{tech}/{sample}/{sample}-{realness}-{tech}{trimmedness}-{subset}.fq".format(**wildcards))
+        else:
+            raise FileNotFoundError(f"No files found matching {fastq_by_sample_pattern}")
+    elif len(results) > 1:
+        raise AmbiguousRuleException("Multiple files matched " + fastq_by_sample_pattern)
     return results[0]
 
 def all_experiment_conditions(expname):
@@ -383,7 +499,38 @@ rule alias_gam_m:
     shell:
         "ln {input.gam} {output.gam}"
 
-rule extract_fastq:
+rule trim_base_fastq_gz:
+    input:
+        fq_gz="{reads_dir}/real/{tech}/{sample}/{basename}.{fq_ext}.gz"
+    output:
+        fq_gz="{reads_dir}/real/{tech}/{sample}/{basename}.trimmed.{fq_ext}.gz"
+    wildcard_constraints:
+        fq_ext="fq|fastq"
+    threads: 4
+    resources:
+        mem_mb=10000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "seqkit subseq -j {threads} -r 100:-10 {input.fq_gz} -o {output.fq_gz}"
+    
+
+rule subset_base_fastq_gz:
+    input:
+        base_fastq=base_fastq
+    output:
+        fastq="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.{subset}.fq"
+    wildcard_constraints:
+        realness="real"
+    threads: 8
+    resources:
+        mem_mb=10000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "bgzip -d <{input.base_fastq} | head -n " + str(subset_to_number(wildcards.subset) * 4) + " >{output.fastq}"
+
+rule extract_fastq_from_gam:
     input:
         gam="{reads_dir}/sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"
     output:
