@@ -69,6 +69,7 @@ experiments:
     vary:
       mapper: ["giraffe-k31.w50.W", "minimap2", "winnowmap"]
       tech: ["r10", "hifi"]
+      sample: ["HG002", "HiFi"]
       trimmedness: ["", ".trimmed"]
       realness: ["sim", "real"]
     constrain:

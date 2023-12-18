@@ -39,6 +39,8 @@ The general flow for using this repository is:
         output/plots/chm13/minimap2/length_by_correctness-sim-r10-HG002.trimmed.1k.png
     ```
 
+    And you can use the `--dry-run` flag to see all the rules that will be executed and the files that will be created.
+
 ## Available Experiment Outputs:
 
 In these file name templates, `{root}` is your base output directory, `{expname}` is the name of the experiment defined in the config file, and `{ext}` is the image format you want the plot in, such as `png`.

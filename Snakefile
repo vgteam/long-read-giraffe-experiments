@@ -121,9 +121,19 @@ SLURM_PARTITIONS = [
     ("long", 7 * 24 * 60)
 ]
 
+# Which experiment statistics are applicable only to simulated conditions with
+# a truth set? Don't try and collect these stats into experiment tables from
+# other conditions.
+#
+# Applies to stat files like:
+#
+# {root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{stat}.tsv
+TRUTH_STATS = {"correct", "accuracy", "wrong"}
+
 wildcard_constraints:
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
+    basename=".+(?<!\\.trimmed)",
     subset="[0-9]+[km]?",
     statname="[a-zA-Z0-9_]+"
 
@@ -248,13 +258,28 @@ def base_fastq(wildcards):
     """
     Find a full compressed FASTQ for a real sample, based on realness, sample,
     tech, and trimmedness.
+
+    If an untrimmed version exists and the trimmed version does not, returns
+    the name of the trimmed version to make.
     """
+    import glob
     full_gz_pattern = os.path.join(READS_DIR, "{realness}/{tech}/{sample}/*{sample}*{trimmedness}.f*q.gz".format(**wildcards))
     results = glob.glob(full_gz_pattern)
     if wildcards["trimmedness"] != ".trimmed":
         # Don't match trimmed files when not trimmed.
         results = [r for r in results if ".trimmed" not in r]
     if len(results) == 0:
+        # Can't find it
+        if wildcards["trimmedness"] == ".trimmed":
+            # Look for an untrimmed version
+            untrimmed_pattern = os.path.join(READS_DIR, "{realness}/{tech}/{sample}/*{sample}*.f*q.gz".format(**wildcards))
+            results = glob.glob(untrimmed_pattern)
+            if len(results) == 1:
+                # We can use this untrimmed one to make a trimmed one
+                without_gz = os.path.splitext(results[0])[0]
+                without_fq, fq_ext = os.path.splitext(without_gz)
+                trimmed_base = without_fq + ".trimmed" + fq_ext + ".gz"
+                return trimmed_base
         raise FileNotFoundError(f"No files found matching {full_gz_pattern}")
     elif len(results) > 1:
         raise AmbiguousRuleException("Multiple files matched " + full_gz_pattern)
@@ -292,7 +317,7 @@ def fastq(wildcards):
         raise AmbiguousRuleException("Multiple files matched " + fastq_by_sample_pattern)
     return results[0]
 
-def all_experiment_conditions(expname):
+def all_experiment_conditions(expname, subset=None, debug=False):
     """
     Yield dictionaries of all conditions for the given experiment.
     
@@ -308,6 +333,9 @@ def all_experiment_conditions(expname):
     The experiment dict should have a "constrain" list. Each item is a dict of
     variable names and values. A condition must match *at least* one of these
     dicts on *all* values in the dict in order to pass.
+
+    If subset is provided, only yields conditions that match all the values set
+    in subset.
 
     Yields variable name to value dicts for all passing conditions for the
     given experiment.
@@ -335,11 +363,16 @@ def all_experiment_conditions(expname):
         # We need to see if this is a combination we want to do
         
         if len(to_constrain) == 0 or matches_any_constraint(condition, to_constrain):
-            total_conditions += 1
-            yield condition
+            if not subset or matches_constraint(condition, subset):
+                total_conditions += 1
+                yield condition
+            else:
+                if debug:
+                    print(f"Condition {condition} does not match requested subset")
         else:
-            print(f"Condition {condition} does not match a constraint")
-    print(f"Experiment {expname} has {total_conditions} conditions")
+            if debug:
+                print(f"Condition {condition} does not match a constraint")
+    print(f"Experiment {expname} has {total_conditions} eligible conditions")
     
 
 def augmented_with_each(base_dict, new_key, possible_values):
@@ -433,15 +466,17 @@ def condition_name(wildcards):
     varied_values = [condition[v] for v in varied]
     return ",".join(varied_values)
 
-def all_experiment(wildcard_values, pattern, debug=False):
+def all_experiment(wildcard_values, pattern, subset=None, debug=False):
     """
     Produce all values of pattern substituted with the wildcards and the experiment conditions' values, from expname.
+
+    If provided, restricts to conditions matching all values in the subset dict.
     
     Needs to be used like:
         lambda w: all_experiment(w, "your pattern")
     """
 
-    for condition in all_experiment_conditions(wildcard_values["expname"]):
+    for condition in all_experiment_conditions(wildcard_values["expname"], subset=subset):
         merged = dict(wildcard_values)
         merged.update(condition)
         if debug:
@@ -527,13 +562,15 @@ rule subset_base_fastq_gz:
         fastq="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.{subset}.fq"
     wildcard_constraints:
         realness="real"
+    params:
+        lines=lambda w: str(subset_to_number(w["subset"]) * 4)
     threads: 8
     resources:
         mem_mb=10000,
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "bgzip -d <{input.base_fastq} | head -n " + str(subset_to_number(wildcards.subset) * 4) + " >{output.fastq}"
+        "bgzip -d <{input.base_fastq} | head -n {params.lines} >{output.fastq}"
 
 rule extract_fastq_from_gam:
     input:
@@ -646,7 +683,7 @@ rule annotate_and_compare_alignments:
     shell:
         "vg annotate -t16 -a {input.gam} -x {input.gbz} -m | vg gamcompare --threads 16 --range 200 - {input.truth_gam} --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
 
-rule correctness_from_comparison:
+rule correct_from_comparison:
     input:
         report="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
@@ -693,7 +730,7 @@ rule wrong_from_comparison:
 
 rule experiment_stat_table:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{stat}.tsv")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{stat}.tsv", {"realness": "sim"} if w["stat"] in TRUTH_STATS else None)
     output:
         table="{root}/experiments/{expname}/results/{stat}.tsv"
     threads: 1
@@ -735,7 +772,7 @@ rule compared_named_from_compared:
 
 rule experiment_compared_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv", {"realness": "sim"})
     output:
         tsv="{root}/experiments/{expname}/results/compared.tsv"
     threads: 1
@@ -799,19 +836,6 @@ rule mapping_rate_from_stats:
         slurm_partition=choose_partition(5)
     shell:
         "printf '{params.condition_name}\\t' >{output.rate} && cat {input.stats} | grep 'Total aligned:' | cut -f2 -d':' | tr -d ' ' >>{output.rate}"
-
-rule experiment_mapping_rate_table:
-    input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_rate.tsv")
-    output:
-        table="{root}/experiments/{expname}/results/mapping_rate.tsv"
-    threads: 1
-    resources:
-        mem_mb=1000,
-        runtime=5,
-        slurm_partition=choose_partition(5)
-    shell:
-        "cat {input} >{output.table}"
 
 rule experiment_mapping_rate_plot:
     input:
