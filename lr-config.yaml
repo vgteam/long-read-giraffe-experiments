@@ -1,71 +1,94 @@
+# Experiment Definitions
+#
+# In the "experiments" dict, you can define one entry per named experiment you
+# want to run. That experiment entry should have "control", "vary", and
+# "constrain" sections.
+#
+# In the "control" section, list each variable that is held constant for the
+# experiment, and the value it should have.
+#
+# In the "vary" section, list each variable you want to change between
+# conditions, and all of its possible values. All combinations of the values
+# will be considered.
+#
+# The "constrain" section is used because all possible combinations of variable
+# values from the "vary" section might not make sense. If the section is
+# present, it is a list of objects where the keys are variable names and the
+# values are variable values. Only experimental conditions that match at least
+# one entry in the lits on all of the entry's variables will actually be run.
+#
+# So, if you want to only use read trimming with R10 nanopore reads, and you
+# want to use un-trimmed HiFi reads, you could write a constrain section like:
+# 
+# constrain:
+#   - tech: r10
+#     trimmedness: ".trimmed"
+#   - tech: hifi
+#     trimmedness: ""
+#
+# The possible variables and their accepted values are:
+#
+# realness: Controls if the reads are real reads or simulated reads. Can be
+# "real" or "sim".
+#
+# tech: The sequencing technology.  With the data set we use, can be "r10" or
+# "hifi".
+#
+# sample: The name of the sample to use reads from. Determines which read files
+# are used. With the data set we use, can be "HG002", or "HiFi" for the real
+# HiFi reads.
+#
+# trimmedness: Can be ".trimmed" (with leading ".") or "" (empty string).
+# Determines if the first 100 and last 10 bases of the reads should be dropped
+# (to remove nanopore adapter sequences).
+#
+# subset: Can be "1k", "10k", "100k", or "1m". Controls the number of reads to
+# run.
+#
+# reference: The name of the linear reference assembly to use. Right now we
+# only use "chm13".
+#
+# mapper: the read mapper to run. Can be "minimap2" or "winnowmap". Can also be
+# "giraffe-" and then a minimizer configuration like "k31.w50.W" or "k29.w11".
+# The nimker after "k: is the minimizer length, the number after "w" is the
+# number of windows to choose minimizers from, and the ".W" is there if
+# high-frequency k-mers should be down-weighted to make them less likely to be
+# minimizers.
+#
+# ALL of these variables need to be covered in each experiment, in either the
+# "control" section (to hold them constant) or the "vary" section (to run them
+# through a list of values).
+
 experiments:
-  exp1:
+  # This experiment tests all the mappers, realnesses, technologies, and
+  # trimming levels on a small number of reads.
+  tiny_test:
     control:
-      realness: real
-      subset: 100k
+      subset: 1k
       reference: chm13
-      mapper: "giraffe-k31.w50.W"
     vary:
-      tech: ["r9", "r10", "hifi"]
-      sample: ["HG002", "hifi"]
+      mapper: ["giraffe-k31.w50.W", "minimap2", "winnowmap"]
+      tech: ["r10", "hifi"]
       trimmedness: ["", ".trimmed"]
+      realness: ["sim", "real"]
     constrain:
+      # Always use the HiFi sample and no trimming for real hifi reads
       - realness: real
         tech: hifi
         sample: HiFi
         trimmedness: ""
-      - realness: real
-        tech: r9
-        sample: "HG002"
-        trimmedness: ".trimmed"
+      # Always use the HG002 sample and trimming for real R10 reads
       - realness: real
         tech: r10
-        sample: "HG002"
+        sample: HG002
         trimmedness: ".trimmed"
-  r9_minimizers:
-    control:
-      realness: real
-      subset: 100k
-      reference: chm13
-      tech: r9
-      mapper: giraffe
-    vary:
-      sample: ["HG002", "hifi"]
-      trimmedness: ["", ".trimmed"]
-      mapper: ["giraffe-k31.w50.W", "giraffe-k21.w50.W", "giraffe-k15.w50.W", "giraffe-k31.w40.W", "giraffe-k21.w40.W", "giraffe-k15.w40.W", "giraffe-k31.w60.W", "giraffe-k21.w60.W", "giraffe-k15.w60.W"]
-    constrain:
-      - realness: real
-        tech: hifi
-        sample: HiFi
+      # Always use the HG002 sample and no trimming after simulation for
+      # simulated reads
+      - realness: sim
+        sample: HG002
         trimmedness: ""
-      - realness: real
-        tech: r9
-        sample: "HG002"
-        trimmedness: ".trimmed"
-      - realness: real
-        tech: r10
-        sample: "HG002"
-        trimmedness: ".trimmed"
-  hifi_accuracy:
-    control:
-      realness: sim
-      subset: 1m
-      reference: chm13
-      tech: hifi
-      trimmedness: ""
-      sample: HG002
-    vary:
-      mapper: ["giraffe-k31.w50.W", "winnowmap", "minimap2"]
-  r10_accuracy:
-    control:
-      realness: sim
-      subset: 1m
-      reference: chm13
-      tech: r10
-      trimmedness: ""
-      sample: HG002
-    vary:
-      mapper: ["giraffe-k31.w50.W", "winnowmap", "minimap2"]
+  # This experiment compares mapping accuracy between Giraffe and Winnowmap on
+  # simulated R10 reads.
   r10_accuracy_small:
     control:
       realness: sim

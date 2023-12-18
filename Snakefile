@@ -1,8 +1,9 @@
-###############
-#
-###############
+###########################################################
+# Experimental procedure for evaluating Long Read Giraffe #
+###########################################################
 
 # Set a default config file. This can be overridden with --configfile.
+# See the config file for how to define experiments.
 configfile: "lr-config.yaml"
 
 # Where are the input graphs?
@@ -20,6 +21,7 @@ configfile: "lr-config.yaml"
 # hprc-v1.1-mc-chm13.d9.k31.w50.W.zipcodes
 #
 GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
+
 # Where are the reads to use?
 #
 # This directory must have "real" and "sim" subdirectories. Within each, there
@@ -83,7 +85,9 @@ GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/
 #            ├── HG002-sim-r10-1k.gam
 #            ├── HG002-sim-r10-1m.fq
 #            └── HG002-sim-r10-1m.gam
+#
 READS_DIR = config.get("reads_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads"
+
 # Where are the linear reference files?
 #
 # For each reference name (here "chm13") this directory must contain:
@@ -98,6 +102,7 @@ READS_DIR = config.get("reads_dir", None) or "/private/groups/patenlab/anovak/pr
 # chm13-pansn.repetitive_k15.txt
 #
 # TODO: Right now these indexes must be manually generated.
+#
 REFS_DIR = config.get("refs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references"
 
 # What stages does the Giraffe mapper report times for?
