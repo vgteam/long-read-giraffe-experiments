@@ -62,6 +62,6 @@ In these file name templates, `{root}` is your base output directory, `{ext}` is
 
 ## Missing Features
 
-Right now, Giraffe is always run with `--parameter-preset lr`. It isn't run with different presets for HiFi and R10 reads, and it isn't able to be run with combinations of additional flags under the experiment system. 
+Right now, Giraffe is always run with `--parameter-preset lr`. It isn't run with different presets for HiFi and R10 reads, and it isn't able to be run with combinations of additional flags under the experiment system. Also, Illumina reads (which would probably need a different preset) are not supported, nor is the non-chaining mode that we woulkd want to run with them for a control.
 
 
