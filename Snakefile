@@ -322,7 +322,7 @@ def all_experiment_conditions(expname, subset=None, debug=False):
     Yield dictionaries of all conditions for the given experiment.
     
     The config file should have a dict in "experiments", of which the given
-    expname should be a key. THe value is the experiment dict.
+    expname should be a key. The value is the experiment dict.
 
     The experiment dict should have a "control" dict, listing names and values
     of variables to keep constant.
@@ -330,9 +330,11 @@ def all_experiment_conditions(expname, subset=None, debug=False):
     The experiment dict should have a "vary" dict, listing names and values
     lists of variables to vary. All combinations will be generated.
 
-    The experiment dict should have a "constrain" list. Each item is a dict of
-    variable names and values. A condition must match *at least* one of these
-    dicts on *all* values in the dict in order to pass.
+    The experiment dict should have a "constrain" list. Each item in the list
+    is a "pass", which is a list of constraints. Each item in the pass is a
+    dict of variable names and values (or lists of values). A condition must
+    match *at least* one of these dicts on *all* values in the dict in order to
+    survive the pass. And it must survive all passes in order to be run.
 
     If subset is provided, only yields conditions that match all the values set
     in subset.
@@ -354,7 +356,7 @@ def all_experiment_conditions(expname, subset=None, debug=False):
 
     to_vary = exp_dict.get("vary", {})
 
-    to_constrain = exp_dict.get("constrain", [])
+    constraint_passes = exp_dict.get("constrain", [])
 
     total_conditions = 0
     for condition in augmented_with_all(base_condition, to_vary):
@@ -362,7 +364,7 @@ def all_experiment_conditions(expname, subset=None, debug=False):
 
         # We need to see if this is a combination we want to do
         
-        if len(to_constrain) == 0 or matches_any_constraint(condition, to_constrain):
+        if matches_all_constraint_passes(condition, constraint_passes):
             if not subset or matches_constraint(condition, subset):
                 total_conditions += 1
                 yield condition
@@ -371,7 +373,7 @@ def all_experiment_conditions(expname, subset=None, debug=False):
                     print(f"Condition {condition} does not match requested subset")
         else:
             if debug:
-                print(f"Condition {condition} does not match a constraint")
+                print(f"Condition {condition} does not match a constraint in some pass")
     print(f"Experiment {expname} has {total_conditions} eligible conditions")
     
 
@@ -407,13 +409,24 @@ def augmented_with_all(base_dict, keys_and_values):
                 yield with_first
 
 
+def matches_constraint_value(query, value):
+    """
+    Returns True if query equals value, except if value is a list, query has to
+    be in the list instead.
+    """
+
+    if isinstance(value, list):
+        return query in value
+    else:
+        return query == value
+
 def matches_constraint(condition, constraint, debug=False):
     """
     Returns True if all keys in constraint are in condition with the same
     values.
     """
     for k, v in constraint.items():
-        if k not in condition or condition[k] != v:
+        if k not in condition or not matches_constraint_value(v, condition[k]):
             if debug:
                 print(f"Condition {condition} mismatched constraint {constraint} on {k}")
             return False
@@ -429,6 +442,16 @@ def matches_any_constraint(condition, constraints):
         if matches_constraint(condition, constraint):
             return True
     return False
+
+def matches_all_constraint_passes(condition, passes):
+    """
+    Return True if the condfition matches some constraint in each pass in passes.
+    """
+
+    for constraints in passes:
+        if not matches_any_constraint(condition, constraints):
+            return False
+    return True
 
 def wildcards_to_condition(all_wildcards):
     """
@@ -591,7 +614,7 @@ rule giraffe_real_reads:
         unpack(indexed_graph),
         fastq=fastq,
     output:
-        gam="{root}/aligned/{reference}/giraffe-{minparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="real"
     threads: 64
@@ -600,14 +623,14 @@ rule giraffe_real_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg giraffe -t{threads} --parameter-preset lr --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} >{output.gam}"
+        "vg giraffe -t{threads} --parameter-preset {preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} >{output.gam}"
 
 rule giraffe_sim_reads:
     input:
         unpack(indexed_graph),
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
-        gam="{root}/aligned/{reference}/giraffe-{minparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
     threads: 64
@@ -616,7 +639,7 @@ rule giraffe_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg giraffe -t{threads} --parameter-preset lr --progress --track-provenance --track-correctness -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}"
+        "vg giraffe -t{threads} --parameter-preset {preset} --progress --track-provenance --track-correctness -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}"
 
 rule winnowmap_reads:
     input:
