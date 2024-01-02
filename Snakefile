@@ -447,6 +447,10 @@ def matches_all_constraint_passes(condition, passes):
     """
     Return True if the condfition matches some constraint in each pass in passes.
     """
+    
+    if len(passes) > 0 and not isinstance(passes[0], list) and isinstance(passes[0], dict):
+        # Old style config where there's just one pass of constraints. Fix it up.
+        passes = [passes]
 
     for constraints in passes:
         if not matches_any_constraint(condition, constraints):
