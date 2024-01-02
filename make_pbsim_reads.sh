@@ -21,6 +21,7 @@ set -ex
 # Technology name to use in output filenames
 : "${TECH_NAME:=hifi}"
 # FASTQ to use as a template, or "/dev/null"
+# MUST NOT be a .fastq.gz; no error will be raised but it will not work!
 : "${SAMPLE_FASTQ:=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads/real/hifi/HiFi_reads_100k.fq}"
 # HMM model to use instead of a FASTQ, or "/dev/null"
 : "${PBSIM_HMM:=/dev/null}"
