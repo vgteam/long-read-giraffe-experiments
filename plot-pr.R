@@ -145,7 +145,7 @@ dat.plot <- dat.roc %>%
         # There will be points with variable sizes
         geom_point(aes(size=Positive+Negative)) +
         # We manually assign these selected colors
-        scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
+        scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=1)) +
         # And we want a size legend
         scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
         # And we want a fake log Y axis
