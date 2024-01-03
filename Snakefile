@@ -431,12 +431,12 @@ def matches_constraint_value(query, value):
 def matches_constraint(condition, constraint, debug=False):
     """
     Returns True if all keys in constraint are in condition with the same
-    values.
+    values, or with values in the list in constraint.
     """
-    for k, v in constraint.items():
-        if k not in condition or not matches_constraint_value(v, condition[k]):
+    for key, match in constraint.items():
+        if key not in condition or not matches_constraint_value(condition[key], match):
             if debug:
-                print(f"Condition {condition} mismatched constraint {constraint} on {k}")
+                print(f"Condition {condition} mismatched constraint {constraint} on {key}")
             return False
     return True
 
@@ -500,27 +500,6 @@ def condition_name(wildcards):
     varied = list(to_vary.keys())
     varied_values = [condition[v] for v in varied]
     return ",".join(varied_values)
-
-def experiment_hash(wildcards):
-    """
-    Produce an experiment configuration ahsh from expname.
-
-    The hash string changes if anything about the experiment with the given
-    name changes. If you put it in the params of a rule, the rule will rerun if
-    the experiment is reconfigured (and e.g. conditions are added or removed).
-
-    Should be used in any rule where expname is in an output but not an input.
-    """
-
-    exp_dict = config.get("experiments", {}).get(wildcards["expname"], {})
-
-    # We assume JSON dumps are deterministic.
-    import json
-    to_hash = json.dumps(exp_dict)
-
-    import hashlib
-    return hashlib.sha256(to_hash.encode("utf-8")).hexdigest()
-
 
 def all_experiment(wildcard_values, pattern, subset=None, debug=False):
     """
@@ -750,8 +729,7 @@ rule correct_from_comparison:
     input:
         report="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
-        condition_name=condition_name,
-        experiment_hash=experiment_hash
+        condition_name=condition_name
     output:
         tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.correct.tsv"
     threads: 1
@@ -766,8 +744,7 @@ rule accuracy_from_comparison:
     input:
         report="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
-        condition_name=condition_name,
-        experiment_hash=experiment_hash
+        condition_name=condition_name
     output:
         tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.accuracy.tsv"
     threads: 1
@@ -782,8 +759,7 @@ rule wrong_from_comparison:
     input:
         report="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
-        condition_name=condition_name,
-        experiment_hash=experiment_hash
+        condition_name=condition_name
     output:
         tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.wrong.tsv"
     threads: 1
@@ -824,8 +800,7 @@ rule compared_named_from_compared:
     input:
         tsv="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
     params:
-        condition_name=condition_name,
-        experiment_hash=experiment_hash
+        condition_name=condition_name
     output:
         tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
     threads: 3
@@ -893,8 +868,7 @@ rule mapping_rate_from_stats:
     input:
         stats="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt"
     params:
-        condition_name=condition_name,
-        experiment_hash=experiment_hash
+        condition_name=condition_name
     output:
         rate="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_rate.tsv"
     threads: 1
