@@ -10,7 +10,7 @@ The general flow for using this repository is:
 
 2. Use `make_pbsim_reads.sh` to simulate reads with similar base qualities for a sample with set genotypes.
 
-3. Lay out your input files in the expected format, including a GBZ graph and distance index, the reads, a linear reference FASTA, and Minimap2 and Winnowmap indexes. See `Snakefile` for a description of the required layout for input data.
+3. Lay out your input files in the expected format, including a GBZ graph and distance index, the reads, a linear reference FASTA, and Winnowmap indexes, and any Minimap2 indexes. See `Snakefile` for a description of the required layout for input data.
 
 4. Write a YAML configuration file defining one or more experiments in which different variables (sequencing technology, number of reads, read aligner used, etc.) are either held constant or varied. See `lr-config.yaml`, the default config file, for an example and documentation for all the experimental variables and their possible values. You can also use the config file to set `graphs_dir`, `reads_dir`, and `refs_dir` to directories where your graphs, reads, and Winnowmap2/Minimap indexed linear references are stored, if not running with access to the UCSC Genomics Institute `/private/groups` directory hierarchy. 
 

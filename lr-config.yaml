@@ -30,7 +30,7 @@
 #       trimmedness: ""
 #
 # Note the extra "-" and level of indentation; there is one pass of
-# constraining here.
+# constraining here, but there could be more.
 #
 # The possible variables and their accepted values are:
 #
@@ -56,7 +56,7 @@
 #
 # mapper: the read mapper to run. Can be "minimap2" or "winnowmap". Can also be
 # "giraffe-" and then a minimizer configuration like "k31.w50.W" or "k29.w11",
-# and then a dash and a preset like "-lr".
+# and then a dash and a Giraffe preset like "-lr".
 #
 # The number after "k" is the minimizer length, the number after "w" is the
 # number of windows to choose minimizers from, and the ".W" is there if
@@ -105,12 +105,13 @@ experiments:
           sample: HG002
           trimmedness: ""
       -
-        # Only run the short read modes of Giraffe on the short reads.
-        - mapper: "giraffe-k31.w50.W-lr"
+        # Only run the short read modes of Giraffe on the short reads. And
+        # don't run Winnowmap on short reads since it can't do them.
+        - mapper: ["giraffe-k31.w50.W-lr", "winnowmap"]
           tech: ["r10", "hifi"]
         - mapper: ["giraffe-k29.w11.W-sr", "giraffe-k29.w11.W-default"]
           tech: "illumina"
-        - mapper: ["minimap2", "winnowmap"]
+        - mapper: "minimap2"
   # This experiment compares mapping accuracy between Giraffe and Winnowmap on
   # simulated R10 reads.
   r10_accuracy_small:

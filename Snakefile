@@ -95,7 +95,7 @@ READS_DIR = config.get("reads_dir", None) or "/private/groups/patenlab/anovak/pr
 # A FASTA file with PanSN-style (CHM13#0#chr1) contig names: 
 # chm13-pansn.fa
 #
-# Index files for Minimap2 for each preset (here "hifi", can also be "ont"):
+# Index files for Minimap2 for each preset (here "hifi", can also be "ont" or "sr", and can be generated from the FASTA):
 # chm13-pansn.hifi.mmi
 # 
 # A Winnowmap repetitive kmers file:
@@ -110,7 +110,7 @@ STAGES = ["minimizer", "seed", "tree", "fragment", "chain", "align", "winner"]
 
 # To allow for splitting and variable numbers of output files, we need to know
 # the available subset values to generate rules.
-KNOWN_SUBSETS = ["1k", "10k", "100k", "1m"]
+KNOWN_SUBSETS = ["100", "1k", "10k", "100k", "1m"]
 CHUNK_SIZE = 10000
 
 # For each Slurm partition name, what is its max wall time in minutes?
@@ -201,17 +201,25 @@ def repetitive_kmers(wildcards):
     """
     return os.path.join(REFS_DIR, wildcards["reference"] + "-pansn.repetitive_k15.txt")
 
+def minimap_derivative_mode(wildcards):
+    """
+    Determine the right Minimap2/Winnowmap preset (map-pb, etc.) from tech.
+    """
+
+    return {
+        "r9": "map-ont",
+        "r10": "map-ont",
+        "hifi": "map-pb",
+        "illumina": "sr" # Only Minimap2 has this one, Winnowmap doesn't.
+    }[wildcards["tech"]]
+
 def minimap2_index(wildcards):
     """
     Find the minimap2 index from reference and tech.
     """
     
-    tech_part = {
-        "hifi": "hifi",
-        "r9": "ont",
-        "r10": "ont"
-    }[wildcards["tech"]]
-    return os.path.join(REFS_DIR, wildcards["reference"] + "-pansn." + tech_part + ".mmi")
+    mode_part = minimap_derivative_mode(wildcards)
+    return os.path.join(REFS_DIR, wildcards["reference"] + "-pansn." + mode_part + ".mmi")
     
 def reference_fasta(wildcards):
     """
@@ -493,6 +501,27 @@ def condition_name(wildcards):
     varied_values = [condition[v] for v in varied]
     return ",".join(varied_values)
 
+def experiment_hash(wildcards):
+    """
+    Produce an experiment configuration ahsh from expname.
+
+    The hash string changes if anything about the experiment with the given
+    name changes. If you put it in the params of a rule, the rule will rerun if
+    the experiment is reconfigured (and e.g. conditions are added or removed).
+
+    Should be used in any rule where expname is in an output but not an input.
+    """
+
+    exp_dict = config.get("experiments", {}).get(wildcards["expname"], {})
+
+    # We assume JSON dumps are deterministic.
+    import json
+    to_hash = json.dumps(exp_dict)
+
+    import hashlib
+    return hashlib.sha256(to_hash.encode("utf-8")).hexdigest()
+
+
 def all_experiment(wildcard_values, pattern, subset=None, debug=False):
     """
     Produce all values of pattern substituted with the wildcards and the experiment conditions' values, from expname.
@@ -510,17 +539,6 @@ def all_experiment(wildcard_values, pattern, subset=None, debug=False):
             print(f"Evaluate {pattern} in {merged} from {wildcard_values} and {condition}")
         filename = pattern.format(**merged)
         yield filename
-
-def minimap_derivative_mode(wildcards):
-    """
-    Determine the right Minimap2/Winnowmap preset (map-pb, etc.) from tech.
-    """
-
-    return {
-        "r9": "map-ont",
-        "r10": "map-ont",
-        "hifi": "map-pb"
-    }[wildcards["tech"]]
 
 rule minimizer_index_graph:
     input:
@@ -627,7 +645,7 @@ rule giraffe_real_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg giraffe -t{threads} --parameter-preset {preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} >{output.gam}"
+        "vg giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} >{output.gam}"
 
 rule giraffe_sim_reads:
     input:
@@ -643,7 +661,7 @@ rule giraffe_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg giraffe -t{threads} --parameter-preset {preset} --progress --track-provenance --track-correctness -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}"
+        "vg giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}"
 
 rule winnowmap_reads:
     input:
@@ -654,6 +672,10 @@ rule winnowmap_reads:
         mode=minimap_derivative_mode
     output:
         bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    wildcard_constraints:
+        # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
+        # So match any string but that. See https://stackoverflow.com/a/14683066
+        tech="(?!illumina).+"
     threads: 68
     resources:
         mem_mb=300000,
@@ -661,6 +683,19 @@ rule winnowmap_reads:
         slurm_partition=choose_partition(600)
     shell:
         "winnowmap -t 64 -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view --threads 3 -h -F 2048 -F 256 --bam - >{output.bam}"
+
+rule minimap2_index_reference:
+    input:
+        reference_fasta=reference_fasta
+    output:
+        index=REFS_DIR + "/{reference}-pansn.{preset}.mmi"
+    threads: 16
+    resources:
+        mem_mb=16000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+         "minimap2 -t {threads} -x {wildcards.preset} -d {output.index} {input.reference_fasta}"
 
 rule minimap2_reads:
     input:
@@ -715,7 +750,8 @@ rule correct_from_comparison:
     input:
         report="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
-        condition_name=condition_name
+        condition_name=condition_name,
+        experiment_hash=experiment_hash
     output:
         tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.correct.tsv"
     threads: 1
@@ -730,7 +766,8 @@ rule accuracy_from_comparison:
     input:
         report="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
-        condition_name=condition_name
+        condition_name=condition_name,
+        experiment_hash=experiment_hash
     output:
         tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.accuracy.tsv"
     threads: 1
@@ -745,7 +782,8 @@ rule wrong_from_comparison:
     input:
         report="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
-        condition_name=condition_name
+        condition_name=condition_name,
+        experiment_hash=experiment_hash
     output:
         tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.wrong.tsv"
     threads: 1
@@ -786,7 +824,8 @@ rule compared_named_from_compared:
     input:
         tsv="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
     params:
-        condition_name=condition_name
+        condition_name=condition_name,
+        experiment_hash=experiment_hash
     output:
         tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
     threads: 3
@@ -854,7 +893,8 @@ rule mapping_rate_from_stats:
     input:
         stats="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt"
     params:
-        condition_name=condition_name
+        condition_name=condition_name,
+        experiment_hash=experiment_hash
     output:
         rate="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_rate.tsv"
     threads: 1
