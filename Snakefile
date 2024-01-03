@@ -725,6 +725,33 @@ rule annotate_and_compare_alignments:
     shell:
         "vg annotate -t16 -a {input.gam} -x {input.gbz} -m | vg gamcompare --threads 16 --range 200 - {input.truth_gam} --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
 
+rule annotate_real_alignments:
+    input:
+        gbz=gbz,
+        gam="{root}/aligned/{reference}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output:
+        gam="{root}/annotated/{reference}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.gam"
+    threads: 32
+    resources:
+        mem_mb=100000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "vg annotate -t16 -a {input.gam} -x {input.gbz} -m >{output.gam}"
+
+rule annotate_sim_alignments:
+    input:
+        gam="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output:
+        gam="{root}/annotated/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "ln {input.gam} {output.gam}"
+
 rule correct_from_comparison:
     input:
         report="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
