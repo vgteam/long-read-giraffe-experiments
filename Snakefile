@@ -731,7 +731,7 @@ rule annotate_real_alignments:
         gam="{root}/aligned/{reference}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.gam"
     output:
         gam="{root}/annotated/{reference}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.gam"
-    threads: 32
+    threads: 16
     resources:
         mem_mb=100000,
         runtime=600,
