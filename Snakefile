@@ -135,7 +135,7 @@ wildcard_constraints:
     sample=".+(?<!\\.trimmed)",
     basename=".+(?<!\\.trimmed)",
     subset="[0-9]+[km]?",
-    statname="[a-zA-Z0-9_]+"
+    statname="[a-zA-Z0-9_]+(?<!compared)"
 
 def choose_partition(minutes):
     """
@@ -772,9 +772,9 @@ rule wrong_from_comparison:
 
 rule experiment_stat_table:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{stat}.tsv", {"realness": "sim"} if w["stat"] in TRUTH_STATS else None)
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv", {"realness": "sim"} if w["statname"] in TRUTH_STATS else None)
     output:
-        table="{root}/experiments/{expname}/results/{stat}.tsv"
+        table="{root}/experiments/{expname}/results/{statname}.tsv"
     threads: 1
     resources:
         mem_mb=1000,
