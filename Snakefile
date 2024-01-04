@@ -640,7 +640,7 @@ rule giraffe_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}"
+        "vg giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}"
 
 rule winnowmap_reads:
     input:
