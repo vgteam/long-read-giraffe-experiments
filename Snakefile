@@ -121,14 +121,7 @@ SLURM_PARTITIONS = [
     ("long", 7 * 24 * 60)
 ]
 
-# Which experiment statistics are applicable only to simulated conditions with
-# a truth set? Don't try and collect these stats into experiment tables from
-# other conditions.
-#
-# Applies to stat files like:
-#
-# {root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{stat}.tsv
-TRUTH_STATS = {"correct", "accuracy", "wrong"}
+
 
 wildcard_constraints:
     trimmedness="\\.trimmed|",
@@ -325,7 +318,7 @@ def fastq(wildcards):
         raise AmbiguousRuleException("Multiple files matched " + fastq_by_sample_pattern)
     return results[0]
 
-def all_experiment_conditions(expname, subset=None, debug=False):
+def all_experiment_conditions(expname, filter_function=None, debug=False):
     """
     Yield dictionaries of all conditions for the given experiment.
     
@@ -344,8 +337,8 @@ def all_experiment_conditions(expname, subset=None, debug=False):
     match *at least* one of these dicts on *all* values in the dict in order to
     survive the pass. And it must survive all passes in order to be run.
 
-    If subset is provided, only yields conditions that match all the values set
-    in subset.
+    If filter_function is provided, only yields conditions that the filter
+    function is true for.
 
     Yields variable name to value dicts for all passing conditions for the
     given experiment.
@@ -373,12 +366,12 @@ def all_experiment_conditions(expname, subset=None, debug=False):
         # We need to see if this is a combination we want to do
         
         if matches_all_constraint_passes(condition, constraint_passes):
-            if not subset or matches_constraint(condition, subset):
+            if not filter_function or filter_function(condition):
                 total_conditions += 1
                 yield condition
             else:
                 if debug:
-                    print(f"Condition {condition} does not match requested subset")
+                    print(f"Condition {condition} does not match requested filter function")
         else:
             if debug:
                 print(f"Condition {condition} does not match a constraint in some pass")
@@ -501,23 +494,54 @@ def condition_name(wildcards):
     varied_values = [condition[v] for v in varied]
     return ",".join(varied_values)
 
-def all_experiment(wildcard_values, pattern, subset=None, debug=False):
+def all_experiment(wildcard_values, pattern, filter_function=None, debug=False):
     """
     Produce all values of pattern substituted with the wildcards and the experiment conditions' values, from expname.
 
-    If provided, restricts to conditions matching all values in the subset dict.
+    If provided, restricts to conditions passing the filter function.
     
     Needs to be used like:
         lambda w: all_experiment(w, "your pattern")
     """
 
-    for condition in all_experiment_conditions(wildcard_values["expname"], subset=subset):
+    for condition in all_experiment_conditions(wildcard_values["expname"], filter_function=filter_function):
         merged = dict(wildcard_values)
         merged.update(condition)
         if debug:
             print(f"Evaluate {pattern} in {merged} from {wildcard_values} and {condition}")
         filename = pattern.format(**merged)
         yield filename
+
+def has_stat_filter(stat_name):
+    """
+    Produce a filter function for conditions that might have the stat stat_name.
+
+    Applies to stat files like:
+    {root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv
+
+    Use with all_experiment() when aggregating stats to compare, to avoid
+    trying to agregate from conditions for which the stat cannot be measured.
+    """
+
+    def filter_function(condition):
+        """
+        Return True if the given condition dict should have the stat named stat_name.
+        """
+
+        if stat_name in {"correct", "accuracy", "wrong"}:
+            # These stats only exist for conditions with a truth set (i.e. simulated ones)
+            if condition["realness"] != "sim":
+                return False
+
+        if stat_name.startswith("time_used") or stat_name == "mapping_speed":
+            # This is a Giraffe time used stat or mean thereof. We need to be a
+            # Giraffe condition.
+            if not condition["mapper"].startswith("giraffe"):
+                return False
+
+        return True
+
+    return filter_function
 
 rule minimizer_index_graph:
     input:
@@ -799,7 +823,7 @@ rule wrong_from_comparison:
 
 rule experiment_stat_table:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv", {"realness": "sim"} if w["statname"] in TRUTH_STATS else None)
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv", filter_function=has_stat_filter(w["statname"]))
     output:
         table="{root}/experiments/{expname}/results/{statname}.tsv"
     threads: 1
@@ -841,7 +865,7 @@ rule compared_named_from_compared:
 
 rule experiment_compared_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv", {"realness": "sim"})
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv", lambda condition: condition["realness"] == "sim")
     output:
         tsv="{root}/experiments/{expname}/results/compared.tsv"
     threads: 1
@@ -918,6 +942,36 @@ rule experiment_mapping_rate_plot:
         slurm_partition=choose_partition(5)
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Mapping Rate' --y_label 'Mapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule mapping_speed_from_mean_time_used:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.mean.tsv"
+    params:
+        condition_name=condition_name
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_speed.tsv"
+    wildcard_constraints:
+        mapper="giraffe-.+"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "printf '{params.condition_name}\\t' >{output.tsv} && echo \"1 / $(cat {input.tsv})\" | bc -l >>{output.tsv}"
+
+rule experiment_mapping_speed_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/mapping_speed.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/mapping_speed.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Speed' --y_label 'Reads per Second' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 for subset in KNOWN_SUBSETS:
     for stage in ["aligned", "compared"]:

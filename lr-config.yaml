@@ -135,3 +135,13 @@ experiments:
       sample: HG002
     vary:
       mapper: ["giraffe-k29.w11.W-sr", "giraffe-k29.w11.W-default", "minimap2"]
+  illumina_test_small:
+    control:
+      realness: sim
+      subset: 1k
+      reference: chm13
+      tech: illumina
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k29.w11.W-sr", "giraffe-k29.w11.W-default", "minimap2"]
