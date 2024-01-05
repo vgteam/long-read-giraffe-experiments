@@ -46,6 +46,7 @@ The general flow for using this repository is:
 In these file name templates, `{root}` is your base output directory, `{expname}` is the name of the experiment defined in the config file, and `{ext}` is the image format you want the plot in, such as `png`.
 
 * `{root}/experiments/{expname}/plots/correct.{ext}`: A bar chart of the fraction of eligible reads in each condition that are mapped correctly.
+* `{root}/experiments/{expname}/plots/wrong.{ext}`: A bar chart of the fraction of eligible reads in each condition that are mapped incorrectly.
 * `{root}/experiments/{expname}/plots/mapping_rate.{ext}`: A bar chart of the fraction of reads in each condition that are mapped.
 * `{root}/experiments/{expname}/plots/mapping_speed.{ext}`: A bar chart of the speed of each Giraffe condition, in reads per second per thread.
 * `{root}/experiments/{expname}/plots/pr.{ext}`: A precision-recall plot for mapping accuracy showing each condition.
