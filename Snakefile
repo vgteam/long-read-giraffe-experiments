@@ -847,6 +847,19 @@ rule experiment_correctness_plot:
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Correctness' --y_label 'Correct Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
+rule experiment_wrongness_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/wrong.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/wrong.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Wrongness' --y_label 'Wrong Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
 rule compared_named_from_compared:
     input:
         tsv="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
