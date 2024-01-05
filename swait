@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# swait: wait until all Slurm jobs for the current user are done
+set -e
+
+QUEUE_LINES=0
+while [[ "${QUEUE_LINES}" != "1" ]] ; do
+    # On the first loop, or on subsequent loops when running or pending jobs are visible
+    
+    # Wait
+    sleep 2
+    # Check again
+    QUEUE_LINES="$(squeue -u $USER | wc -l)"
+done
