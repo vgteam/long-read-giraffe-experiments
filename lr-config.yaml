@@ -124,7 +124,18 @@ experiments:
       sample: HG002
     vary:
       mapper: ["giraffe-k31.w50.W-lr", "winnowmap"]
-  # Thhs experiment compares different ways of mapping Illumina reads
+  # And similarly for HiFI
+  hifi_accuracy_small:
+    control:
+      realness: sim
+      subset: 1k
+      reference: chm13
+      tech: hifi
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W-lr", "winnowmap"]
+  # This experiment compares different ways of mapping Illumina reads
   illumina_test:
     control:
       realness: sim
@@ -134,7 +145,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k29.w11.W-sr", "giraffe-k29.w11.W-srold", "giraffe-k29.w11.W-default", "minimap2"]
+      mapper: ["giraffe-k29.w11.W-sr", "giraffe-k29.w11.W-default", "minimap2"]
   illumina_test_small:
     control:
       realness: sim
