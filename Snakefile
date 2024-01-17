@@ -639,7 +639,7 @@ rule giraffe_real_reads:
         unpack(indexed_graph),
         fastq=fastq,
     output:
-        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="real"
     threads: 64
@@ -647,15 +647,18 @@ rule giraffe_real_reads:
         mem_mb=500000,
         runtime=600,
         slurm_partition=choose_partition(600)
-    shell:
-        "vg giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} >{output.gam}"
+    run:
+        if wildcards.vgversion == "default":
+            shell("vg giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} >{output.gam}")
+        else:
+            shell("./vg_{vgversion} giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} >{output.gam}")
 
 rule giraffe_sim_reads:
     input:
         unpack(indexed_graph),
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
-        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
     threads: 64
@@ -663,8 +666,11 @@ rule giraffe_sim_reads:
         mem_mb=500000,
         runtime=600,
         slurm_partition=choose_partition(600)
-    shell:
-        "vg giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}"
+    run:
+        if wildcards.vgversion == "default":
+            shell("vg giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}")
+        else:
+            shell("./vg_{wildcards.vgversion} giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}")
 
 rule winnowmap_reads:
     input:
