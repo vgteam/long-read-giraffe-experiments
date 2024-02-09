@@ -642,7 +642,7 @@ rule giraffe_real_reads:
         gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="real"
-    threads: 64
+    threads: 16
     resources:
         mem_mb=500000,
         runtime=600,
@@ -658,7 +658,7 @@ rule giraffe_sim_reads:
         gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
-    threads: 64
+    threads: 16
     resources:
         mem_mb=500000,
         runtime=600,
@@ -679,13 +679,13 @@ rule winnowmap_reads:
         # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
         # So match any string but that. See https://stackoverflow.com/a/14683066
         tech="(?!illumina).+"
-    threads: 68
+    threads: 20
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "winnowmap -t 64 -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view --threads 3 -h -F 2048 -F 256 --bam - >{output.bam}"
+        "winnowmap -t 16 -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view --threads 3 -h -F 2048 -F 256 --bam - >{output.bam}"
 
 rule minimap2_index_reference:
     input:
@@ -708,13 +708,13 @@ rule minimap2_reads:
         mode=minimap_derivative_mode
     output:
         bam="{root}/aligned/{reference}/minimap2/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
-    threads: 68
+    threads: 18
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minimap2 -t 64 -ax {params.mode} {input.minimap2_index} {input.fastq} | samtools view --threads 3 -h -F 2048 -F 256 --bam - >{output.bam}"
+        "minimap2 -t 16 -ax {params.mode} {input.minimap2_index} {input.fastq} | samtools view --threads 3 -h -F 2048 -F 256 --bam - >{output.bam}"
 
 rule inject_bam:
     input:
