@@ -77,7 +77,7 @@ experiments:
       subset: 1k
       reference: chm13
     vary:
-      mapper: ["giraffe-k31.w50.W-lr-default", "giraffe-k29.w11.W-sr-default", "giraffe-k29.w11.W-default-default", "minimap2", "winnowmap"]
+      mapper: ["giraffe-k31.w50.W-lr-default-noflags", "giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2", "winnowmap"]
       tech: ["r10", "hifi", "illumina"]
       sample: ["HG002", "HiFi"]
       trimmedness: ["", ".trimmed"]
@@ -107,9 +107,9 @@ experiments:
       -
         # Only run the short read modes of Giraffe on the short reads. And
         # don't run Winnowmap on short reads since it can't do them.
-        - mapper: ["giraffe-k31.w50.W-lr-default", "winnowmap"]
+        - mapper: ["giraffe-k31.w50.W-lr-default-noflags", "winnowmap"]
           tech: ["r10", "hifi"]
-        - mapper: ["giraffe-k29.w11.W-sr-default", "giraffe-k29.w11.W-default-default"]
+        - mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags"]
           tech: "illumina"
         - mapper: "minimap2"
   # This experiment compares mapping accuracy between Giraffe and Winnowmap on
@@ -123,7 +123,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-lr-default", "winnowmap"]
+      mapper: ["giraffe-k31.w50.W-lr-default-noflags", "winnowmap"]
   #This is used to test the mapq of different versions of giraffe on r10 reads
   #Add mappers with `-commit` instead of `-default`, and make sure the binary
   # is called `vg_commit`
@@ -136,7 +136,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-lr-default"]
+      mapper: ["giraffe-k31.w50.W-lr-upstream-noflags", "giraffe-k31.w50.W-lr-81ba3d-noflags", "giraffe-k31.w50.W-lr-81ba3d-gapExt", "giraffe-k31.w50.W-lr-81ba3d-mqCap"]
   #This is used to test the mapq of different versions of giraffe on hifi reads
   #Add mappers with `-commit` instead of `-default`, and make sure the binary
   # is called `vg_commit`
@@ -149,7 +149,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-lr-default"]
+      mapper: ["giraffe-k31.w50.W-lr-upstream-noflags", "giraffe-k31.w50.W-lr-81ba3d-noflags", "giraffe-k31.w50.W-lr-81ba3d-gapExt", "giraffe-k31.w50.W-lr-81ba3d-mqCap"]
   # Thhs experiment compares different ways of mapping Illumina reads
   illumina_test:
     control:
@@ -160,7 +160,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k29.w11.W-sr-default", "giraffe-k29.w11.W-srold-default", "giraffe-k29.w11.W-default-default", "minimap2"]
+      mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-srold-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2"]
   illumina_test_small:
     control:
       realness: sim
@@ -170,4 +170,4 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k29.w11.W-sr-default", "giraffe-k29.w11.W-default-default", "minimap2"]
+      mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2"]

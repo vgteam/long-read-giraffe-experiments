@@ -658,7 +658,7 @@ rule giraffe_sim_reads:
         unpack(indexed_graph),
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
-        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
     threads: 64
@@ -667,10 +667,18 @@ rule giraffe_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     run:
-        if wildcards.vgversion == "default":
-            shell("vg giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}")
+        vg_binary="vg"
+        if wildcards.vgversion != "default":
+            vg_binary = "./vg_{wildcards.vgversion}"
+        flags=""
+        if wildcards.vgflag == "gapExt":
+            flags = "--do-gapless-extension"
+        elif wildcards.vgflag == "mqCap":
+            flags = "--explored-cap"
         else:
-            shell("./vg_{wildcards.vgversion} giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}")
+            assert(wildcards.vgflag == "noflags")
+
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
 
 rule winnowmap_reads:
     input:
@@ -749,7 +757,7 @@ rule annotate_and_compare_alignments:
         report="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     threads: 32
     resources:
-        mem_mb=100000,
+        mem_mb=200000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
