@@ -639,7 +639,7 @@ rule giraffe_real_reads:
         unpack(indexed_graph),
         fastq=fastq,
     output:
-        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="real"
     threads: 64
@@ -648,10 +648,18 @@ rule giraffe_real_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     run:
-        if wildcards.vgversion == "default":
-            shell("vg giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} >{output.gam}")
+        vg_binary="vg"
+        if wildcards.vgversion != "default":
+            vg_binary = "./vg_{wildcards.vgversion}"
+        flags=""
+        if wildcards.vgflag == "gapExt":
+            flags = "--do-gapless-extension"
+        elif wildcards.vgflag == "mqCap":
+            flags = "--explored-cap"
         else:
-            shell("./vg_{vgversion} giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} >{output.gam}")
+            assert(wildcards.vgflag == "noflags")
+
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam}")
 
 rule giraffe_sim_reads:
     input:
@@ -664,8 +672,8 @@ rule giraffe_sim_reads:
     threads: 64
     resources:
         mem_mb=500000,
-        runtime=600,
-        slurm_partition=choose_partition(600)
+        runtime=800,
+        slurm_partition=choose_partition(800)
     run:
         vg_binary="vg"
         if wildcards.vgversion != "default":
