@@ -232,6 +232,12 @@ def gbz(wildcards):
     """
     return graph_base(wildcards) + ".gbz"
 
+def gfa(wildcards):
+    """
+    Find a graph GFA file from reference.
+    """
+    return graph_base(wildcards) + ".gfa"
+
 def dist_indexed_graph(wildcards):
     """
     Find a GBZ and its dist index from reference.
@@ -656,6 +662,8 @@ rule giraffe_real_reads:
             flags = "--do-gapless-extension"
         elif wildcards.vgflag == "mqCap":
             flags = "--explored-cap"
+        elif wildcards.vgflag[0:10] == "downsample":
+            flags = "--downsample-min " + wildcards.vgflag[10:]
         else:
             assert(wildcards.vgflag == "noflags")
 
@@ -671,9 +679,9 @@ rule giraffe_sim_reads:
         realness="sim"
     threads: 64
     resources:
-        mem_mb=500000,
-        runtime=800,
-        slurm_partition=choose_partition(800)
+        mem_mb=600000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
     run:
         vg_binary="vg"
         if wildcards.vgversion != "default":
@@ -683,6 +691,8 @@ rule giraffe_sim_reads:
             flags = "--do-gapless-extension"
         elif wildcards.vgflag == "mqCap":
             flags = "--explored-cap"
+        elif wildcards.vgflag[0:10] == "downsample":
+            flags = "--downsample-min " + wildcards.vgflag[10:]
         else:
             assert(wildcards.vgflag == "noflags")
 
@@ -737,6 +747,20 @@ rule minimap2_reads:
         slurm_partition=choose_partition(600)
     shell:
         "minimap2 -t 64 -ax {params.mode} {input.minimap2_index} {input.fastq} | samtools view --threads 3 -h -F 2048 -F 256 --bam - >{output.bam}"
+
+rule graphaligner_reads:
+    input:
+        gfa=gfa,
+        fastq=fastq
+    output:
+        gam="{root}/aligned/{reference}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    threads: 68
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "GraphAligner -t 64 -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
 
 rule inject_bam:
     input:
@@ -1024,7 +1048,7 @@ for subset in KNOWN_SUBSETS:
             threads: 1
             resources:
                 mem_mb=4000,
-                runtime=90,
+                runtime=120,
                 slurm_partition=choose_partition(90)
             shell:
                 "vg chunk -t {threads} --gam-split-size " + str(CHUNK_SIZE) + " -a {input.gam} -b {params.basename}"
