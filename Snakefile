@@ -1053,44 +1053,44 @@ for subset in KNOWN_SUBSETS:
             shell:
                 "vg chunk -t {threads} --gam-split-size " + str(CHUNK_SIZE) + " -a {input.gam} -b {params.basename}"
 
-rule chain_coverage_chunk:
+rule chain_coverage:
     input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.best_chain_coverage.tsv"
-    threads: 2
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv"
+    threads: 5
     resources:
         mem_mb=2000,
-        runtime=30,
-        slurm_partition=choose_partition(30)
+        runtime=60,
+        slurm_partition=choose_partition(60)
     shell:
-        "vg view -aj {input.gam} | jq -r '.annotation.best_chain_coverage' >{output}"
+        "vg filter -t {threads} -T \"annotation.best_chain_coverage\" {input.gam} | grep -v \"#\" >{output}"
 
-rule time_used_chunk:
+rule time_used:
     input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.time_used.tsv"
-    threads: 2
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.tsv"
+    threads: 5
     resources:
         mem_mb=2000,
-        runtime=30,
-        slurm_partition=choose_partition(30)
+        runtime=60,
+        slurm_partition=choose_partition(60)
     shell:
-        "vg view -aj {input.gam} | jq -r '.time_used' >{output}"
+        "vg filter -t {threads} -T \"time_used\" {input.gam} | grep -v \"#\" >{output}"
 
-rule stage_time_chunk:
+rule stage_time:
     input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.stage_{stage}_time.tsv"
-    threads: 2
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.tsv"
+    threads: 5
     resources:
         mem_mb=2000,
-        runtime=30,
-        slurm_partition=choose_partition(30)
+        runtime=60,
+        slurm_partition=choose_partition(60)
     shell:
-        "vg view -aj {input.gam} | jq -r '.annotation.stage_{wildcards.stage}_time' >{output}"
+        "vg filter -t {threads} -T \"annotation.stage_{wildcards.stage}_time\" {input.gam} | grep -v \"#\" >{output}"
 
 rule length_by_mapping_chunk:
     input:
@@ -1105,31 +1105,31 @@ rule length_by_mapping_chunk:
     shell:
         "vg view -aj {input.gam} | jq -r '[if (.path.mapping // []) == [] then \"unmapped\" else \"mapped\" end, (.sequence | length)] | @tsv' >{output}"
 
-rule length_chunk:
+rule length:
     input:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length_by_mapping.tsv"
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length.tsv"
-    threads: 1
-    resources:
-        mem_mb=1000,
-        runtime=20,
-        slurm_partition=choose_partition(20)
-    shell:
-        "cut -f2 {input} >{output}"
-
-rule length_by_correctness_chunk:
-    input:
-        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
-    output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length_by_correctness.tsv"
-    threads: 2
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length.tsv"
+    threads: 5
     resources:
         mem_mb=2000,
-        runtime=30,
-        slurm_partition=choose_partition(30)
+        runtime=60,
+        slurm_partition=choose_partition(60)
     shell:
-        "vg view -aj {input.gam} | jq -r '[if (.correctly_mapped // false) then \"correct\" else (if (.annotation.no_truth // false) then \"off-reference\" else \"incorrect\" end) end, (.sequence | length)] | @tsv' >{output}"
+        "vg filter -t {threads} -T \"sequence\" {input.gam} | grep -v \"#\" | awk '{print length($1)}' >{output}"
+
+rule length_by_correctness:
+    input:
+        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_correctness.tsv"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t {threads} -T \"correctness;sequence\" {input_gam} | grep -v \"#\" | awk -v OFS='\t' '{print $1, length($2)}' > {output}"
 
 rule merge_stat_chunks:
     input:
