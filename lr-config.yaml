@@ -124,10 +124,10 @@ experiments:
       sample: HG002
     vary:
       mapper: ["giraffe-k31.w50.W-lr-default-noflags", "winnowmap"]
-  #This is used to test the mapq of different versions of giraffe on r10 reads
-  #Add mappers with `-commit` instead of `-default`, and make sure the binary
+  #This is used to test different mappers on r10 reads
+  #Add different vg versions with `-commit` instead of `-default`, and make sure the binary
   # is called `vg_commit`
-  giraffe_mapq_r10:
+  r10_test:
     control:
       realness: sim
       subset: 1m
@@ -136,11 +136,11 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-lr-upstream-noflags", "giraffe-k31.w50.W-lr-81ba3d-noflags", "giraffe-k31.w50.W-lr-81ba3d-gapExt", "giraffe-k31.w50.W-lr-81ba3d-mqCap"]
-  #This is used to test the mapq of different versions of giraffe on hifi reads
-  #Add mappers with `-commit` instead of `-default`, and make sure the binary
+      mapper: ["minimap2", "giraffe-k31.w50.W-lr-9abbab-noflags", "giraffe-k31.w50.W-lr-26b5b0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
+  #This is used to test different mappers on hifi reads
+  #Add vg versions with `-commit` instead of `-default`, and make sure the binary
   # is called `vg_commit`
-  giraffe_mapq_hifi:
+  hifi_test:
     control:
       realness: sim
       subset: 1m
@@ -149,7 +149,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-lr-upstream-noflags", "giraffe-k31.w50.W-lr-81ba3d-noflags", "giraffe-k31.w50.W-lr-81ba3d-gapExt", "giraffe-k31.w50.W-lr-81ba3d-mqCap"]
+      mapper: ["minimap2", "giraffe-k31.w50.W-lr-9abbab-noflags", "giraffe-k31.w50.W-lr-26b5b0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
   # Thhs experiment compares different ways of mapping Illumina reads
   illumina_test:
     control:
@@ -160,7 +160,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-srold-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2"]
+      mapper: ["giraffe-k29.w11.W-sr-9abbab-noflags", "giraffe-k29.w11.W-sr-26b5b0-noflags", "giraffe-k29.w11.W-sr-4cda9f-noflags"]
   illumina_test_small:
     control:
       realness: sim
