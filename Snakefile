@@ -232,6 +232,12 @@ def gbz(wildcards):
     """
     return graph_base(wildcards) + ".gbz"
 
+def gfa(wildcards):
+    """
+    Find a graph GFA file from reference.
+    """
+    return graph_base(wildcards) + ".gfa"
+
 def dist_indexed_graph(wildcards):
     """
     Find a GBZ and its dist index from reference.
@@ -543,6 +549,23 @@ def has_stat_filter(stat_name):
 
     return filter_function
 
+def get_vg_flags(wildcard_flag):
+    if wildcard_flag == "gapExt":
+        return "--do-gapless-extension"
+    elif wildcard_flag == "mqCap":
+        return "--explored-cap"
+    elif wildcard_flag[0:10] == "downsample":
+        return "--downsample-min " + wildcard_flag[10:]
+    else:
+        assert(wildcard_flag == "noflags")
+        return ""
+
+def get_vg_version(wildcard_vgversion):
+    if wildcard_vgversion == "default":
+        return "vg"
+    else:
+        return "./vg_"+wildcard_vgversion
+
 rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
@@ -639,7 +662,7 @@ rule giraffe_real_reads:
         unpack(indexed_graph),
         fastq=fastq,
     output:
-        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="real"
     threads: 64
@@ -647,15 +670,18 @@ rule giraffe_real_reads:
         mem_mb=500000,
         runtime=600,
         slurm_partition=choose_partition(600)
-    shell:
-        "vg giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} >{output.gam}"
+    run:
+        vg_binary = get_vg_version(wildcards.vgversion)
+        flags=get_vg_flags(wildcards.vgflag)
+
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam}")
 
 rule giraffe_sim_reads:
     input:
         unpack(indexed_graph),
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
-        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
     threads: 64
@@ -663,8 +689,11 @@ rule giraffe_sim_reads:
         mem_mb=500000,
         runtime=600,
         slurm_partition=choose_partition(600)
-    shell:
-        "vg giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}"
+    run:
+        vg_binary = get_vg_version(wildcards.vgversion)
+        flags=get_vg_flags(wildcards.vgflag)
+
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
 
 rule winnowmap_reads:
     input:
@@ -715,6 +744,20 @@ rule minimap2_reads:
         slurm_partition=choose_partition(600)
     shell:
         "minimap2 -t 64 -ax {params.mode} {input.minimap2_index} {input.fastq} | samtools view --threads 3 -h -F 2048 -F 256 --bam - >{output.bam}"
+
+rule graphaligner_reads:
+    input:
+        gfa=gfa,
+        fastq=fastq
+    output:
+        gam="{root}/aligned/{reference}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    threads: 68
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "GraphAligner -t 64 -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
 
 rule inject_bam:
     input:
@@ -1007,44 +1050,44 @@ for subset in KNOWN_SUBSETS:
             shell:
                 "vg chunk -t {threads} --gam-split-size " + str(CHUNK_SIZE) + " -a {input.gam} -b {params.basename}"
 
-rule chain_coverage_chunk:
+rule chain_coverage:
     input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.best_chain_coverage.tsv"
-    threads: 2
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv"
+    threads: 5
     resources:
         mem_mb=2000,
-        runtime=30,
-        slurm_partition=choose_partition(30)
+        runtime=60,
+        slurm_partition=choose_partition(60)
     shell:
-        "vg view -aj {input.gam} | jq -r '.annotation.best_chain_coverage' >{output}"
+        "vg filter -t {threads} -T \"annotation.best_chain_coverage\" {input.gam} | grep -v \"#\" >{output}"
 
-rule time_used_chunk:
+rule time_used:
     input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.time_used.tsv"
-    threads: 2
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.tsv"
+    threads: 5
     resources:
         mem_mb=2000,
-        runtime=30,
-        slurm_partition=choose_partition(30)
+        runtime=60,
+        slurm_partition=choose_partition(60)
     shell:
-        "vg view -aj {input.gam} | jq -r '.time_used' >{output}"
+        "vg filter -t {threads} -T \"time_used\" {input.gam} | grep -v \"#\" >{output}"
 
-rule stage_time_chunk:
+rule stage_time:
     input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.stage_{stage}_time.tsv"
-    threads: 2
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.tsv"
+    threads: 5
     resources:
         mem_mb=2000,
-        runtime=30,
-        slurm_partition=choose_partition(30)
+        runtime=60,
+        slurm_partition=choose_partition(60)
     shell:
-        "vg view -aj {input.gam} | jq -r '.annotation.stage_{wildcards.stage}_time' >{output}"
+        "vg filter -t {threads} -T \"annotation.stage_{wildcards.stage}_time\" {input.gam} | grep -v \"#\" >{output}"
 
 rule length_by_mapping_chunk:
     input:
@@ -1059,31 +1102,31 @@ rule length_by_mapping_chunk:
     shell:
         "vg view -aj {input.gam} | jq -r '[if (.path.mapping // []) == [] then \"unmapped\" else \"mapped\" end, (.sequence | length)] | @tsv' >{output}"
 
-rule length_chunk:
+rule length:
     input:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length_by_mapping.tsv"
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length.tsv"
-    threads: 1
-    resources:
-        mem_mb=1000,
-        runtime=20,
-        slurm_partition=choose_partition(20)
-    shell:
-        "cut -f2 {input} >{output}"
-
-rule length_by_correctness_chunk:
-    input:
-        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
-    output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length_by_correctness.tsv"
-    threads: 2
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length.tsv"
+    threads: 5
     resources:
         mem_mb=2000,
-        runtime=30,
-        slurm_partition=choose_partition(30)
+        runtime=60,
+        slurm_partition=choose_partition(60)
     shell:
-        "vg view -aj {input.gam} | jq -r '[if (.correctly_mapped // false) then \"correct\" else (if (.annotation.no_truth // false) then \"off-reference\" else \"incorrect\" end) end, (.sequence | length)] | @tsv' >{output}"
+        "vg filter -t {threads} -T \"sequence\" {input.gam} | grep -v \"#\" | awk '{{print length($1)}}' >{output}"
+
+rule length_by_correctness:
+    input:
+        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_correctness.tsv"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t {threads} -T \"correctness;sequence\" {input.gam} | grep -v \"#\" | awk -v OFS='\t' '{{print $1, length($2)}}' > {output}"
 
 rule merge_stat_chunks:
     input:
@@ -1136,7 +1179,6 @@ rule average_stage_time_table:
         with open(output[0], "w") as out_stream:
             for (stage, filename) in zip(STAGES, input):
                 out_stream.write(f"{stage}\t{open(filename).read().strip()}\n")
-
 
 rule chain_coverage_histogram:
     input:
@@ -1218,9 +1260,12 @@ rule length_by_correctness_histogram:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "python3 histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length for {wildcards.mapper}' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories correct incorrect off-reference --category_labels Correct Incorrect 'Off Reference' --legend_overlay 'best' --stack --save {output}"
+        "python3 histogram.py {input.tsv} --log_counts --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length for {wildcards.mapper}' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories correct incorrect off-reference --category_labels Correct Incorrect 'Off Reference' --legend_overlay 'best' --stack --save {output}"
 
 
-
-
+ruleorder: chain_coverage > merge_stat_chunks 
+ruleorder: time_used > merge_stat_chunks 
+ruleorder: stage_time > merge_stat_chunks
+ruleorder: length > merge_stat_chunks 
+ruleorder: length_by_correctness > merge_stat_chunks  
 
