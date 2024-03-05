@@ -549,6 +549,23 @@ def has_stat_filter(stat_name):
 
     return filter_function
 
+def get_vg_flags(wildcard_flag):
+    if wildcard_flag == "gapExt":
+        return "--do-gapless-extension"
+    elif wildcard_flag == "mqCap":
+        return "--explored-cap"
+    elif wildcard_flag[0:10] == "downsample":
+        return "--downsample-min " + wildcard_flag[10:]
+    else:
+        assert(wildcard_flag == "noflags")
+        return ""
+
+def get_vg_version(wildcard_vgversion):
+    if wildcard_vgversion == "default":
+        return "vg"
+    else:
+        return "./vg_"+wildcard_vgversion
+
 rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
@@ -654,18 +671,8 @@ rule giraffe_real_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     run:
-        vg_binary="vg"
-        if wildcards.vgversion != "default":
-            vg_binary = "./vg_{wildcards.vgversion}"
-        flags=""
-        if wildcards.vgflag == "gapExt":
-            flags = "--do-gapless-extension"
-        elif wildcards.vgflag == "mqCap":
-            flags = "--explored-cap"
-        elif wildcards.vgflag[0:10] == "downsample":
-            flags = "--downsample-min " + wildcards.vgflag[10:]
-        else:
-            assert(wildcards.vgflag == "noflags")
+        vg_binary = get_vg_version(wildcards.vgversion)
+        flags=get_vg_flags(wildcards.vgflag)
 
         shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam}")
 
@@ -683,18 +690,8 @@ rule giraffe_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     run:
-        vg_binary="vg"
-        if wildcards.vgversion != "default":
-            vg_binary = "./vg_{wildcards.vgversion}"
-        flags=""
-        if wildcards.vgflag == "gapExt":
-            flags = "--do-gapless-extension"
-        elif wildcards.vgflag == "mqCap":
-            flags = "--explored-cap"
-        elif wildcards.vgflag[0:10] == "downsample":
-            flags = "--downsample-min " + wildcards.vgflag[10:]
-        else:
-            assert(wildcards.vgflag == "noflags")
+        vg_binary = get_vg_version(wildcards.vgversion)
+        flags=get_vg_flags(wildcards.vgflag)
 
         shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
 
