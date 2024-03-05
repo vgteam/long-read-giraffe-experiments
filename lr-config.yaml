@@ -171,3 +171,25 @@ experiments:
       sample: HG002
     vary:
       mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2"]
+  #Vary graph for hifi
+  giraffe_sampled_graphs_hifi:
+    control:
+      realness: sim
+      subset: 1m
+      tech: hifi
+      trimmedness: ""
+      sample: HG002
+      mapper: giraffe-k31.w50.W-lr-d8c1af-noflags
+    vary:
+      reference: ["hg002hifi", "hg002illumina", "hg002nanopore"]
+  #Vary graph for r10
+  giraffe_sampled_graphs_r10:
+    control:
+      realness: sim
+      subset: 1m
+      tech: r10
+      trimmedness: ""
+      sample: HG002
+      mapper: giraffe-k31.w50.W-lr-d8c1af-noflags
+    vary:
+      reference: ["hg002hifi", "hg002illumina", "hg002nanopore"]
