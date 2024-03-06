@@ -556,6 +556,8 @@ def get_vg_flags(wildcard_flag):
         return "--explored-cap"
     elif wildcard_flag[0:10] == "downsample":
         return "--downsample-min " + wildcard_flag[10:]
+    elif wildcard_flag == "fragonly":
+        return "--fragment-max-lookback-bases 3000 --max-lookback-bases 0"
     else:
         assert(wildcard_flag == "noflags")
         return ""
