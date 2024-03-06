@@ -121,6 +121,10 @@ SLURM_PARTITIONS = [
     ("long", 7 * 24 * 60)
 ]
 
+# How many threads do we want mapping to use?
+# A few more threads will be used for filters
+MAPPER_THREADS=64
+
 
 
 wildcard_constraints:
@@ -667,7 +671,7 @@ rule giraffe_real_reads:
         gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="real"
-    threads: 16
+    threads: MAPPER_THREADS
     resources:
         mem_mb=500000,
         runtime=600,
@@ -686,7 +690,7 @@ rule giraffe_sim_reads:
         gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
-    threads: 16
+    threads: MAPPER_THREADS
     resources:
         mem_mb=500000,
         runtime=600,
@@ -710,13 +714,13 @@ rule winnowmap_reads:
         # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
         # So match any string but that. See https://stackoverflow.com/a/14683066
         tech="(?!illumina).+"
-    threads: 20
+    threads: MAPPER_THREADS + 4
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "winnowmap -t 16 -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view --threads 3 -h -F 2048 -F 256 --bam - >{output.bam}"
+        "winnowmap -t {MAPPER_THREADS} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
 
 rule minimap2_index_reference:
     input:
@@ -739,13 +743,13 @@ rule minimap2_reads:
         mode=minimap_derivative_mode
     output:
         bam="{root}/aligned/{reference}/minimap2/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
-    threads: 18
+    threads: MAPPER_THREADS + 4
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minimap2 -t 16 -ax {params.mode} {input.minimap2_index} {input.fastq} | samtools view --threads 3 -h -F 2048 -F 256 --bam - >{output.bam}"
+        "minimap2 -t {MAPPER_THREADS} -ax {params.mode} {input.minimap2_index} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
 
 rule graphaligner_reads:
     input:
@@ -753,13 +757,13 @@ rule graphaligner_reads:
         fastq=fastq
     output:
         gam="{root}/aligned/{reference}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    threads: 68
+    threads: MAPPER_THREADS
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "GraphAligner -t 64 -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
+        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
 
 rule inject_bam:
     input:
