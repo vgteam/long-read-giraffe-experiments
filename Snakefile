@@ -792,7 +792,7 @@ rule annotate_and_compare_alignments:
         report="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     threads: 32
     resources:
-        mem_mb=100000,
+        mem_mb=200000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
