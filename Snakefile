@@ -1068,11 +1068,11 @@ rule time_used:
         gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.tsv"
-    threads: 5
+    threads: 8
     resources:
         mem_mb=2000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        runtime=120,
+        slurm_partition=choose_partition(120)
     shell:
         "vg filter -t {threads} -T \"time_used\" {input.gam} | grep -v \"#\" >{output}"
 
@@ -1081,11 +1081,11 @@ rule stage_time:
         gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.tsv"
-    threads: 5
+    threads: 8
     resources:
-        mem_mb=2000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        mem_mb=36000,
+        runtime=120,
+        slurm_partition=choose_partition(120)
     shell:
         "vg filter -t {threads} -T \"annotation.stage_{wildcards.stage}_time\" {input.gam} | grep -v \"#\" >{output}"
 
