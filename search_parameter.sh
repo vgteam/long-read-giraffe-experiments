@@ -22,7 +22,7 @@ SEARCH_DIR="${WORK_DIR}/${OPTION_NAME}"
 if [[ ! -e "${SEARCH_DIR}" ]] ; then
     mkdir -p "${SEARCH_DIR}"
 
-    srun -c20 --threads-per-core=1 --time 01:00:00 --partition=medium --mem 300G --job-name giraffe-run vg giraffe -t16 --parameter-preset ${PRESET} --progress --track-provenance -Z ${GRAPH_BASE}.gbz -d ${GRAPH_BASE}.dist -m ${GRAPH_BASE}.${MINPARAMS}.withzip.min -z ${GRAPH_BASE}.${MINPARAMS}.zipcodes -G ${INPUT_READS} --${OPTION_NAME} ${OPTION_RANGE} --output-basename ${SEARCH_DIR}/search
+    srun -c20 --threads-per-core=2 --time 01:00:00 --partition=medium --mem 80G --job-name giraffe-run vg giraffe -t16 --parameter-preset ${PRESET} --progress --track-provenance -Z ${GRAPH_BASE}.gbz -d ${GRAPH_BASE}.dist -m ${GRAPH_BASE}.${MINPARAMS}.withzip.min -z ${GRAPH_BASE}.${MINPARAMS}.zipcodes -G ${INPUT_READS} --${OPTION_NAME} ${OPTION_RANGE} --output-basename ${SEARCH_DIR}/search
     
     # Wait for results
     sleep 10

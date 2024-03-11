@@ -153,8 +153,8 @@ experiments:
     vary:
       mapper: ["minimap2", "giraffe-k31.w50.W-lr-9abbab-noflags", "giraffe-k31.w50.W-lr-26b5b0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
 
-  # Experiment to decide if we need both fragmenting and chaining passes
-  fragchain:
+  # Experiment to decide if new fragment filtering introduced any regressions
+  filter_regression:
     control:
       realness: sim
       subset: 1m
@@ -163,7 +163,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["minimap2", "giraffe-k31.w50.W-lr-default-noflags", "giraffe-k31.w50.W-lr-default-fragonly"]
+      mapper: ["minimap2", "giraffe-k31.w50.W-lr-3b62a7-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
       tech: ["r10", "hifi"]
 
   # This experiment compares different ways of mapping Illumina reads
