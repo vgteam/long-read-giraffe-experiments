@@ -163,7 +163,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["minimap2", "giraffe-k31.w50.W-lr-3b62a7-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
+      mapper: ["giraffe-k31.w50.W-lr-3779c0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
       tech: ["r10", "hifi"]
 
   # This experiment compares different ways of mapping Illumina reads
