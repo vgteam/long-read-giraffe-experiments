@@ -123,7 +123,7 @@ SLURM_PARTITIONS = [
 
 # How many threads do we want mapping to use?
 # A few more threads will be used for filters
-MAPPER_THREADS=64
+MAPPER_THREADS=32
 
 
 

@@ -222,7 +222,7 @@ fi
 
 if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" ]] ; then
     # Annotate reads with linear reference positions
-    time vg annotate -x "${WORK_DIR}/${GRAPH_NAME}.gbz" -a "${WORK_DIR}/${SAMPLE_NAME}-reads/injected.gam" --multi-position -l 100 -t 16 >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam.tmp"
+    time vg annotate -x "${WORK_DIR}/${GRAPH_NAME}.gbz" -a "${WORK_DIR}/${SAMPLE_NAME}-reads/injected.gam" --multi-position --search-limit=-1 -t 16 >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam.tmp"
     mv "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam.tmp" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam"
 fi
 
