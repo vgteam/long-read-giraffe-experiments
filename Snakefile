@@ -977,6 +977,22 @@ rule stats_from_alignments:
     shell:
         "vg stats -p {threads} -a {input.gam} >{output.stats}"
 
+rule facts_from_alignments:
+    input:
+        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        facts="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt"
+        facts_dir="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts"
+    wildcard_constraints:
+        mapper="giraffe-.+"
+    threads: 2
+    resources:
+        mem_mb=10000,
+        runtime=90,
+        slurm_partition=choose_partition(90)
+    shell:
+        "python3 giraffe-facts.py {input.gam} {output.facts_dir} >{output.facts}"
+
 rule mapping_rate_from_stats:
     input:
         stats="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt"

@@ -61,9 +61,7 @@ In these file name templates, `{root}` is your base output directory, `{ext}` is
 * `{root}/plots/{reference}/{mapper}/average_stage_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average CPU time used per mapping stage, for Giraffe conditions.
 * `{root}/plots/{reference}/{mapper}/length_by_mapping-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of read length, broken out by whether the read mapped or not.
 * `{root}/plots/{reference}/{mapper}/length_by_correctness-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of read length, broken out by whether the read was correct, incorrect, or without a truth position.
+* `{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt`: A Giraffe Facts report about where candidates are filtered, for Giraffe conditions. 
 
-## Missing Features
-
-Right now, Giraffe isn't able to be run with combinations of additional flags under the experiment system.
 
 
