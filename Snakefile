@@ -972,7 +972,7 @@ rule facts_from_alignments:
     input:
         gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        facts="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt"
+        facts="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt",
         facts_dir="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts"
     wildcard_constraints:
         mapper="giraffe-.+"
