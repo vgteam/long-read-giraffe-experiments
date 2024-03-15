@@ -668,7 +668,8 @@ rule giraffe_real_reads:
         unpack(indexed_graph),
         fastq=fastq,
     output:
-        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        # Giraffe can dump out pre-annotated reads at annotation range -1.
+        gam="{root}/annotated-1/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="real"
     threads: MAPPER_THREADS
@@ -680,14 +681,14 @@ rule giraffe_real_reads:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam}")
 
 rule giraffe_sim_reads:
     input:
         unpack(indexed_graph),
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
-        gam="{root}/aligned/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/annotated-1/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
     threads: MAPPER_THREADS
@@ -699,7 +700,7 @@ rule giraffe_sim_reads:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
 
 rule winnowmap_reads:
     input:
@@ -781,49 +782,39 @@ rule inject_bam:
     shell:
         "vg inject --threads {threads} -x {input.gbz} {input.bam} >{output.gam}"
 
-rule annotate_and_compare_alignments:
+rule compare_alignments:
     input:
         gbz=gbz,
-        gam="{root}/aligned/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
         truth_gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
         gam="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
         tsv="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
         report="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
-    threads: 32
+    threads: 16
     resources:
-        mem_mb=100000,
+        mem_mb=200000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg annotate -t16 -a {input.gam} -x {input.gbz} -m | vg gamcompare --threads 16 --range 200 - {input.truth_gam} --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
+        "vg gamcompare --threads 16 --range 200 {input.gam} {input.truth_gam} --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
 
-rule annotate_real_alignments:
+rule annotate_alignments:
     input:
         gbz=gbz,
-        gam="{root}/aligned/{reference}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     output:
-        gam="{root}/annotated/{reference}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        # Giraffe pre-annotates output reads
+        mapper="(?!giraffe).+"
     threads: 16
     resources:
         mem_mb=100000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg annotate -t16 -a {input.gam} -x {input.gbz} -m >{output.gam}"
-
-rule annotate_sim_alignments:
-    input:
-        gam="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam"
-    output:
-        gam="{root}/annotated/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam"
-    threads: 1
-    resources:
-        mem_mb=1000,
-        runtime=10,
-        slurm_partition=choose_partition(10)
-    shell:
-        "ln {input.gam} {output.gam}"
+        "vg annotate -t16 -a {input.gam} -x {input.gbz} -m --search-limit=-1 >{output.gam}"
 
 rule correct_from_comparison:
     input:
@@ -966,7 +957,7 @@ rule experiment_pr_plot_from_compared:
 
 rule stats_from_alignments:
     input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
         stats="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt"
     threads: 16
@@ -1052,7 +1043,7 @@ rule experiment_mapping_speed_plot:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Speed' --y_label 'Reads per Second' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 for subset in KNOWN_SUBSETS:
-    for stage in ["aligned", "compared"]:
+    for stage in ["annotated-1", "compared"]:
         # We can chunk reads either before or after comparison.
         # TODO: This is now like 3 copies of the whole GAM.
 
@@ -1074,7 +1065,7 @@ for subset in KNOWN_SUBSETS:
 
 rule chain_coverage:
     input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv"
     threads: 5
@@ -1087,7 +1078,7 @@ rule chain_coverage:
 
 rule time_used:
     input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.tsv"
     threads: 5
@@ -1100,7 +1091,7 @@ rule time_used:
 
 rule stage_time:
     input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.tsv"
     threads: 5
@@ -1113,7 +1104,7 @@ rule stage_time:
 
 rule length_by_mapping_chunk:
     input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length_by_mapping.tsv"
     threads: 2

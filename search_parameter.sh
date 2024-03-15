@@ -19,14 +19,20 @@ set -ex
 
 SEARCH_DIR="${WORK_DIR}/${OPTION_NAME}"
 
-mkdir -p "${SEARCH_DIR}"
+if [[ ! -e "${SEARCH_DIR}" ]] ; then
+    mkdir -p "${SEARCH_DIR}"
 
-srun -c20 --threads-per-core=1 --time 01:00:00 --partition=medium --mem 300G --job-name giraffe-run vg giraffe -t16 --parameter-preset ${PRESET} --progress --track-provenance -Z ${GRAPH_BASE}.gbz -d ${GRAPH_BASE}.dist -m ${GRAPH_BASE}.${MINPARAMS}.withzip.min -z ${GRAPH_BASE}.${MINPARAMS}.zipcodes -G ${INPUT_READS} --${OPTION_NAME} ${OPTION_RANGE} --output-basename ${SEARCH_DIR}/search
+    srun -c20 --threads-per-core=2 --time 01:00:00 --partition=medium --mem 80G --job-name giraffe-run vg giraffe -t16 --parameter-preset ${PRESET} --progress --track-provenance -Z ${GRAPH_BASE}.gbz -d ${GRAPH_BASE}.dist -m ${GRAPH_BASE}.${MINPARAMS}.withzip.min -z ${GRAPH_BASE}.${MINPARAMS}.zipcodes -G ${INPUT_READS} --${OPTION_NAME} ${OPTION_RANGE} --output-basename ${SEARCH_DIR}/search
+    
+    # Wait for results
+    sleep 10
+
+fi
 
 SLURM_JOBS=()
 for GAM_FILE in ${SEARCH_DIR}/*.gam ; do
-    if [[ ! -e "${GAM_FILE%.gam}.compare.txt" ]] ; then
-        SLURM_JOBS+=($(sbatch --parsable -c4 --time 01:00:00 --partition=medium --mem 25G --job-name giraffe-eval --wrap "vg annotate -a ${GAM_FILE} -x ${GRAPH_BASE}.gbz -m | vg gamcompare --range 200 - ${INPUT_READS} -T -a "${GAM_FILE}" > ${GAM_FILE%.gam}.compared.tsv 2>${GAM_FILE%.gam}.compare.txt"))
+    if [[ ! -e "${GAM_FILE%.gam}.compare.txt" || ! -e "${GAM_FILE%.gam}.compared.tsv" ]] ; then
+        SLURM_JOBS+=($(sbatch --parsable -c16 --time 01:00:00 --partition=medium --mem 50G --job-name giraffe-eval --wrap "vg annotate -t8 -a ${GAM_FILE} -x ${GRAPH_BASE}.gbz -m | vg gamcompare -t8 --range 200 - ${INPUT_READS} -T -a "${GAM_FILE}" > ${GAM_FILE%.gam}.compared.tsv 2>${GAM_FILE%.gam}.compare.txt"))
     fi
     if [[ ! -e "${GAM_FILE%.gam}.gamstats.txt" ]] ; then
         SLURM_JOBS+=($(sbatch --parsable -c2 --time 01:00:00 --partition=medium --mem 10G --job-name giraffe-stats --wrap "vg stats -a "${GAM_FILE}" >${GAM_FILE%.gam}.gamstats.txt"))
@@ -41,6 +47,9 @@ if [[ "${#SLURM_JOBS[@]}" != "0" ]] ; then
         sleep 2
         QUEUE_LINES="$(squeue -u $USER -j $(IFS=,; echo "${SLURM_JOBS[*]}") | wc -l)"
     done
+    
+    # Wait for results
+    sleep 10
 fi
 
 COMPARISON_SCRATCH="${WORK_DIR}/combined.tsv"
