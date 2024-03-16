@@ -556,6 +556,10 @@ def get_vg_flags(wildcard_flag):
         return "--explored-cap"
     elif wildcard_flag[0:10] == "downsample":
         return "--downsample-min " + wildcard_flag[10:]
+    elif wildcard_flag[0:5] == "maxdp":
+        return "--max-dp-cells " + wildcard_flag[5:]
+    elif wildcard_flag[0:6] == "maxaln":
+        return "--max-dp-align " + wildcard_flag[6:]
     else:
         assert(wildcard_flag == "noflags")
         return ""
