@@ -124,7 +124,7 @@ experiments:
       sample: HG002
     vary:
       mapper: ["giraffe-k31.w50.W-lr-default-noflags", "winnowmap"]
-  #This is used to test different mappers on r10 reads
+  #This is used to test different mappers on simulated r10 reads
   #Add different vg versions with `-commit` instead of `-default`, and make sure the binary
   # is called `vg_commit`
   r10_test:
@@ -136,8 +136,10 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["minimap2", "giraffe-k31.w50.W-lr-9abbab-noflags", "giraffe-k31.w50.W-lr-26b5b0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
-  #This is used to test different mappers on hifi reads
+      mapper: ["giraffe-k31.w50.W-lr-4cda9f-noflags", "giraffe-k31.w50.W-lr-4cda9f-maxdp100000000",
+               "giraffe-k31.w50.W-lr-641fb4-noflags", "giraffe-k31.w50.W-lr-641fb4-maxdp100000000",
+               "giraffe-k31.w50.W-lr-3b3650-noflags", "giraffe-k31.w50.W-lr-3b3650-maxdp100000000"]
+  #This is used to test different mappers on simulated hifi reads
   #Add vg versions with `-commit` instead of `-default`, and make sure the binary
   # is called `vg_commit`
   hifi_test:
@@ -149,7 +151,11 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["minimap2", "giraffe-k31.w50.W-lr-9abbab-noflags", "giraffe-k31.w50.W-lr-26b5b0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
+      mapper: ["giraffe-k31.w50.W-lr-4cda9f-noflags", "giraffe-k31.w50.W-lr-4cda9f-maxdp10000000", "giraffe-k31.w50.W-lr-4cda9f-maxdp100000000",
+               "giraffe-k31.w50.W-lr-gap1k-noflags", "giraffe-k31.w50.W-lr-gap1k-maxdp10000000", "giraffe-k31.w50.W-lr-gap1k-maxdp100000000",
+               "giraffe-k31.w50.W-lr-gap2k-noflags", "giraffe-k31.w50.W-lr-gap2k-maxdp10000000", "giraffe-k31.w50.W-lr-gap2k-maxdp100000000",
+               "giraffe-k31.w50.W-lr-gap5k-noflags", "giraffe-k31.w50.W-lr-gap5k-maxdp10000000", "giraffe-k31.w50.W-lr-gap5k-maxdp100000000"]
+
   # Thhs experiment compares different ways of mapping Illumina reads
   illumina_test:
     control:
@@ -160,7 +166,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k29.w11.W-sr-9abbab-noflags", "giraffe-k29.w11.W-sr-26b5b0-noflags", "giraffe-k29.w11.W-sr-4cda9f-noflags"]
+      mapper: ["giraffe-k29.w11.W-sr-4cda9f-noflags", "giraffe-k29.w11.W-sr-6a9798-noflags", "giraffe-k29.w11.W-sr-6ef710-noflags"]
   illumina_test_small:
     control:
       realness: sim
@@ -171,6 +177,45 @@ experiments:
       sample: HG002
     vary:
       mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2"]
+  #This is used to test different mappers on real reads
+  #Add different vg versions with `-commit` instead of `-default`, and make sure the binary
+  # is called `vg_commit`
+  real_giraffe_test:
+    control:
+      realness: real
+      reference: chm13
+    vary:
+      tech: ["r10", "hifi", "illumina"]
+      sample: ["HG002", "HiFi"]
+      trimmedness: ["", ".trimmed"]
+      mapper: ["giraffe-k31.w50.W-lr-4cda9f-noflags", "giraffe-k29.w11.W-sr-4cda9f-noflags"]
+      subset: ["2m", "100k", "10k"]
+    constrain:
+      - 
+        # Always use the HiFi sample and no trimming for real hifi reads
+        - realness: real
+          tech: hifi
+          sample: HiFi
+          trimmedness: ""
+          subset: "100k"
+        # Always use the HG002 sample and trimming for real R10 reads
+        - realness: real
+          tech: r10
+          sample: HG002
+          trimmedness: ".trimmed"
+          subset: "100k"
+        # Always use the HG002 sample no trimming for real Illumina reads
+        - realness: real
+          tech: illumina
+          sample: HG002
+          trimmedness: ""
+          subset: "10k"
+      -
+        # Only run the short read modes of Giraffe on the short reads. And
+        - mapper: ["giraffe-k31.w50.W-lr-4cda9f-noflags"]
+          tech: ["r10", "hifi"]
+        - mapper: ["giraffe-k29.w11.W-sr-4cda9f-noflags"]
+          tech: "illumina"
   #Vary graph for hifi
   giraffe_sampled_graphs_hifi:
     control:
