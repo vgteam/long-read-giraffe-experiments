@@ -976,7 +976,7 @@ rule facts_from_alignments:
         facts_dir=directory("{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts")
     wildcard_constraints:
         mapper="giraffe-.+"
-    threads: 2
+    threads: 17
     resources:
         mem_mb=10000,
         runtime=90,
