@@ -306,7 +306,8 @@ def read_read_views(vg, filename):
 
     # Extract just the annotations and times of reads as JSON, with a # header
     # We don't know all the annotation field names in advance so we have to dump them all.
-    filter_process = subprocess.Popen([vg, "filter", "--tsv-out", "annotation;time_used", filename], stdout=subprocess.PIPE)
+    # Only use one thread because we're probably mostly IO, and use small batches to limit memory use.
+    filter_process = subprocess.Popen([vg, "filter", "-t1", "-B10", "--tsv-out", "annotation;time_used", filename], stdout=subprocess.PIPE)
 
     lines = iter(filter_process.stdout)
     # Drop header line
