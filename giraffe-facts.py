@@ -7,6 +7,8 @@ giraffe-facts.py: process a GAM file from the new minimizer-based mapper (vg gir
 """
 
 import argparse
+import concurrent.futures
+import functools
 import os
 import sys
 import time
@@ -304,7 +306,7 @@ def make_stats(read):
     number in the GAM.
     
     The stats dict may also have an entry for NO_FILTER, with stats not
-    associated with a filter.
+    associated with a filter, such as count or time used.
     """
     
     # This is the annotation dict from the read
@@ -384,12 +386,15 @@ def make_stats(read):
         filter_name = filters_by_index[filter_index]
         ordered_stats[filter_name] = filter_stats[filter_name]
         
-    # Add in special non-filter stats
-    ordered_stats[NO_FILTER] = LossyCounter()
+    # Add in special non-filter stats (not distributions)
+    ordered_stats[NO_FILTER] = collections.OrderedDict()
     for k in ['time_used']:
         if k in read:
             ordered_stats[NO_FILTER][k] = read[k]
-        
+    
+    # And the count
+    ordered_stats[NO_FILTER]["count"] = 1 if read else 0
+
     return ordered_stats
 
 def add_in_stats(destination, addend):
@@ -397,18 +402,28 @@ def add_in_stats(destination, addend):
     Add the addend stats dict into the destination stats dict.
     Implements += for stats dicts.
     """
-    
-    for k, v in addend.items():
-        if v is None:
-            # None will replace anything and propagate through
-            destination[k] = None
-        elif isinstance(v, dict):
-            # Recurse into dict
-            if k in destination:
-                add_in_stats(destination[k], v)
-        else:
-            # Use real += and hope it works
-            destination[k] += v
+
+    def add_recursive(dest, add):
+        for k, v in add.items():
+            if v is None:
+                # None will replace anything and propagate through
+                # TODO: Why???
+                dest[k] = None
+            elif isinstance(v, dict):
+                # Recurse into dict
+                if k in dest:
+                    add_recursive(dest[k], v)
+                else:
+                    dest[k] = v
+            elif k in dest:
+                # Use real += and hope it works
+                dest[k] += v
+            else:
+                # Add missing keys
+                dest[k] = v
+
+    add_recursive(destination, addend)
+    return destination
 
 def read_line_oriented_json(lines):
     """
@@ -421,11 +436,12 @@ def read_line_oriented_json(lines):
             yield json.loads(line)
 
 
-def read_read_views(vg, filename):
+def read_read_lines(vg, filename):
     """
-    Given a vg binary and a filename, iterate over subsets of the parsed read dicts for each read in the file.
+    Given a vg binary and a filename, iterate over nonempty TSV lines for each read in the file.
 
-    The subsets will have the annotation and time_used fields.
+    The lines will have the annotation and time_used fields. They will be
+    enumerated as bytes objects, with trailing whitespace, and some may be empty.
     """
 
     # Extract just the annotations and times of reads as JSON, with a # header
@@ -436,21 +452,142 @@ def read_read_views(vg, filename):
     lines = iter(filter_process.stdout)
     # Drop header line
     next(lines)
-
-    for line in lines:
-        # Parse the TSV and reconstruct a view of the full read dict.
-        line = line.decode('utf-8')
-        line = line.strip()
-        if len(line) == 0:
-            continue
-        parts = line.split("\t")
-        assert len(parts) == 2
-        read = {"annotation": json.loads(parts[0]), "time_used": float(parts[1])}
-
-        yield read
+    
+    # Yield the rest.
+    yield from lines
 
     return_code = filter_process.wait()
     assert return_code == 0
+
+def read_line_to_read_dict(line):
+    """
+    Given a bytes object that may be a blank line from read_read_lines(),
+    return a read dict of the subset of the read information we loaded.
+
+    The result will have the annotation and time_used fields, or be empty and
+    represent a blank line.
+    """
+
+    # Parse the TSV and reconstruct a view of the full read dict.
+    line = line.decode('utf-8')
+    line = line.strip()
+    if len(line) == 0:
+        return {}
+    parts = line.split("\t")
+    assert len(parts) == 2
+    read = {"annotation": json.loads(parts[0]), "time_used": float(parts[1])}
+
+    return read
+
+def read_line_to_stats(line):
+    """
+    Map from a read TSV line (possibly empty) to a stats dict.
+    """
+
+    return make_stats(read_line_to_read_dict(line))
+
+def batched(input_iterator, batch_size):
+    """
+    Yield batch lists of up to batch_size items from the given iterator.
+    """
+    
+    if hasattr(itertools, "batched"):
+        # Itertools implements this
+        return itertools.batched(input_iterator, batch_size)
+    else:
+        # Implement it ourselves.
+        # This is not the same as any other object. It will fill the empty spots in the batches.
+        sentinel = object()
+        # We can zip an iterator with itself to take batches, like in grouper()
+        # at
+        # <https://docs.python.org/3/library/itertools.html#itertools-recipes>.
+        # Then we just have to trim down the extended batches.
+        return ([x for x in batch if x is not sentinel] for batch in itertools.zip_longest(*([iter(input_iterator)] * batch_size), fillvalue=sentinel))
+
+def map_reduce(input_iterable, map_function, reduce_function, zero_function):
+    """
+    Do a parallel map-reduce operation on the input iterable.
+
+    Return the reduction result of all the map_function results reduced by the reduce_function.
+
+    The reduce_function may modify either argument in place but must return the reduction result.
+
+    If there are no items, returns the result of the zero_function.
+    """
+
+    THREADS = 16
+    MAP_CHUNK_SIZE = 100
+    MAX_TASKS = THREADS + 10
+    REDUCE_CHUNK_SIZE = 1000
+
+    if THREADS == 1:
+        # Do it all in one thread
+        reduced = zero_function()
+        for item in input_iterable:
+            reduced = reduce_function(reduced, map_function(item))
+        return reduced
+    
+    
+    executor = concurrent.futures.ProcessPoolExecutor(THREADS)
+
+    # Make sure we have an iterator and not like a list
+    input_iterator = iter(input_iterable)
+    # Then bvatch it
+    input_batches = batched(input_iterator, MAP_CHUNK_SIZE)
+
+    # We can't actually use the executor's map() since it loads the whole input
+    # iterable into memory to start. Instead we do some futures wizardry. See
+    # <https://alexwlchan.net/2019/adventures-with-concurrent-futures/>.
+
+    # Futures for map tasks in progress
+    map_in_flight = {executor.submit(map_function, item) for item in itertools.islice(input_iterator, MAX_TASKS)}
+    # Futures for reduce tasks in progress
+    reduce_in_flight = set()
+
+    # Reduce task currently being buffered
+    reduce_buffer = []
+
+    while map_in_flight or reduce_in_flight:
+        # Until all the work is done
+
+        if reduce_in_flight:
+            # Only wait for reduces to complete if no maps are running.
+            # Otherwise just poll.
+            timeout = 0 if map_in_flight else None
+            # Get any completed reduces.
+            reduced, reduce_in_flight = concurrent.futures.wait(reduce_in_flight, timeout=0, return_when=concurrent.futures.FIRST_COMPLETED)
+            for f in reduced:
+                # Put their results in the buffer to be reduced
+                reduce_buffer.append(f.result())
+                if len(reduce_buffer) >= REDUCE_CHUNK_SIZE:
+                    # Kick off a reduction.
+                    # We won't make more than one new job per finished job here.
+                    reduce_in_flight.add(executor.submit(functools.reduce, reduce_function, reduce_buffer))
+                    reduce_buffer = []
+                    
+
+        if map_in_flight:
+            # Get at least one done mapping result
+            mapped, map_in_flight = concurrent.futures.wait(map_in_flight, return_when=concurrent.futures.FIRST_COMPLETED)
+            
+            for f in mapped:
+                # Put their results in the buffer to be reduced
+                reduce_buffer.append(f.result())
+                if len(reduce_buffer) >= REDUCE_CHUNK_SIZE:
+                    # Kick off a reduction.
+                    # We won't make more than one new job per finished job here.
+                    reduce_in_flight.add(executor.submit(functools.reduce, reduce_function, reduce_buffer))
+                    reduce_buffer = []
+            
+        new_tasks = MAX_TASKS - len(map_in_flight) - len(reduce_in_flight)
+        if new_tasks > 0:
+            # Top up mapping to have at most the set number of jobs in flight
+            map_in_flight |= {executor.submit(map_function, item) for item in itertools.islice(input_iterator, new_tasks)}
+
+    # When everything is done, finish reduction in this thread
+    result = functools.reduce(reduce_function, reduce_buffer, zero_function())
+
+    return result
         
 class Table(object):
     """
@@ -771,21 +908,22 @@ class Table(object):
         
         self.out.write('\n')
                 
-def print_table(read_count, stats_total, params=None, out=sys.stdout):
+def print_table(stats_total, params=None, out=sys.stdout):
     """
-    Take the read count, the accumulated total stats dict, and an optional dict
+    Take the accumulated total stats dict, and an optional dict
     of mapping parameters corresponding to values for filters.
     
     Print a nicely formatted table to the given stream.
     
     """
     
-    if stats_total is None:
+    if not stats_total:
         # Handle the empty case
-        assert(read_count == 0)
         out.write('No reads.\n')
         return
     
+    read_count = stats_total.get(NO_FILTER, {}).get("count", 0)
+
     # Now do a table
     
     # First header line for each column
@@ -1002,7 +1140,7 @@ def plot_filter_statistic_histograms(out_dir, stats_total):
     Store histograms in out_dir.
     """
     
-    for filter_name in stats_total.keys():
+    for filter_name in (k for k in stats_total.keys() if k != NO_FILTER):
         correct_counter = stats_total[filter_name]['statistic_distribution_correct']
         noncorrect_counter = stats_total[filter_name]['statistic_distribution_noncorrect']
         
@@ -1087,28 +1225,16 @@ def main(args):
         if params is None:
             params = parsed_params
 
-    for read in read_read_views(options.vg, options.input):
-        # For the data we need on each read
-        
-        if params is None:
-            # Go get the mapping parameters
-            params = sniff_params(read)
-    
-        # For the stats dict for each read
-        stats = make_stats(read)
-        if stats_total is None:
-            stats_total = stats
-        else:
-            # Sum up all the stats
-            add_in_stats(stats_total, stats)
-        
-        # Count the read
-        read_count += 1
+    # Get the stream of TSV lines for reads
+    read_lines = read_read_lines(options.vg, options.input)
+   
+    # Map it to stats and reduce it to total stats
+    stats_total = map_reduce(read_lines, read_line_to_stats, add_in_stats, collections.OrderedDict)
     
     # After processing all the reads
     
     # Print the table now in case plotting fails
-    print_table(read_count, stats_total, params)
+    print_table(stats_total, params)
     
     # Make filter statistic histograms
     plot_filter_statistic_histograms(options.outdir, stats_total)
