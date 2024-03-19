@@ -135,6 +135,130 @@ def sniff_params(read):
             params[param_name] = annot[annot_name]
     
     return params
+
+class LossyCounter(collections.Counter):
+    """
+    A class for representing a distribution in manageable memory.
+
+    If it tries to get too many distinct values, they start to get assigned to
+    ranges instead.
+
+    When you put an item in or get something by the item it gets coerced to a
+    representative value for the range. When you ask about what is in the
+    collection (or try to delete) you only see the representative items.
+
+    Only comes up with a binning scheme at one particular point in time, so you
+    can trick it into picking too-fine bins and then growing unboundedly.
+
+    If made using an iterable, only condenses *after* iterating the iterable.
+    """
+
+    # All the internal Counter methods (in Python 3.10 at least) go through
+    # items()/keys()/values() and []. But also the addition/math methods call
+    # Counter() so we need to override them.
+
+    def __init__(self, *args, **kwargs):
+        """
+        Make a new LossyCounter.
+        """
+        super().__init__(*args, **kwargs)
+        # How big can we get before we start binning floats?
+        self._max_len = 10000
+        # What bin size are we using (or None if no bins in use yet)
+        self._bin_size = None
+        self._condense_if_needed()
+
+    def _to_key(self, elem):
+        """
+        Map from unbinned key to the key it should actually use.
+        """
+        if self._bin_size is None or not isinstance(elem, float) or not math.isfinite(elem):
+            # We shouldn't or can't bin this
+            return elem
+
+        # Round floats to the nearest bin using math.remainder. See
+        # <https://stackoverflow.com/a/70210770>
+        return elem - math.remainder(elem, self._bin_size)
+
+    def _condense_if_needed(self):
+        """
+        If we are now too long, determine bin size and rehash everything in bins.
+        """
+        if len(self) > 10 * self._max_len and self._bin_size is not None:
+            sys.stderr.write(f"Re-binning because length has reached {len(self)}\n")
+            self._bin_size = None
+        if self._bin_size is None and len(self) > self._max_len:
+            old_len = len(self)
+            old_total = sum(self.values())
+            # We need to pick a bin size form our float items
+            min_value = min((x for x in self.keys() if isinstance(x, float) and math.isfinite(x)), default=None)
+            max_value = max((x for x in self.keys() if isinstance(x, float) and math.isfinite(x)), default=None)
+
+            # Copy all our keys and values to temp storage, before we do
+            # anything that could upset __getitem__
+            all_items = list(self.items())
+            # Delete them all
+            self.clear()
+
+            if min_value is not None and max_value is not None:
+                # Set for this many bins
+                self._bin_size = (max_value - min_value) / self._max_len
+                if self._bin_size == 0:
+                    # We divided too hard; the values are too close together
+                    self._bin_size = min_value
+                if self._bin_size == 0:
+                    # Still not going to work
+                    self._bin_size = max_value
+            if self._bin_size is None or self._bin_size == 0:
+                # If we have like a jillion strings and 0, bin by integers.
+                self._bin_size = 1
+
+            # Now that _bin_size is not None, we can't recurse into here.
+
+            for k, v in all_items:
+                # Re-insert all the items by binning. Since we're a counter we can add to aggregate.
+                self[k] += v
+
+            # Make sure nothing went wrong
+            assert len(self) <= old_len
+            assert sum(self.values()) == old_total
+
+
+    def __getitem__(self, elem):
+        """
+        Get an item from the collection by key.
+        """
+        return super().__getitem__(self._to_key(elem))
+
+
+    def __setitem__(self, elem, value):
+        """
+        Set an item in the collection to a value.
+        """
+        assigned_key = self._to_key(elem)
+        super().__setitem__(assigned_key, value)
+        # Now make sure we don't get too big
+        self._condense_if_needed()
+
+    def __add__(self, other):
+        return LossyCounter(super().__add__(other))
+
+    def __sub__(self, other):
+        return LossyCounter(super().__sub__(other))
+
+    def __or__(self, other):
+        return LossyCounter(super().__or__(other))
+
+    def __and__(self, other):
+        return LossyCounter(super().__and__(other))
+
+    def __pos__(self):
+        return LossyCounter(super().__pos__())
+
+    def __neg__(self):
+        return LossyCounter(super().__neg__())
+
+
     
 # Stats under NO_FILTER are not associated with a filter
 NO_FILTER = "__none__"
@@ -145,7 +269,7 @@ def make_stats(read):
     
     Run on an empty dict, makes a zero-value stats dict.
     
-    A stats dict maps from filter name to a Counter of filter stats.
+    A stats dict maps from filter name to a LossyCounter of filter stats.
     The filter stats include:
         
         - 'passed_count_total' which is the count of results passing the
@@ -165,7 +289,7 @@ def make_stats(read):
     the '_total' values will be defined. '_correct' values will be set to None
     (instead of 0).
     
-    The Counter for a filter also has sub-Counters embedded in it for
+    The LossyCounter for a filter also has sub-Counters embedded in it for
     expressing distributions of filter statistic values, to assist in filter
     design.
     
@@ -189,8 +313,8 @@ def make_stats(read):
     # This will map from filter number int to filter name
     filters_by_index = {}
     
-    # This will map from filter name to Counter of filter stats
-    filter_stats = collections.defaultdict(collections.Counter)
+    # This will map from filter name to LossyCounter of filter stats
+    filter_stats = collections.defaultdict(LossyCounter)
     
     for annot_name in annot.keys():
         # For each annotation
@@ -227,7 +351,7 @@ def make_stats(read):
             # Break into components on underscores (correctness will be 'correct' or 'noncorrect'
             (_, filter_num, filter_name, filter_stage, filter_correctness) = annot_name.split('_')
             
-            distribution = collections.Counter()
+            distribution = LossyCounter()
             
             for item in annot[annot_name]:
                 # Parse all the statistic vlues
@@ -261,7 +385,7 @@ def make_stats(read):
         ordered_stats[filter_name] = filter_stats[filter_name]
         
     # Add in special non-filter stats
-    ordered_stats[NO_FILTER] = collections.Counter()
+    ordered_stats[NO_FILTER] = LossyCounter()
     for k in ['time_used']:
         if k in read:
             ordered_stats[NO_FILTER][k] = read[k]
@@ -882,8 +1006,8 @@ def plot_filter_statistic_histograms(out_dir, stats_total):
         correct_counter = stats_total[filter_name]['statistic_distribution_correct']
         noncorrect_counter = stats_total[filter_name]['statistic_distribution_noncorrect']
         
-        if not ((isinstance(correct_counter, dict) and len(correct_counter) > 0) or
-            (isinstance(noncorrect_counter, dict) and len(noncorrect_counter) > 0)):
+        if not ((hasattr(correct_counter, "items") and len(correct_counter) > 0) or
+            (hasattr(noncorrect_counter, "items") and len(noncorrect_counter) > 0)):
             
             # No stats to plot
             continue
@@ -897,14 +1021,14 @@ def plot_filter_statistic_histograms(out_dir, stats_total):
         have_correct = False
         have_noncorrect = False
         
-        if isinstance(correct_counter, dict) and len(correct_counter) > 0:
+        if hasattr(correct_counter, "items") and len(correct_counter) > 0:
             # We have correct item stats.
             have_correct = True
             for value, count in correct_counter.items():
                 # Output format: label, value, repeats
                 tsv.write('correct\t{}\t{}\n'.format(value, count))
                 
-        if isinstance(noncorrect_counter, dict) and len(noncorrect_counter) > 0:
+        if hasattr(noncorrect_counter, "items") and len(noncorrect_counter) > 0:
             # We have noncorrect item stats.
             have_noncorrect = True
             for value, count in noncorrect_counter.items():
