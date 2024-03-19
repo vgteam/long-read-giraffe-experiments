@@ -20,10 +20,6 @@ import json
 import random
 import math
 
-from vg_pb2 import Alignment
-import google.protobuf.json_format
-import stream
-
 # Force output to UTF-8. Eventually we can use reconfigure() if we drop 3.6
 # and earlier.
 # We need to do this before these streams get picked as any argument default
@@ -440,44 +436,6 @@ def read_line_oriented_json(lines):
             yield json.loads(line)
 
 
-def for_each_gam_bytes(filename):
-    """
-    Iterate over the unparsed bytes objects of GAM records in a GAM file.
-    """
-    header_next = True
-    skipping_group = False
-    with stream.open(filename, "rb", group_delimiter=True) as messages:
-        for message_bytes in messages:
-            if message_bytes is None:
-                # Group is over, expect a type tag next
-                header_next = True
-                skipping_group = False
-                continue
-            if header_next:
-                header_next = False
-                header = message_bytes.decode('utf-8')
-                if header != "GAM":
-                    # Not a GAM group
-                    skipping_group = True
-                continue
-            if not skipping_group:
-                yield message_bytes
-
-def gam_bytes_to_stats(message_bytes):
-    """
-    Go from unparsed Alignment merssage bytes to a stats dict.
-    """
-
-    message = Alignment()
-    message.ParseFromString(message_bytes)
-
-    # Pack up into our subset dict format. Hopefully MessageToDict is faster than real JSON parsing?
-    read_dict = {'time_used': message.time_used, 'annotation': google.protobuf.json_format.MessageToDict(message.annotation)}
-
-    return make_stats(read_dict)
-
-
-
 def read_read_lines(vg, filename):
     """
     Given a vg binary and a filename, iterate over nonempty TSV lines for each read in the file.
@@ -557,7 +515,7 @@ def map_reduce(input_iterable, map_function, reduce_function, zero_function):
     If there are no items, returns the result of the zero_function.
     """
 
-    THREADS = 32
+    THREADS = 16
     MAP_CHUNK_SIZE = 100
     MAX_TASKS = THREADS + 10
     REDUCE_CHUNK_SIZE = 1000
@@ -1267,11 +1225,11 @@ def main(args):
         if params is None:
             params = parsed_params
 
-    # Get the stream of GAM message bytes for reads
-    gam_messages = for_each_gam_bytes(options.input)
+    # Get the stream of TSV lines for reads
+    read_lines = read_read_lines(options.vg, options.input)
    
     # Map it to stats and reduce it to total stats
-    stats_total = map_reduce(gam_messages, gam_bytes_to_stats, add_in_stats, collections.OrderedDict)
+    stats_total = map_reduce(read_lines, read_line_to_stats, add_in_stats, collections.OrderedDict)
     
     # After processing all the reads
     
