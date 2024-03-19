@@ -104,6 +104,8 @@ def parse_args(args):
                         help="GAM to process")
     parser.add_argument("--vg", type=str, default="vg",
                         help="vg binary to use")
+    parser.add_argument("--threads", "-t", type=int, default=16,
+                        help="total threads to use")
     parser.add_argument("outdir",
                         help="directory to place output in")
     
@@ -436,7 +438,7 @@ def read_line_oriented_json(lines):
             yield json.loads(line)
 
 
-def read_read_lines(vg, filename):
+def read_read_lines(vg, filename, threads=16):
     """
     Given a vg binary and a filename, iterate over nonempty TSV lines for each read in the file.
 
@@ -447,7 +449,7 @@ def read_read_lines(vg, filename):
     # Extract just the annotations and times of reads as JSON, with a # header
     # We don't know all the annotation field names in advance so we have to dump them all.
     # Use several threads because we spend a lot of time crunching JSON, and use small batches to limit memory use.
-    filter_process = subprocess.Popen([vg, "filter", "-t16", "-B10", "--tsv-out", "annotation;time_used", filename], stdout=subprocess.PIPE)
+    filter_process = subprocess.Popen([vg, "filter", f"-t{threads}", "-B10", "--tsv-out", "annotation;time_used", filename], stdout=subprocess.PIPE)
 
     lines = iter(filter_process.stdout)
     # Drop header line
@@ -504,7 +506,7 @@ def batched(input_iterator, batch_size):
         # Then we just have to trim down the extended batches.
         return ([x for x in batch if x is not sentinel] for batch in itertools.zip_longest(*([iter(input_iterator)] * batch_size), fillvalue=sentinel))
 
-def map_reduce(input_iterable, map_function, reduce_function, zero_function):
+def map_reduce(input_iterable, map_function, reduce_function, zero_function, threads=16):
     """
     Do a parallel map-reduce operation on the input iterable.
 
@@ -515,20 +517,18 @@ def map_reduce(input_iterable, map_function, reduce_function, zero_function):
     If there are no items, returns the result of the zero_function.
     """
 
-    THREADS = 16
-    MAP_CHUNK_SIZE = 100
-    MAX_TASKS = THREADS + 10
-    REDUCE_CHUNK_SIZE = 1000
-
-    if THREADS == 1:
+    if threads <= 1:
         # Do it all in one thread
         reduced = zero_function()
         for item in input_iterable:
             reduced = reduce_function(reduced, map_function(item))
         return reduced
+   
+    MAP_CHUNK_SIZE = 100
+    REDUCE_CHUNK_SIZE = 1000
+    max_tasks = threads * 2
     
-    
-    executor = concurrent.futures.ProcessPoolExecutor(THREADS)
+    executor = concurrent.futures.ProcessPoolExecutor(threads)
 
     # Make sure we have an iterator and not like a list
     input_iterator = iter(input_iterable)
@@ -540,7 +540,7 @@ def map_reduce(input_iterable, map_function, reduce_function, zero_function):
     # <https://alexwlchan.net/2019/adventures-with-concurrent-futures/>.
 
     # Futures for map tasks in progress
-    map_in_flight = {executor.submit(map_function, item) for item in itertools.islice(input_iterator, MAX_TASKS)}
+    map_in_flight = {executor.submit(map_function, item) for item in itertools.islice(input_iterator, max_tasks)}
     # Futures for reduce tasks in progress
     reduce_in_flight = set()
 
@@ -579,7 +579,7 @@ def map_reduce(input_iterable, map_function, reduce_function, zero_function):
                     reduce_in_flight.add(executor.submit(functools.reduce, reduce_function, reduce_buffer))
                     reduce_buffer = []
             
-        new_tasks = MAX_TASKS - len(map_in_flight) - len(reduce_in_flight)
+        new_tasks = max_tasks - len(map_in_flight) - len(reduce_in_flight)
         if new_tasks > 0:
             # Top up mapping to have at most the set number of jobs in flight
             map_in_flight |= {executor.submit(map_function, item) for item in itertools.islice(input_iterator, new_tasks)}
@@ -1226,10 +1226,10 @@ def main(args):
             params = parsed_params
 
     # Get the stream of TSV lines for reads
-    read_lines = read_read_lines(options.vg, options.input)
+    read_lines = read_read_lines(options.vg, options.input, threads=max(1, options.threads // 2))
    
     # Map it to stats and reduce it to total stats
-    stats_total = map_reduce(read_lines, read_line_to_stats, add_in_stats, collections.OrderedDict)
+    stats_total = map_reduce(read_lines, read_line_to_stats, add_in_stats, collections.OrderedDict, threads=max(1, options.threads // 2))
     
     # After processing all the reads
     
