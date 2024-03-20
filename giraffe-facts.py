@@ -349,15 +349,23 @@ def make_stats(read):
             # Record the stat value
             filter_stats[filter_name]['{}_{}_{}'.format(filter_status, filter_accounting, filter_metric)] = filter_stat_value
         
-        elif annot_name.startswith('filterstats_'):
+        elif annot_name.startswith('filterstats_') and annot_name.endswith('_values'):
             # It is a whole collection of correct or not-necessarily-correct filter statistic distribution values, for plotting.
             
+            value_list = annot[annot_name]
+
             # Break into components on underscores (correctness will be 'correct' or 'noncorrect'
-            (_, filter_num, filter_name, filter_stage, filter_correctness) = annot_name.split('_')
+            (leader, filter_num, filter_name, filter_stage, filter_correctness, _) = annot_name.split('_')
+
+            # Get the weights too
+            weight_list = annot.get("_".join((leader, filter_num, filter_name, filter_stage, filter_correctness, "weights")), None)
+            if weight_list is None:
+                weight_list = [1] * len(value_list)
+
             
             distribution = LossyCounter()
             
-            for item in annot[annot_name]:
+            for item, weight in zip(value_list, weight_list):
                 # Parse all the statistic vlues
                 item = float(item)
                 
@@ -365,8 +373,8 @@ def make_stats(read):
                     # Discard NANs
                     continue
                     
-                # Count all instances of the same value
-                distribution[item] += 1
+                # Weight the values 
+                distribution[item] += weight
                 
             # Save the statistic distribution
             filter_stats[filter_name]['statistic_distribution_{}'.format(filter_correctness)] = distribution
