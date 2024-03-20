@@ -337,51 +337,51 @@ def make_stats(read):
 
     # This will map from filter number int to filter name
     filters_by_index = {}
-    
+
+    # And this from filter number int to stage name
+    stages_by_index = {}
+
     # This will map from filter name to LossyCounter of filter stats
     filter_stats = collections.defaultdict(LossyCounter)
-    
-    for annot_name, annot_value in flat_items(annot):
-        # For each annotation
-        # TODO: rewrite for nested dicts!
-        if annot_name.startswith('filter.'):
-            # If it is an individual filter info item
-            
-            # Names look like 'filter.2.cluster-score-threshold_cluster.passed.size_correct'
-                
-            # Break into components on dots
-            (_, filter_num, filter_name, filter_stage, filter_status, last) = annot_name.split('.')
-            filter_accounting, filter_metric = last.split('_')
-            
-            # Collect integers
-            filter_num = int(filter_num)
-            filter_stat_value = annot_value
-            
-            # Record the filter being at this index if not known already
-            filters_by_index[filter_num] = filter_name
-            
-            if filter_stage == 'minimizer':
-                # Wer are filtering items produced by the minimizer stage.
-                # At the minimizer stage, correct and incorrect are not defined yet.
-                if filter_metric == 'correct':
-                    # Make sure we didn't get any counts
-                    assert filter_stat_value == 0
-                    # None out the correct stat so we can detect this when making the table
-                    filter_stat_value = None
-            
-            # Record the stat value
-            filter_stats[filter_name]['{}_{}_{}'.format(filter_status, filter_accounting, filter_metric)] = filter_stat_value
+
+    filter_dict = annot.get("filter", {})
+    filterstats_dict = annot.get("filterstats", {})
+    for filter_num_str, filter_data in filter_dict.items():
+        filter_num = int(filter_num_str)
+        filter_name = filter_data["name"]
+        filter_stage = filter_data["stage"]
+
+        # Record the filter being at this index if not known already
+        filters_by_index[filter_num] = filter_name
+        # And also the stage
+        stages_by_index[filter_num] = filter_stage
+
+        for filter_status in ("passed", "failed"):
+            for filter_accounting in ("count", "size"):
+                for filter_metric in ("total", "correct"):
+                    filter_stat_value = filter_data.get(filter_status, {}).get(f"{filter_accounting}_{filter_metric}", None)
+
+                    if filter_stage == 'minimizer':
+                        # Wer are filtering items produced by the minimizer stage.
+                        # At the minimizer stage, correct and incorrect are not defined yet.
+                        if filter_metric == 'correct':
+                            # Make sure we didn't get any counts
+                            assert filter_stat_value == 0
+                            # None out the correct stat so we can detect this when making the table
+                            filter_stat_value = None
         
-        elif annot_name.startswith('filterstats.') and annot_name.endswith('.values'):
-            # It is a whole collection of correct or not-necessarily-correct filter statistic distribution values, for plotting.
-            
-            value_list = annot_value
+                    # Record the stat value
+                    filter_stats[filter_name]['{}_{}_{}'.format(filter_status, filter_accounting, filter_metric)] = filter_stat_value
 
-            # Break into components on underscores (correctness will be 'correct' or 'noncorrect'
-            (leader, filter_num, filter_name, filter_stage, filter_correctness, _) = annot_name.split('.')
+        # Get the stats that go with this filter (if any)
+        filterstats_data = filterstats_dict.get(filter_num_str, {})
 
-            # Get the weights too
-            weight_list = get_flat_key(annot, ".".join((leader, filter_num, filter_name, filter_stage, filter_correctness, "weights")), None)
+        for filter_correctness in ("correct", "noncorrect"):
+            # Get the subset dict for this correctness
+            filterstats_subset_data = filterstats_data.get(filter_correctness, {})
+            # Get all the values and weights
+            value_list = filterstats_subset_data.get("values", [])
+            weight_list = filterstats_subset_data.get("weights", None)
             if weight_list is None:
                 weight_list = [1] * len(value_list)
 
@@ -402,17 +402,29 @@ def make_stats(read):
             # Save the statistic distribution
             filter_stats[filter_name]['statistic_distribution_{}'.format(filter_correctness)] = distribution
 
-        elif annot_name == 'last_correct_stage':
-            stage = annot_value
-            if stage == 'none':
-                filter_stats['hard-hit-cap']['last_correct_stage'] = 1
-            elif stage == 'cluster':
-                filter_stats['cluster-coverage']['last_correct_stage'] = 1
-            elif stage == 'extend':
-                filter_stats['extension-set']['last_correct_stage'] = 1
-            elif stage == 'align':
-                filter_stats['max-alignments']['last_correct_stage'] = 1
-        
+    # Now we need the filter number of the first filter after the given stage name, including "none".
+    # TODO: This is all duplicate work over all reads!
+    first_filter_number_after = {}
+    for index, stage in stages_by_index.items():
+        if index == 0:
+            # Very first filter
+            first_filter_number_after["none"] = index
+        else:
+            prev_stage = stages_by_index[index - 1]
+            if prev_stage != stage:
+                # This is the first filter in its stage, so it is the first
+                # after the previous stage.
+                first_filter_number_after[prev_stage] = index
+
+    if "last_correct_stage" in annot:
+        stage = annot["last_correct_stage"]
+        if stage in first_filter_number_after:
+            # Assign a last correct stage point to the first filter after the named stage, which maybe lost the item.
+            filter_stats[filters_by_index[first_filter_number_after[stage]]]['last_correct_stage'] = 1
+        elif stage != "winner":
+            # This is probably "align"; blame it on the final filter.
+            filter_stats[filters_by_index[max(filters_by_index.keys())]]['last_correct_stage'] = 1
+
     # Now put them all in this dict by number and then name
     ordered_stats = collections.OrderedDict()
     for filter_index in sorted(filters_by_index.keys()):

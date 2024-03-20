@@ -702,6 +702,25 @@ rule giraffe_sim_reads:
 
         shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
 
+rule giraffe_sim_reads_with_correctness:
+    input:
+        unpack(indexed_graph),
+        gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
+    output:
+        gam="{root}/correctness/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        realness="sim"
+    threads: MAPPER_THREADS
+    resources:
+        mem_mb=500000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    run:
+        vg_binary = get_vg_version(wildcards.vgversion)
+        flags=get_vg_flags(wildcards.vgflag)
+
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
+
 rule winnowmap_reads:
     input:
         reference_fasta=reference_fasta,
@@ -968,21 +987,21 @@ rule stats_from_alignments:
     shell:
         "vg stats -p {threads} -a {input.gam} >{output.stats}"
 
-rule facts_from_alignments:
+rule facts_from_alignments_with_correctness:
     input:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/correctness/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
         facts="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt",
         facts_dir=directory("{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts")
     wildcard_constraints:
         mapper="giraffe-.+"
-    threads: 17
+    threads: 64
     resources:
         mem_mb=10000,
         runtime=90,
         slurm_partition=choose_partition(90)
     shell:
-        "python3 giraffe-facts.py {input.gam} {output.facts_dir} >{output.facts}"
+        "python3 giraffe-facts.py --threads {threads} {input.gam} {output.facts_dir} >{output.facts}"
 
 rule mapping_rate_from_stats:
     input:
