@@ -137,7 +137,7 @@ class ParameterSearch:
         if parameter_tuple in self.hash_to_parameters.inverse:
             return self.hash_to_parameters.inverse[parameter_tuple]
         else:
-            return str(hash(parameter_tuple))[:20];
+            return str(abs(hash(parameter_tuple)))[:20];
         
     #Given a tuple representing a set of parameters, return a string of options to be run in giraffe
     def parameter_tuple_to_parameter_string(self, parameter_tuple):
@@ -170,8 +170,10 @@ class ParameterSearch:
             yield (hash_val, parameter_tuple_to_parameter_string(parameter_tuple))
     
     def get_hashes(self):
-       for hash_val, parameter_tuple in self.hash_to_parameters:
-            yield hash_val
+        hashes = []
+        for hash_val, parameter_tuple in self.hash_to_parameters.items():
+            hashes.append(hash_val)
+        return hashes
 
 def main():
     parser = argparse.ArgumentParser(description="Add randomly sampled parameters to the file of parameters to search")
