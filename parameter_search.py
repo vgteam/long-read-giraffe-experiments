@@ -158,21 +158,12 @@ class ParameterSearch:
     def sample_parameter_space(self, count):
         f = open(self.hash_to_parameters_file, "a")
         for i in range(count):
-            parameter_tuple = (param.sample() for param in self.parameters)
+            parameter_tuple = tuple([param.sample() for param in self.parameters])
             hash_val = self.parameter_tuple_to_hash(parameter_tuple)
             self.hash_to_parameters[hash_val] = parameter_tuple
             f.write("\n" + hash_val + "\t" + '\t'.join([str(x) for x in parameter_tuple]))
         f.close()
 
-
-    def add_parameter_set(self, parameter_tuple):
-        hash_val = self.parameter_tuple_to_hash(parameter_tuple)
-        self.hash_to_parameters[hash_val] = parameter_tuple
-        f = open(self.hash_to_parameters_file, "a")
-        f.write("\n" + hash_val + "\t" + '\t'.join([str(x) for x in parameter_tuple]))
-        f.close()
-
-    
     #Load the parameters and hashes from hash_to_parameters and output them as a generator
     def get_hashes_and_parameter_strings(self):
        for hash_val, parameter_tuple in self.hash_to_parameters:
