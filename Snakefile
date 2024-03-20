@@ -566,8 +566,7 @@ def get_vg_flags(wildcard_flag):
         return "--downsample-min " + wildcard_flag[10:]
     elif wildcard_flag == "fragonly":
         return "--fragment-max-lookback-bases 3000 --max-lookback-bases 0"
-    elif:
-        assert(wildcard_flag == "noflags")
+    elif(wildcard_flag == "noflags"):
         return ""
     else:
         #otherwise this is a hash and we get the flags from ParameterSearch
@@ -1313,8 +1312,8 @@ rule mapping_stats:
 
 rule parameter_search_mapping_stats:
     input:
-        times = expand("{{root}}/stats/{{reference}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/real/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.time_used.mean.tsv", param_hash=PARAM_SEARCH.get_hashes())
-        mapping_stats = expand("{{root}}/stats/{{reference}}/{{mapper}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
+        times = expand("{{root}}/stats/{{reference}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/real/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.time_used.mean.tsv", param_hash=PARAM_SEARCH.get_hashes()),
+        mapping_stats = expand("{{root}}/stats/{{reference}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
         "{root}/experiments/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.parameter_mapping_stats.tsv"
     threads: 1
