@@ -262,10 +262,31 @@ class LossyCounter(collections.Counter):
     def __neg__(self):
         return LossyCounter(super().__neg__())
 
+def flat_items(struct):
+    """
+    Yield dotted key strings and values for all leaf values in the given dict.
+    """
 
+    for k, v in struct.items():
+        if isinstance(v, dict):
+            for subkey, subvalue in flat_items(v):
+                yield f"{k}.{subkey}", subvalue 
+        else:
+            yield k, v
+
+def get_flat_key(struct, key, default=None):
+    """
+    Get a value from a nested dict by dotted key string.
+    """
+
+    if "." in key:
+        first, rest = key.split(".", 1)
+        return get_flat_key(struct.get(first, {}), rest, default=default)
+    else:
+        return struct.get(key, default)
     
 # Stats under NO_FILTER are not associated with a filter
-NO_FILTER = "__none__"
+NO_FILTER = (-1, "__none__")
 
 def make_stats(read):
     """
@@ -273,7 +294,7 @@ def make_stats(read):
     
     Run on an empty dict, makes a zero-value stats dict.
     
-    A stats dict maps from filter name to a LossyCounter of filter stats.
+    A stats dict maps from filter number, name pair to a LossyCounter of filter stats.
     The filter stats include:
         
         - 'passed_count_total' which is the count of results passing the
@@ -313,26 +334,28 @@ def make_stats(read):
     
     # This is the annotation dict from the read
     annot = read.get('annotation', {})
-    
+
     # This will map from filter number int to filter name
     filters_by_index = {}
     
     # This will map from filter name to LossyCounter of filter stats
     filter_stats = collections.defaultdict(LossyCounter)
     
-    for annot_name in annot.keys():
+    for annot_name, annot_value in flat_items(annot):
         # For each annotation
-        if annot_name.startswith('filter_'):
+        # TODO: rewrite for nested dicts!
+        if annot_name.startswith('filter.'):
             # If it is an individual filter info item
             
-            # Names look like 'filter_2_cluster-score-threshold_cluster_passed_size_correct'
+            # Names look like 'filter.2.cluster-score-threshold_cluster.passed.size_correct'
                 
-            # Break into components on underscores
-            (_, filter_num, filter_name, filter_stage, filter_status, filter_accounting, filter_metric) = annot_name.split('_')
+            # Break into components on dots
+            (_, filter_num, filter_name, filter_stage, filter_status, last) = annot_name.split('.')
+            filter_accounting, filter_metric = last.split('_')
             
             # Collect integers
             filter_num = int(filter_num)
-            filter_stat_value = annot[annot_name]
+            filter_stat_value = annot_value
             
             # Record the filter being at this index if not known already
             filters_by_index[filter_num] = filter_name
@@ -349,16 +372,16 @@ def make_stats(read):
             # Record the stat value
             filter_stats[filter_name]['{}_{}_{}'.format(filter_status, filter_accounting, filter_metric)] = filter_stat_value
         
-        elif annot_name.startswith('filterstats_') and annot_name.endswith('_values'):
+        elif annot_name.startswith('filterstats.') and annot_name.endswith('.values'):
             # It is a whole collection of correct or not-necessarily-correct filter statistic distribution values, for plotting.
             
-            value_list = annot[annot_name]
+            value_list = annot_value
 
             # Break into components on underscores (correctness will be 'correct' or 'noncorrect'
-            (leader, filter_num, filter_name, filter_stage, filter_correctness, _) = annot_name.split('_')
+            (leader, filter_num, filter_name, filter_stage, filter_correctness, _) = annot_name.split('.')
 
             # Get the weights too
-            weight_list = annot.get("_".join((leader, filter_num, filter_name, filter_stage, filter_correctness, "weights")), None)
+            weight_list = get_flat_key(annot, ".".join((leader, filter_num, filter_name, filter_stage, filter_correctness, "weights")), None)
             if weight_list is None:
                 weight_list = [1] * len(value_list)
 
@@ -379,8 +402,8 @@ def make_stats(read):
             # Save the statistic distribution
             filter_stats[filter_name]['statistic_distribution_{}'.format(filter_correctness)] = distribution
 
-        elif annot_name.startswith('last_correct_stage'):
-            stage = annot[annot_name]
+        elif annot_name == 'last_correct_stage':
+            stage = annot_value
             if stage == 'none':
                 filter_stats['hard-hit-cap']['last_correct_stage'] = 1
             elif stage == 'cluster':
@@ -390,11 +413,11 @@ def make_stats(read):
             elif stage == 'align':
                 filter_stats['max-alignments']['last_correct_stage'] = 1
         
-    # Now put them all in this OrderedDict in order
+    # Now put them all in this dict by number and then name
     ordered_stats = collections.OrderedDict()
     for filter_index in sorted(filters_by_index.keys()):
         filter_name = filters_by_index[filter_index]
-        ordered_stats[filter_name] = filter_stats[filter_name]
+        ordered_stats[(filter_index, filter_name)] = filter_stats[filter_name]
         
     # Add in special non-filter stats (not distributions)
     ordered_stats[NO_FILTER] = collections.OrderedDict()
@@ -454,10 +477,9 @@ def read_read_lines(vg, filename, threads=16):
     enumerated as bytes objects, with trailing whitespace, and some may be empty.
     """
 
-    # Extract just the annotations and times of reads as JSON, with a # header
-    # We don't know all the annotation field names in advance so we have to dump them all.
+    # Extract just the relevant annotations and times of reads as JSON, with a # header
     # Use several threads because we spend a lot of time crunching JSON, and use small batches to limit memory use.
-    filter_process = subprocess.Popen([vg, "filter", f"-t{threads}", "-B10", "--tsv-out", "annotation;time_used", filename], stdout=subprocess.PIPE)
+    filter_process = subprocess.Popen([vg, "filter", f"-t{threads}", "-B10", "--tsv-out", "annotation.filter;annotation.filterstats;annotation.last_correct_stage;time_used", filename], stdout=subprocess.PIPE)
 
     lines = iter(filter_process.stdout)
     # Drop header line
@@ -474,7 +496,8 @@ def read_line_to_read_dict(line):
     Given a bytes object that may be a blank line from read_read_lines(),
     return a read dict of the subset of the read information we loaded.
 
-    The result will have the annotation and time_used fields, or be empty and
+    The result will have the annotation.filterm annotation.filterstats,
+    annotation.last_correct_stage, and time_used fields, or be empty and
     represent a blank line.
     """
 
@@ -484,8 +507,8 @@ def read_line_to_read_dict(line):
     if len(line) == 0:
         return {}
     parts = line.split("\t")
-    assert len(parts) == 2
-    read = {"annotation": json.loads(parts[0]), "time_used": float(parts[1])}
+    assert len(parts) == 4
+    read = {"annotation": {"filter": json.loads(parts[0]), "filterstats": json.loads(parts[1]), "last_correct_stage": parts[2]}, "time_used": float(parts[3])}
 
     return read
 
@@ -941,11 +964,11 @@ def print_table(stats_total, params=None, out=sys.stdout):
     # Column min widths from headers
     header_widths = []
     
-    # Find all the filters
-    filters = [k for k in stats_total.keys() if k != NO_FILTER]
+    # Find all the filter value, name pairs
+    filters = sorted([k for k in stats_total.keys() if k != NO_FILTER])
     
     # Compute filter row headings
-    filter_headings = list(filters)
+    filter_headings = [k[1] for k in filters]
     
     if params is not None:
         # Annotate each filter with its parameter value
@@ -1004,7 +1027,7 @@ def print_table(stats_total, params=None, out=sys.stdout):
     # And the number of correct reads lost at each stage
     lost_stage_header = "Lost"
     lost_stage_header2 = "reads"
-    lost_stage_reads = [x for x in (stats_total[filter_name].get('last_correct_stage', 0) for filter_name in filters) if x is not None]
+    lost_stage_reads = [x for x in (stats_total[filter_key].get('last_correct_stage', 0) for filter_key in filters) if x is not None]
     max_stage = max(itertools.chain(lost_stage_reads, [0]))
     overall_lost_stage = sum(lost_stage_reads)
     lost_stage_width = max(len(lost_stage_header), len(lost_stage_header2), len(str(max_stage)), len(str(overall_lost_stage)))
@@ -1019,7 +1042,7 @@ def print_table(stats_total, params=None, out=sys.stdout):
     # How big a number will we need to hold?
     # Look at the reads lost at all filters
     # Account for None values for stages that don't have correctness defined yet.
-    lost_reads = [x for x in (stats_total[filter_name]['failed_count_correct'] for filter_name in filters) if x is not None]
+    lost_reads = [x for x in (stats_total[filter_key]['failed_count_correct'] for filter_key in filters) if x is not None]
     max_filter_stop = max(itertools.chain(lost_reads, [0]))
     # How many correct reads are lost overall by filters?
     overall_lost = sum(lost_reads)
@@ -1034,7 +1057,7 @@ def print_table(stats_total, params=None, out=sys.stdout):
     rejected_header2 = ""
     # How big a number will we need to hold?
     # Look at the reads rejected at all filters
-    rejected_reads = [stats_total[filter_name]['failed_count_total'] for filter_name in filters]
+    rejected_reads = [stats_total[filter_key]['failed_count_total'] for filter_key in filters]
     max_filter_stop = max(itertools.chain(rejected_reads, [0]))
     # How many incorrect reads are rejected overall by filters?
     overall_rejected = sum(rejected_reads)
@@ -1075,23 +1098,23 @@ def print_table(stats_total, params=None, out=sys.stdout):
     table.line()
     
     
-    for i, filter_name in enumerate(filters):
+    for i, filter_key in enumerate(filters):
         # Grab average results passing this filter per read
-        total_passing = stats_total[filter_name]['passed_count_total']
+        total_passing = stats_total[filter_key]['passed_count_total']
         average_passing = total_passing / read_count if read_count != 0 else float('NaN')
         
         # Grab average results failing this filter per read
-        total_failing = stats_total[filter_name]['failed_count_total']
+        total_failing = stats_total[filter_key]['failed_count_total']
         average_failing = total_failing / read_count if read_count != 0 else float('NaN')
         
         # Grab reads that are lost.
         # No reads are lost at the final stage.
-        lost = stats_total[filter_name]['failed_count_correct']
+        lost = stats_total[filter_key]['failed_count_correct']
         
-        lost_stage = stats_total[filter_name]['last_correct_stage']
+        lost_stage = stats_total[filter_key]['last_correct_stage']
 
         # And reads that are rejected at all
-        rejected = stats_total[filter_name]['failed_count_total']
+        rejected = stats_total[filter_key]['failed_count_total']
         
         if lost is None:
             # Correctness is not defined yet.
@@ -1100,16 +1123,16 @@ def print_table(stats_total, params=None, out=sys.stdout):
             
         # Compute precision
         try:
-            precision = pr_format.format(stats_total[filter_name]['passed_count_correct'] /
-                stats_total[filter_name]['passed_count_total'])
+            precision = pr_format.format(stats_total[filter_key]['passed_count_correct'] /
+                stats_total[filter_key]['passed_count_total'])
         except:
             precision = 'N/A'
         
         # Compute recall
         try:
-            recall = pr_format.format(stats_total[filter_name]['passed_count_correct'] / 
-                (stats_total[filter_name]['passed_count_correct'] +
-                stats_total[filter_name]['failed_count_correct']))
+            recall = pr_format.format(stats_total[filter_key]['passed_count_correct'] / 
+                (stats_total[filter_key]['passed_count_correct'] +
+                stats_total[filter_key]['failed_count_correct']))
         except:
             recall = 'N/A'
         
@@ -1148,9 +1171,9 @@ def plot_filter_statistic_histograms(out_dir, stats_total):
     Store histograms in out_dir.
     """
     
-    for filter_name in (k for k in stats_total.keys() if k != NO_FILTER):
-        correct_counter = stats_total[filter_name]['statistic_distribution_correct']
-        noncorrect_counter = stats_total[filter_name]['statistic_distribution_noncorrect']
+    for filter_key in (k for k in sorted(stats_total.keys()) if k != NO_FILTER):
+        correct_counter = stats_total[filter_key]['statistic_distribution_correct']
+        noncorrect_counter = stats_total[filter_key]['statistic_distribution_noncorrect']
         
         if not ((hasattr(correct_counter, "items") and len(correct_counter) > 0) or
             (hasattr(noncorrect_counter, "items") and len(noncorrect_counter) > 0)):
@@ -1159,7 +1182,7 @@ def plot_filter_statistic_histograms(out_dir, stats_total):
             continue
         
         # Open a TSV file to draw a histogram from
-        tsv_path = os.path.join(out_dir, 'stat_{}.tsv'.format(filter_name))
+        tsv_path = os.path.join(out_dir, 'stat_{}.tsv'.format(filter_key[1]))
         tsv = open(tsv_path, 'w')
         
         # Some stages don't have correctness annotation. So we track if we saw
@@ -1184,10 +1207,10 @@ def plot_filter_statistic_histograms(out_dir, stats_total):
         tsv.close()
         
         # Now make the plot
-        svg_path = os.path.join(out_dir, 'stat_{}.svg'.format(filter_name))
+        svg_path = os.path.join(out_dir, 'stat_{}.svg'.format(filter_key[1]))
         
         args = ['histogram.py', tsv_path, '--save', svg_path,
-            '--title', '{} Statistic Histogram'.format(filter_name),
+            '--title', '{} Statistic Histogram'.format(filter_key[1]),
             '--x_label',  'Statistic Value',
             '--bins', '20',
             '--y_label', 'Frequency']
@@ -1238,7 +1261,7 @@ def main(args):
    
     # Map it to stats and reduce it to total stats
     stats_total = map_reduce(read_lines, read_line_to_stats, add_in_stats, collections.OrderedDict, threads=max(1, options.threads // 2))
-    
+
     # After processing all the reads
     
     # Print the table now in case plotting fails
