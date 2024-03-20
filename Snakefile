@@ -2,6 +2,8 @@
 # Experimental procedure for evaluating Long Read Giraffe #
 ###########################################################
 
+import parameter_search
+
 # Set a default config file. This can be overridden with --configfile.
 # See the config file for how to define experiments.
 configfile: "lr-config.yaml"
@@ -125,6 +127,8 @@ SLURM_PARTITIONS = [
 # A few more threads will be used for filters
 MAPPER_THREADS=32
 
+
+PARAM_SEARCH = parameter_search.ParameterSearch()
 
 
 wildcard_constraints:
@@ -562,9 +566,12 @@ def get_vg_flags(wildcard_flag):
         return "--downsample-min " + wildcard_flag[10:]
     elif wildcard_flag == "fragonly":
         return "--fragment-max-lookback-bases 3000 --max-lookback-bases 0"
-    else:
+    elif:
         assert(wildcard_flag == "noflags")
         return ""
+    else:
+        #otherwise this is a hash and we get the flags from ParameterSearch
+        PARAM_SEARCH.hash_to_parameter_string(wildcard_flag)
 
 def get_vg_version(wildcard_vgversion):
     if wildcard_vgversion == "default":
@@ -1274,6 +1281,69 @@ rule length_by_correctness_histogram:
         slurm_partition=choose_partition(10)
     shell:
         "python3 histogram.py {input.tsv} --log_counts --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length for {wildcards.mapper}' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories correct incorrect off-reference --category_labels Correct Incorrect 'Off Reference' --legend_overlay 'best' --stack --save {output}"
+
+
+rule mapping_stats:
+    input:
+        compared_tsv="{root}/compared/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
+    output:
+        "{root}/stats/{reference}/{mapper}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_stats.tsv"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=100,
+        slurm_partition=choose_partition(100)
+    run:
+
+        correct_count = 0
+        mapq60_count = 0
+        wrong_mapq60_count = 0
+
+        f = open(input.compared_tsv)
+        for line in f:
+            l = line.split()
+            if l[0] == "1":
+                correct_count+=1
+            if int(l[1]) == 60:
+                mapq60_count += 1
+                if int(l[0]) == 0 and int(l[4]) == 1:
+                    wrong_mapq60_count+=1
+        shell("printf " + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "> {output}")
+        
+
+rule parameter_search_mapping_stats:
+    input:
+        times = expand("{{root}}/stats/{{reference}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/real/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.time_used.mean.tsv", param_hash=PARAM_SEARCH.get_hashes())
+        mapping_stats = expand("{{root}}/stats/{{reference}}/{{mapper}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
+    output:
+        "{root}/experiments/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.parameter_mapping_stats.tsv"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=100,
+        slurm_partition=choose_partition(100)
+    run:
+        f = open(output, "w")
+        f.write("#correct\tmapq60\twrong_mapq60\tspeed(r/s/t)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
+        for param_hash, stats_file, times_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_stats, input.times):
+
+            param_f = open(stats_file)
+            l = param_f.readline().split()
+            correct_count = l[0]
+            mapq60_count = l[1]
+            wrong_mapq60_count = l[2]
+            param_f.close()
+
+            time_f = open(time_file)
+            l = time_f.readline().split()
+            speed = l[0]
+            time_f.close()
+
+            parameters = PARAM_SEARCH.hash_to_parameters(param_hash)
+            f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + speed + "\t" + '\t'.join(PARAM_SEARCH.hash_to_parameters(param_hash))) 
+        f.close()
+
+
 
 
 ruleorder: chain_coverage > merge_stat_chunks 
