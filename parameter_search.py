@@ -30,8 +30,9 @@ class Parameter:
             if self.sampling_strategy == "uniform":
                 return np.random.randint(self.min_val, self.max_val)
         elif self.datatype=="float":
+            decimal_places = max(2, int(1/(self.max_val - self.min_val)))
             if self.sampling_strategy == "uniform":
-                return np.random.uniform(self.min_val, self.max_val)
+                return round(np.random.uniform(self.min_val, self.max_val), decimal_places)
     
     def __repr__(self):
         return self.name + ":\n\ttype:" + self.datatype + "\n\trange: " + str(self.min_val) + "-" + str(self.max_val) + "\n\tdefault value: " + str(self.default) + "\n\tsampling strategy: " + self.sampling_strategy
