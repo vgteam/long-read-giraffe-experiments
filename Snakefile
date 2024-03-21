@@ -570,7 +570,7 @@ def get_vg_flags(wildcard_flag):
         return ""
     else:
         #otherwise this is a hash and we get the flags from ParameterSearch
-        PARAM_SEARCH.hash_to_parameter_string(wildcard_flag)
+        return PARAM_SEARCH.hash_to_parameter_string(wildcard_flag)
 
 def get_vg_version(wildcard_vgversion):
     if wildcard_vgversion == "default":
@@ -1300,6 +1300,7 @@ rule mapping_stats:
         wrong_mapq60_count = 0
 
         f = open(input.compared_tsv)
+        f.readline()
         for line in f:
             l = line.split()
             if l[0] == "1":
@@ -1308,7 +1309,8 @@ rule mapping_stats:
                 mapq60_count += 1
                 if int(l[0]) == 0 and int(l[4]) == 1:
                     wrong_mapq60_count+=1
-        shell("printf " + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "> {output}")
+        f.close()
+        shell("printf \"" + str(correct_count) + "\t" + str(mapq60_count) + "\t" + str(wrong_mapq60_count) + "\" > {output}")
         
 
 rule parameter_search_mapping_stats:
@@ -1316,7 +1318,7 @@ rule parameter_search_mapping_stats:
         times = expand("{{root}}/stats/{{reference}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/real/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.time_used.mean.tsv", param_hash=PARAM_SEARCH.get_hashes()),
         mapping_stats = expand("{{root}}/stats/{{reference}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
-        "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.parameter_mapping_stats.tsv"
+        outfile="{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.parameter_mapping_stats.tsv"
     log: "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.param_search_mapping_stats.log"
     threads: 1
     resources:
@@ -1324,7 +1326,7 @@ rule parameter_search_mapping_stats:
         runtime=100,
         slurm_partition=choose_partition(100)
     run:
-        f = open(output, "w")
+        f = open(output.outfile, "w")
         f.write("#correct\tmapq60\twrong_mapq60\tspeed(r/s/t)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
         for param_hash, stats_file, times_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_stats, input.times):
 
@@ -1335,13 +1337,13 @@ rule parameter_search_mapping_stats:
             wrong_mapq60_count = l[2]
             param_f.close()
 
-            time_f = open(time_file)
+            time_f = open(times_file)
             l = time_f.readline().split()
             speed = l[0]
             time_f.close()
 
-            parameters = PARAM_SEARCH.hash_to_parameters(param_hash)
-            f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + speed + "\t" + '\t'.join(PARAM_SEARCH.hash_to_parameters(param_hash))) 
+            parameters = PARAM_SEARCH.hash_to_parameters[param_hash]
+            f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + speed + "\t" + '\t'.join([str(x) for x in parameters])) 
         f.close()
 
 
