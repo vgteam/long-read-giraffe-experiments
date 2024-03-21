@@ -141,15 +141,13 @@ class ParameterSearch:
         
     #Given a tuple representing a set of parameters, return a string of options to be run in giraffe
     def parameter_tuple_to_parameter_string(self, parameter_tuple):
-        print(parameter_tuple)
-        print(self.parameters)
         assert(len(parameter_tuple) == len(self.parameters))
         param_string = ""
         for i in range(len(parameter_tuple)):
-            param_string.append("--" + self.parameters[i].name)
-            param_string.append(" " + str(parameter_tuple[i]))
+            param_string+="--" + self.parameters[i].name
+            param_string+=" " + str(parameter_tuple[i])
             if ( i != len(parameter_tuple)-1):
-                param_string.append(" ")
+                param_string+=" "
         return param_string
 
     def hash_to_parameter_string(self, hash_val):
