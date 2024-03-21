@@ -122,8 +122,7 @@ SLURM_PARTITIONS = [
 ]
 
 # How many threads do we want mapping to use?
-# A few more threads will be used for filters
-MAPPER_THREADS=32
+MAPPER_THREADS=128
 
 
 
@@ -728,19 +727,20 @@ rule winnowmap_reads:
         fastq=fastq
     params:
         mode=minimap_derivative_mode
+        map_threads=MAPPER_THREADS - 4
     output:
         bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
         # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
         # So match any string but that. See https://stackoverflow.com/a/14683066
         tech="(?!illumina).+"
-    threads: MAPPER_THREADS + 4
+    threads: MAPPER_THREADS
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "winnowmap -t {MAPPER_THREADS} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
+        "winnowmap -t {params.map_threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
 
 rule minimap2_index_reference:
     input:
