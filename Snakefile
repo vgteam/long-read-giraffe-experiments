@@ -726,7 +726,7 @@ rule winnowmap_reads:
         repetitive_kmers=repetitive_kmers,
         fastq=fastq
     params:
-        mode=minimap_derivative_mode
+        mode=minimap_derivative_mode,
         map_threads=MAPPER_THREADS - 4
     output:
         bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
