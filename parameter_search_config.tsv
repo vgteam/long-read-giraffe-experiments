@@ -1,3 +1,4 @@
 #name   type    min_val max_val default sampling_strategy
-zipcode-tree-score-threshold    int 10  100 50  uniform
-pad-zipcode-tree-score-threshold    int 5   50  20  uniform
+max-dp-align    int 1000    1000000  5000    log
+fragment-score-fraction float   .05 0.6  0.1    uniform
+zipcode-tree-coverage-threshold 0.3 0.3 0.3 uniform
