@@ -29,10 +29,27 @@ class Parameter:
         elif self.datatype=="int":
             if self.sampling_strategy == "uniform":
                 return np.random.randint(self.min_val, self.max_val)
+            elif self.sampling_strategy == "log":
+                #TODO: This is kinda hacky but it overflows if I try to exponentiate
+
+                log_range = list(range(int(np.floor(np.log10(self.min_val))), int(np.ceil(np.log10(self.max_val)))))
+                weights = [1 for x in log_range]
+                weights[0] = 1- (self.min_val / np.power(10, np.ceil(np.log10(self.min_val))))
+                weights[-1] = self.max_val / np.power(10, np.ceil(np.log10(self.max_val)))
+                sum_weights = sum(weights)
+                probs = [x / sum_weights for x in weights]
+
+                exp_val = np.random.choice(log_range, p=probs)
+                return np.random.randint(max(self.min_val, np.power(10, exp_val)), min(self.max_val, np.power(10, exp_val+1)))
+                
+            else: 
+                print("No sampling strategy " + self.sampling_strategy + " for type " + self.datatype)
         elif self.datatype=="float":
             decimal_places = max(2, int(1/(self.max_val - self.min_val)))
             if self.sampling_strategy == "uniform":
                 return round(np.random.uniform(self.min_val, self.max_val), decimal_places)
+            else: 
+                print("No sampling strategy " + self.sampling_strategy + " for type " + self.datatype)
     
     def __repr__(self):
         return self.name + ":\n\ttype:" + self.datatype + "\n\trange: " + str(self.min_val) + "-" + str(self.max_val) + "\n\tdefault value: " + str(self.default) + "\n\tsampling strategy: " + self.sampling_strategy
