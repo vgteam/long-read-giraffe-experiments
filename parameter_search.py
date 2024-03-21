@@ -32,6 +32,11 @@ class Parameter:
         elif self.datatype=="float":
             if self.sampling_strategy == "uniform":
                 return np.random.uniform(self.min_val, self.max_val)
+    
+    def __repr__(self):
+        return self.name + ":\n\ttype:" + self.datatype + "\n\trange: " + str(self.min_val) + "-" + str(self.max_val) + "\n\tdefault value: " + str(self.default) + "\n\tsampling strategy: " + self.sampling_strategy
+    def __str__(self):
+        return self.name + ":\n\ttype:" + self.datatype + "\n\trange: " + str(self.min_val) + "-" + str(self.max_val) + "\n\tdefault value: " + str(self.default) + "\n\tsampling strategy: " + self.sampling_strategy
 
 
 '''
@@ -70,7 +75,11 @@ class ParameterSearch:
         for line in f:
             if line[0] != "#":
                 l = line.split()
-                self.parameters.append(Parameter(l[0], l[1], float(l[2]) if l[1] == "int" else int(l[2]), float(l[3]) if l[1] == "int" else int(l[3]), float(l[4]) if l[1] == "int" else int(l[4]), l[5]) )
+                self.parameters.append(Parameter(l[0], l[1], 
+                                                 int(l[2]) if l[1] == "int" else float(l[2]), 
+                                                 int(l[3]) if l[1] == "int" else float(l[3]), 
+                                                 int(l[4]) if l[1] == "int" else float(l[4]), 
+                                                 l[5]) )
         f.close()
 
         #This maps a hash string to the set of parameters it represents, as a list of parameter values,
@@ -111,7 +120,7 @@ class ParameterSearch:
         #Get the values, filling in default values for things we missed
         for line in f:
             l = line.split()
-            new_params = tuple([float(l[i+1]) if i < len(l)-1 else self.parameters[i].default for i in range(len(self.parameters))])
+            new_params = tuple([(int(l[i+1]) if self.parameters[i].datatype == "int" else float(l[i+1])) if i < len(l)-1 else self.parameters[i].default for i in range(len(self.parameters))])
 
             #If there wasn't a hash value for the parameter set, then make one and rewrite everything
             hash_val = l[0]
@@ -163,11 +172,6 @@ class ParameterSearch:
             self.hash_to_parameters[hash_val] = parameter_tuple
             f.write("\n" + hash_val + "\t" + '\t'.join([str(x) for x in parameter_tuple]))
         f.close()
-
-    #Load the parameters and hashes from hash_to_parameters and output them as a generator
-    def get_hashes_and_parameter_strings(self):
-       for hash_val, parameter_tuple in self.hash_to_parameters:
-            yield (hash_val, parameter_tuple_to_parameter_string(parameter_tuple))
     
     def get_hashes(self):
         hashes = []
