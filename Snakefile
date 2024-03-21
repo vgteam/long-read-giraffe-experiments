@@ -1286,12 +1286,13 @@ rule mapping_stats:
     input:
         compared_tsv="{root}/compared/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
     output:
-        "{root}/stats/{reference}/{mapper}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_stats.tsv"
+        "{root}/stats/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_stats.tsv"
     threads: 1
     resources:
         mem_mb=2000,
         runtime=100,
         slurm_partition=choose_partition(100)
+    log: "{root}/stats/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_stats.log"
     run:
 
         correct_count = 0
@@ -1315,7 +1316,8 @@ rule parameter_search_mapping_stats:
         times = expand("{{root}}/stats/{{reference}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/real/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.time_used.mean.tsv", param_hash=PARAM_SEARCH.get_hashes()),
         mapping_stats = expand("{{root}}/stats/{{reference}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
-        "{root}/experiments/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.parameter_mapping_stats.tsv"
+        "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.parameter_mapping_stats.tsv"
+    log: "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.param_search_mapping_stats.log"
     threads: 1
     resources:
         mem_mb=2000,
@@ -1345,9 +1347,10 @@ rule parameter_search_mapping_stats:
 
 
 
-ruleorder: chain_coverage > merge_stat_chunks 
-ruleorder: time_used > merge_stat_chunks 
+ruleorder: chain_coverage > merge_stat_chunks
+ruleorder: time_used > merge_stat_chunks
 ruleorder: stage_time > merge_stat_chunks
-ruleorder: length > merge_stat_chunks 
-ruleorder: length_by_correctness > merge_stat_chunks  
+ruleorder: length > merge_stat_chunks
+ruleorder: length_by_correctness > merge_stat_chunks
+ruleorder: mapping_stats > merge_stat_chunks
 

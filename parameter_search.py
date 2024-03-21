@@ -111,7 +111,7 @@ class ParameterSearch:
         #Get the values, filling in default values for things we missed
         for line in f:
             l = line.split()
-            new_params = (float(l[i+1]) if i < len(l)-1 else self.parameters[i].default for x in range(len(self.parameters)))
+            new_params = tuple([float(l[i+1]) if i < len(l)-1 else self.parameters[i].default for i in range(len(self.parameters))])
 
             #If there wasn't a hash value for the parameter set, then make one and rewrite everything
             hash_val = l[0]
@@ -141,6 +141,8 @@ class ParameterSearch:
         
     #Given a tuple representing a set of parameters, return a string of options to be run in giraffe
     def parameter_tuple_to_parameter_string(self, parameter_tuple):
+        print(parameter_tuple)
+        print(self.parameters)
         assert(len(parameter_tuple) == len(self.parameters))
         param_string = ""
         for i in range(len(parameter_tuple)):
