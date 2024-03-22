@@ -18,6 +18,7 @@ import io
 import itertools
 import json
 import random
+import re
 import math
 
 # Force output to UTF-8. Eventually we can use reconfigure() if we drop 3.6
@@ -102,10 +103,14 @@ def parse_args(args):
     
     parser.add_argument("input", type=str,
                         help="GAM to process")
-    parser.add_argument("--vg", type=str, default="vg",
+    parser.add_argument("--vg", "-v", type=str, default="vg",
                         help="vg binary to use")
     parser.add_argument("--threads", "-t", type=int, default=16,
                         help="total threads to use")
+    parser.add_argument("--stages", "-s", action="store_true", default=False,
+                        help="show stage associated with each filter")
+    parser.add_argument("--filter-help", "-f", action="store_true", default=False,
+                        help="show documentation for each filter")
     parser.add_argument("outdir",
                         help="directory to place output in")
     
@@ -286,7 +291,7 @@ def get_flat_key(struct, key, default=None):
         return struct.get(key, default)
     
 # Stats under NO_FILTER are not associated with a filter
-NO_FILTER = (-1, "__none__")
+NO_FILTER = (-1, "__none__", "")
 
 def make_stats(read):
     """
@@ -359,17 +364,8 @@ def make_stats(read):
         for filter_status in ("passed", "failed"):
             for filter_accounting in ("count", "size"):
                 for filter_metric in ("total", "correct"):
+                    # Fetch the stat value
                     filter_stat_value = filter_data.get(filter_status, {}).get(f"{filter_accounting}_{filter_metric}", None)
-
-                    if filter_stage == 'minimizer':
-                        # Wer are filtering items produced by the minimizer stage.
-                        # At the minimizer stage, correct and incorrect are not defined yet.
-                        if filter_metric == 'correct':
-                            # Make sure we didn't get any counts
-                            assert filter_stat_value == 0
-                            # None out the correct stat so we can detect this when making the table
-                            filter_stat_value = None
-        
                     # Record the stat value
                     filter_stats[filter_name]['{}_{}_{}'.format(filter_status, filter_accounting, filter_metric)] = filter_stat_value
 
@@ -425,11 +421,11 @@ def make_stats(read):
             # This is probably "align"; blame it on the final filter.
             filter_stats[filters_by_index[max(filters_by_index.keys())]]['last_correct_stage'] = 1
 
-    # Now put them all in this dict by number and then name
+    # Now put them all in this dict by number and then name, and then stage to smuggle the stage out
     ordered_stats = collections.OrderedDict()
     for filter_index in sorted(filters_by_index.keys()):
         filter_name = filters_by_index[filter_index]
-        ordered_stats[(filter_index, filter_name)] = filter_stats[filter_name]
+        ordered_stats[(filter_index, filter_name, stages_by_index[filter_index])] = filter_stats[filter_name]
         
     # Add in special non-filter stats (not distributions)
     ordered_stats[NO_FILTER] = collections.OrderedDict()
@@ -959,7 +955,7 @@ class Table(object):
         
         self.out.write('\n')
                 
-def print_table(stats_total, params=None, out=sys.stdout):
+def print_table(stats_total, params=None, out=sys.stdout, show_stages=False):
     """
     Take the accumulated total stats dict, and an optional dict
     of mapping parameters corresponding to values for filters.
@@ -989,6 +985,22 @@ def print_table(stats_total, params=None, out=sys.stdout):
     
     # Compute filter row headings
     filter_headings = [k[1] for k in filters]
+    # And their stages, which we might show
+    filter_stages = [k[2] for k in filters]
+
+    if show_stages:
+        # How long is the longest stage name
+        stage_width = max(itertools.chain((len(x) for x in filter_stages), [0]))
+        # Leave room for the header.
+        # Filters are given the stage they filter the items of, so label the
+        # stage names accordingly.
+        stage_header = "Item"
+        stage_width = max(stage_width, len(stage_header))
+        
+        headers.append(stage_header)
+        headers2.append('')
+        header_widths.append(stage_width)
+
     
     if params is not None:
         # Annotate each filter with its parameter value
@@ -1012,7 +1024,7 @@ def print_table(stats_total, params=None, out=sys.stdout):
                 annotated_headings.append('{} ({})'.format(heading, ', '.join((str(x) for x in filter_values))))
                 
         filter_headings = annotated_headings
-    
+
     # How long is the longest filter name
     filter_width = max(itertools.chain((len(x) for x in filter_headings), [0]))
     # Leave room for the header
@@ -1116,7 +1128,9 @@ def print_table(stats_total, params=None, out=sys.stdout):
     table.row(headers, 'c')
     table.row(headers2, 'c')
     table.line()
-    
+
+    # Track the previous stage so we can mark off when stages change.
+    prev_stage = None
     
     for i, filter_key in enumerate(filters):
         # Grab average results passing this filter per read
@@ -1155,9 +1169,25 @@ def print_table(stats_total, params=None, out=sys.stdout):
                 stats_total[filter_key]['failed_count_correct']))
         except:
             recall = 'N/A'
+
+        row = []
+        align = ''
+
+        if show_stages:
+            if prev_stage is None or prev_stage != filter_stages[i]:
+                # Write the stage name once per stage
+                row.append(filter_stages[i])
+                if prev_stage is not None:
+                    # When the stage changes, put a line
+                    table.line()
+                prev_stage = filter_stages[i]
+            else:
+                # Leave a blank in the stage column
+                row.append('')
+            align += 'l'
         
-        row = [filter_headings[i]]
-        align = 'c'
+        row.append(filter_headings[i])
+        align += 'c'
         # Add the provenance columns
         row += ['{:.2f}'.format(average_passing), '{:.2f}'.format(average_failing), lost_stage, lost, rejected,
             precision, recall]
@@ -1169,8 +1199,15 @@ def print_table(stats_total, params=None, out=sys.stdout):
     table.line()
         
     # Compose the overall row
-    row = [filter_overall]
-    align = 'c'
+    row = []
+    align = ''
+
+    if show_stages:
+        row.append('')
+        align += 'l'
+
+    row.append(filter_overall)
+    align += 'c'
     # Add the provenance columns
     row += ['', '', overall_lost_stage, overall_lost, overall_rejected, '', '']
     align += 'rr'
@@ -1241,9 +1278,94 @@ def plot_filter_statistic_histograms(out_dir, stats_total):
             args.append('correct')
             args.append('noncorrect')
         histogram.main(args)
-                
-            
 
+def capitalize_first(string):
+    """
+    Capitalize the first letter of a string while elaving the other letters alone.
+    """
+
+    return string[0].upper() + string[1:]
+
+def explain_filters(filters_and_stages, vg):
+    """
+    Go get the vg giraffe help for all the filters in filter_names, in order, and print it.
+    """
+
+    # Get all the lines of help text
+    help_lines = subprocess.run([vg, "giraffe", "--help"], stderr=subprocess.PIPE, check=False).stderr.decode('utf-8').split('\n')
+
+    # This will hold help line lists by filter name
+    filter_helps = collections.defaultdict(list)
+
+    # Add the magic built-in filters with no help
+    filter_helps["window-downsampling"].append("Downsample minimizers to one per read-length-based sliding window")
+    filter_helps["any-hits"].append("Drop minimizers without any hits in the graph")
+    filter_helps["no-chain-overlap"].append("Drop chains that share read-graph matchings with previously aligned chains")
+
+
+    # Extract the names without the stages
+    filter_names = [f[0] for f in filters_and_stages]
+
+    # These are the filters we are still looking for.
+    unseen_filters = set(filter_names)
+    
+    # And this is the filter whole help we are currently reading
+    current_filter = None
+    for line in help_lines:
+        # Do a state machine down the help lines.
+        if current_filter is not None:
+            # We're reading a help section
+            if not line.startswith(' ') or line.lstrip().startswith('-'):
+                # Starting a new header or argument.
+                current_filter = None
+            else:
+                # Continuing the filter help for the previous option.
+                # Add on the line
+                filter_helps[current_filter].append(line.strip())
+        if current_filter is None:
+            # Look for all the filters we haven't started yet on this line,
+            # longest first to handle filters which are substrings of each
+            # other
+            sorted_filters = sorted(unseen_filters, key=len, reverse=True)
+            for filter_to_try in sorted_filters:
+                if filter_to_try in line:
+                    # This line starts the section for this filter
+                    current_filter = filter_to_try
+                    filter_helps[current_filter].append(line.rstrip())
+                    unseen_filters.remove(filter_to_try)
+                    break
+
+
+    for filter_name, help_lines in filter_helps.items():
+        # Rewrite the filter option specs out of the first lines and capitalize it.
+        help_lines[0] = capitalize_first(re.sub("^ +(-[a-zA-Z0-9], )?--[-a-zA-Z0-9]+( [A-Z]+)? +", "", help_lines[0]))
+        # And the trailing defaults
+        help_lines[-1] = re.sub("\[[0-9.]+\]$", "", help_lines[-1])
+
+    # Now print the results by stage
+    filters_by_stage = collections.defaultdict(list)
+    for filter_name, stage in filters_and_stages:
+        filters_by_stage[stage].append(filter_name)
+    
+    for stage in filters_by_stage.keys():
+        print(f"Filters on {stage} items:")
+        for filter_name in filters_by_stage[stage]:
+            filter_help_string = ' '.join(filter_helps[filter_name]) if filter_name in filter_helps else "!!!UNKNOWN!!!"
+            print(f"    * {filter_name}: {filter_help_string}")
+
+def explain_filters_in(stats_total, vg):
+    """
+    Print an explanation of all the filters in the given stats dict, in order.
+    """
+
+    filters_and_stages = []
+    for k in stats_total.keys():
+        if k != NO_FILTER:
+            for piece in k[1].split('||'):
+                # Make a list of all filter parameter anmes and their stages
+                filters_and_stages.append((piece, k[2]))
+
+    explain_filters(filters_and_stages, vg)
 
 def main(args):
     """
@@ -1285,7 +1407,11 @@ def main(args):
     # After processing all the reads
     
     # Print the table now in case plotting fails
-    print_table(stats_total, params)
+    print_table(stats_total, params, show_stages=options.stages)
+
+    if options.filter_help:
+        # Explain all the filters
+        explain_filters_in(stats_total, options.vg)
     
     # Make filter statistic histograms
     plot_filter_statistic_histograms(options.outdir, stats_total)

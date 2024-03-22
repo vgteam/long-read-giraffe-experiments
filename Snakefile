@@ -989,19 +989,18 @@ rule stats_from_alignments:
 
 rule facts_from_alignments_with_correctness:
     input:
-        gam="{root}/correctness/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/correctness/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        facts="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt",
-        facts_dir=directory("{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts")
-    wildcard_constraints:
-        mapper="giraffe-.+"
+        facts="{root}/stats/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt",
+        facts_dir=directory("{root}/stats/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts")
     threads: 64
     resources:
         mem_mb=10000,
         runtime=90,
         slurm_partition=choose_partition(90)
-    shell:
-        "python3 giraffe-facts.py --threads {threads} {input.gam} {output.facts_dir} >{output.facts}"
+    run:
+        vg_binary = get_vg_version(wildcards.vgversion)
+        shell("python3 giraffe-facts.py --threads {threads} {input.gam} {output.facts_dir} --stage --filter-help --vg " + vg_binary + " >{output.facts}")
 
 rule mapping_rate_from_stats:
     input:
