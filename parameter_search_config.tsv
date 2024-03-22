@@ -2,6 +2,7 @@
 zipcode-tree-score-threshold    float   50  50  50  uniform
 pad-zipcode-tree-score-threshold    float 20  20  20  uniform
 zipcode-tree-coverage-threshold float   20  20  20  uniform
+zipcode-tree-scale  float   2.0 2.0 2.0 uniform
 min-to-fragment int 4   4   4   uniform
 max-to-fragment int 10  10  10  uniform
 fragment-max-lookback-bases int 300 300 300 uniform
