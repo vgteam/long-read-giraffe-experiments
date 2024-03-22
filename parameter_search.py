@@ -17,11 +17,11 @@ value_range is a tuple of [range_start, range_end)
 class Parameter:
     def __init__(self, name, datatype, min_val, max_val, default, sampling_strategy):
         self.name = name
-        self.datatype = datatype
+        self.datatype = datatype.lower()
         self.min_val = min_val
         self.max_val = max_val
         self.default = default
-        self.sampling_strategy = sampling_strategy
+        self.sampling_strategy = sampling_strategy.lower()
     
     def sample(self):
         if self.min_val == self.max_val:
