@@ -520,7 +520,15 @@ def read_line_to_read_dict(line):
         return {}
     parts = line.split("\t")
     assert len(parts) == 4
-    read = {"annotation": {"filter": json.loads(parts[0]), "filterstats": json.loads(parts[1]), "last_correct_stage": parts[2]}, "time_used": float(parts[3])}
+    filter_json, filterstats_json, last_correct_stage, time_used_string = parts
+    read = {
+        "annotation": {
+            "filter": json.loads(filter_json) or {},
+            "filterstats": json.loads(filterstats_json) or {},
+            "last_correct_stage": last_correct_stage
+        },
+        "time_used": float(time_used_string) if time_used_string != "null" else float("nan")
+    }
 
     return read
 
