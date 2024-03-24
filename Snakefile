@@ -1348,27 +1348,20 @@ rule parameter_search_mapping_stats:
 
 rule plot_correct_speed_vs_parameter:
     input:
-        "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.parameter_mapping_stats.tsv"
+        tsv = "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.parameter_mapping_stats.tsv"
     output:
-        "{root}/parameter_search/plots/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.correct_speed_vs_{parameter}.{ext}"
+        plot = "{root}/parameter_search/plots/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.correct_speed_vs_{parameter}.{ext}"
     threads: 1
     resources:
         mem_mb=512,
         runtime=10,
         slurm_partition=choose_partition(10)
     run:
-        infile = open(input)
-        outfile = open(output, 'w')
+        infile = open(input.tsv)
         header = infile.readline().split()
-        parameter_col = header.index({parameter})
-
-        for line in infile:
-            l = line.split()
-            outfile.write("Correct\t" + l[0] + "\t" + l[parameter_col] + "\n")
-            outfile.write("Speed\t" + l[3] + "\t" + l[parameter_col] + "\n")
-
+        parameter_col = str(header.index(wildcards.parameter)+1) 
         infile.close()
-        outfile.close()
+        shell("cat <(cat {input.tsv} | grep -v \"#\" | awk -v OFS=\'\t\' \'{{print $" + parameter_col + ", $4}}\' | sed \'s/^/RPS /g\') <(cat {input.tsv} | grep -v \"#\" | awk -v OFS=\'\t\' \'{{print $" + parameter_col + ", $1}}\' | sed \'s/^/Correct /g\') | ./scatter.py --title \"Statistics vs. Score Fraction\" --x_label " + wildcards.parameter + "  --y_per_category --categories \"RPS\" \"Correct\" --y_label \"Reads per Second\" \"Reads Correct\" --legend_overlay \"best\" --save {output.plot} /dev/stdin")
 
 
 ruleorder: chain_coverage > merge_stat_chunks
