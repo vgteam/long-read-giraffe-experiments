@@ -1346,11 +1346,11 @@ rule parameter_search_mapping_stats:
             f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + speed + "\t" + '\t'.join([str(x) for x in parameters])) 
         f.close()
 
-rule plot_correct_speed_vs_stat:
+rule plot_correct_speed_vs_parameter:
     input:
         "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.parameter_mapping_stats.tsv"
     output:
-        "{root}/parameter_search/plots/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.correct_speed_vs_{stat}.tsv"
+        "{root}/parameter_search/plots/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.correct_speed_vs_{parameter}.{ext}"
     threads: 1
     resources:
         mem_mb=512,
@@ -1360,12 +1360,12 @@ rule plot_correct_speed_vs_stat:
         infile = open(input)
         outfile = open(output, 'w')
         header = infile.readline().split()
-        stat_col = header.index({stat})
+        parameter_col = header.index({parameter})
 
         for line in infile:
             l = line.split()
-            outfile.write("Correct\t" + l[0] + "\t" + l[stat_col] + "\n")
-            outfile.write("Speed\t" + l[3] + "\t" + l[stat_col] + "\n")
+            outfile.write("Correct\t" + l[0] + "\t" + l[parameter_col] + "\n")
+            outfile.write("Speed\t" + l[3] + "\t" + l[parameter_col] + "\n")
 
         infile.close()
         outfile.close()
