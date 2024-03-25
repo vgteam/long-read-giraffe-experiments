@@ -561,6 +561,10 @@ def get_vg_flags(wildcard_flag):
         return "--downsample-min " + wildcard_flag[10:]
     elif wildcard_flag == "fragonly":
         return "--fragment-max-lookback-bases 3000 --max-lookback-bases 0"
+    elif widlcard_flag == "longchainindel":
+        return "--max-lookback-bases 24000 --max-indel-bases 20000"
+    elif widlcard_flag == "longchain":
+        return "--max-lookback-bases 24000"
     else:
         assert(wildcard_flag == "noflags")
         return ""

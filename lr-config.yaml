@@ -166,6 +166,19 @@ experiments:
       mapper: ["giraffe-k31.w50.W-lr-3779c0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
       tech: ["r10", "hifi"]
 
+  # Experiment to decide if longer chaining distances make it slower
+  chaining_distance:
+    control:
+      realness: sim
+      subset: 10k
+      reference: chm13
+      tech: r10
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W-lr-default-noflags", "giraffe-k31.w50.W-lr-default-longchainindel", "giraffe-k31.w50.W-lr-default-longchain"]
+      tech: ["r10", "hifi"]
+
   # This experiment compares different ways of mapping Illumina reads
   illumina_test:
     control:
