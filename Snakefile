@@ -553,21 +553,23 @@ def has_stat_filter(stat_name):
     return filter_function
 
 def get_vg_flags(wildcard_flag):
-    if wildcard_flag == "gapExt":
-        return "--do-gapless-extension"
-    elif wildcard_flag == "mqCap":
-        return "--explored-cap"
-    elif wildcard_flag[0:10] == "downsample":
-        return "--downsample-min " + wildcard_flag[10:]
-    elif wildcard_flag == "fragonly":
-        return "--fragment-max-lookback-bases 3000 --max-lookback-bases 0"
-    elif widlcard_flag == "longchainindel":
-        return "--max-lookback-bases 24000 --max-indel-bases 20000"
-    elif widlcard_flag == "longchain":
-        return "--max-lookback-bases 24000"
-    else:
-        assert(wildcard_flag == "noflags")
-        return ""
+    match wildcard_flag:
+        case "gapExt":
+            return "--do-gapless-extension"
+        case "mqCap":
+            return "--explored-cap"
+        case downsample_number if downsample_number[0:10] == "downsample":
+            return "--downsample-min " + downsample_number[10:]
+        case "fragonly":
+            return "--fragment-max-lookback-bases 3000 --max-lookback-bases 0"
+        case "longchainindel":
+            return "--max-lookback-bases 24000 --max-indel-bases 20000"
+        case "longchain":
+            return "--max-lookback-bases 24000"
+        case "noflags":
+            return ""
+        case unknown:
+            raise ValueError(f"Unknown flag set: \"{unknown}\"")
 
 def get_vg_version(wildcard_vgversion):
     if wildcard_vgversion == "default":
