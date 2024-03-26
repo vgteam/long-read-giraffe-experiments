@@ -1,5 +1,5 @@
 #name   type    min_val max_val default sampling_strategy
-hard-hit-cap    500 500 500  uniform
+hard-hit-cap    int    500 500 500  uniform
 downsample-min  int 0   0   0   uniform
 zipcode-tree-score-threshold    float   50  50  50  uniform
 pad-zipcode-tree-score-threshold    float 20  20  20  uniform
@@ -27,4 +27,3 @@ max-chains-per-tree int 1   1   1   uniform
 max-chain-connection    int 100 100 100 uniform
 max-tail-length int 100 100 100 uniform
 max-dp-cells    int 18446744073709551615    18446744073709551615    18446744073709551615    uniform
-max-dp-align    int 5000    5000    5000    uniform
