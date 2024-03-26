@@ -124,8 +124,6 @@ SLURM_PARTITIONS = [
 # How many threads do we want mapping to use?
 MAPPER_THREADS=64
 
-
-
 wildcard_constraints:
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
@@ -292,7 +290,7 @@ def base_fastq(wildcards):
                 return trimmed_base
         raise FileNotFoundError(f"No files found matching {full_gz_pattern}")
     elif len(results) > 1:
-        raise AmbiguousRuleException("Multiple files matched " + full_gz_pattern)
+        raise RuntimeError("Multiple files matched " + full_gz_pattern)
     return results[0]
 
 def fastq(wildcards):
