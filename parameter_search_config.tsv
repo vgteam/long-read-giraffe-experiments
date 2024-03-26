@@ -1,4 +1,6 @@
 #name   type    min_val max_val default sampling_strategy
+hard-hit-cap    500 500 500  uniform
+downsample-min  int 0   0   0   uniform
 zipcode-tree-score-threshold    float   50  50  50  uniform
 pad-zipcode-tree-score-threshold    float 20  20  20  uniform
 zipcode-tree-coverage-threshold float   20  20  20  uniform
