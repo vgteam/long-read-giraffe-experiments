@@ -578,6 +578,10 @@ def get_vg_version(wildcard_vgversion):
     else:
         return "./vg_"+wildcard_vgversion
 
+#TODO: This is a hacky way to get around the fact that we have two different samples for real and simulated hifi reads
+def get_real_param_search_tsv_name(wildcards):
+    sample_name = "HiFi" if wildcards["tech"] == "hifi" and wildcards["sample"] == "HG002" else wildcards["sample"]
+    return expand(wildcards["root"] + "/stats/" + wildcards["reference"] + "/giraffe-" + wildcards["minparams"] + "-" + wildcards["preset"] + "-" + wildcards["vgversion"] + "-{param_hash}/real/" + wildcards["tech"] + "/" + sample_name + wildcards["trimmedness"] + "." + wildcards["subset"] + ".time_used.mean.tsv", param_hash=PARAM_SEARCH.get_hashes())
 rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
@@ -1317,7 +1321,7 @@ rule mapping_stats:
 
 rule parameter_search_mapping_stats:
     input:
-        times = expand("{{root}}/stats/{{reference}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/real/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.time_used.mean.tsv", param_hash=PARAM_SEARCH.get_hashes()),
+        times = get_real_param_search_tsv_name,
         mapping_stats = expand("{{root}}/stats/{{reference}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
         outfile="{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.parameter_mapping_stats.tsv"
