@@ -682,7 +682,9 @@ rule giraffe_real_reads:
     resources:
         mem_mb=500000,
         runtime=600,
-        slurm_partition=choose_partition(600)
+        slurm_partition=choose_partition(600),
+        slurm_extra="--exclusive",
+        giraffe_full_nodes=1
     run:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
