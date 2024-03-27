@@ -560,10 +560,8 @@ def get_vg_flags(wildcard_flag):
             return "--downsample-min " + downsample_number[10:]
         case "fragonly":
             return "--fragment-max-lookback-bases 3000 --max-lookback-bases 0"
-        case "longchainindel":
-            return "--max-lookback-bases 24000 --max-indel-bases 20000"
-        case "longchain":
-            return "--max-lookback-bases 24000"
+        case minfrag_number if minfrag_number[0:7] == "minfrag":
+            return "--fragment-score-fraction 0  --fragment-min-score " + minfrag_number[7:]
         case "noflags":
             return ""
         case unknown:
