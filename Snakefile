@@ -562,6 +562,8 @@ def get_vg_flags(wildcard_flag):
             return "--fragment-max-lookback-bases 3000 --max-lookback-bases 0"
         case minfrag_number if minfrag_number[0:7] == "minfrag":
             return "--fragment-score-fraction 0  --fragment-min-score " + minfrag_number[7:]
+        case maxminfrag_number if maxminfrag_number[0:10] == "maxminfrag":
+            return "--fragment-max-min-score " + maxminfrag_number[10:]
         case "noflags":
             return ""
         case unknown:
