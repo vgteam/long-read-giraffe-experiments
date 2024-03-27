@@ -398,28 +398,17 @@ def make_stats(read):
             # Save the statistic distribution
             filter_stats[filter_name]['statistic_distribution_{}'.format(filter_correctness)] = distribution
 
-    # Now we need the filter number of the first filter after the given stage name, including "none".
+    # Now we need the filter number of the first filter in the given stage name, including "none".
     # TODO: This is all duplicate work over all reads!
-    first_filter_number_after = {}
+    first_filter_number_in = {}
     for index, stage in stages_by_index.items():
-        if index == 0:
-            # Very first filter
-            first_filter_number_after["none"] = index
-        else:
-            prev_stage = stages_by_index[index - 1]
-            if prev_stage != stage:
-                # This is the first filter in its stage, so it is the first
-                # after the previous stage.
-                first_filter_number_after[prev_stage] = index
+        first_filter_number_in[stage] = min(first_filter_number_in.get(stage, float("inf")), index)
 
     if "last_correct_stage" in annot:
         stage = annot["last_correct_stage"]
-        if stage in first_filter_number_after:
-            # Assign a last correct stage point to the first filter after the named stage, which maybe lost the item.
-            filter_stats[filters_by_index[first_filter_number_after[stage]]]['last_correct_stage'] = 1
-        elif stage != "winner":
-            # This is probably "align"; blame it on the final filter.
-            filter_stats[filters_by_index[max(filters_by_index.keys())]]['last_correct_stage'] = 1
+        if stage in first_filter_number_in:
+            # Assign a last correct stage point to the first filter in the named stage, which maybe lost the item.
+            filter_stats[filters_by_index[first_filter_number_in[stage]]]['last_correct_stage'] = 1
 
     # Now put them all in this dict by number and then name, and then stage to smuggle the stage out
     ordered_stats = collections.OrderedDict()
