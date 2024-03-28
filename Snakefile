@@ -689,7 +689,7 @@ rule giraffe_real_reads:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam}")
 
 rule giraffe_sim_reads:
     input:
@@ -1341,7 +1341,7 @@ rule parameter_search_mapping_stats:
 
             time_f = open(times_file)
             l = time_f.readline().split()
-            speed = l[0]
+            speed = str(1/floar(l[0]))
             time_f.close()
 
             parameters = PARAM_SEARCH.hash_to_parameters[param_hash]
