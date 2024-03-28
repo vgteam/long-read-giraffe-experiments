@@ -119,7 +119,7 @@ class ParameterSearch:
         #First, make sure that the file really holds the correct parameters
         header = f.readline().split()
         assert(header[0] == "#hash")
-        for i in range(len(self.parameters)):
+        for i in range(len(header)-1):
             assert(header[i+1] == self.parameters[i].name)
         
         rewrite_param_file = False;
