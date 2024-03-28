@@ -27,4 +27,4 @@ max-chains-per-tree int 1   1   1   uniform
 max-chain-connection    int 100 100 100 uniform
 max-tail-length int 100 100 100 uniform
 max-dp-cells    int 18446744073709551615    18446744073709551615    18446744073709551615    uniform
-max-dp-align    int 5000    5000    5000    uniform
+max-alignments  int 5   5   5   uniform
