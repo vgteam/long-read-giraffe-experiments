@@ -1,7 +1,7 @@
 #name   type    min_val max_val default sampling_strategy
 hard-hit-cap    int    16384 16384 16384  uniform
-max-unique-min  int 0   0   0   uniform
 downsample-min  int 200   200   200   uniform
+mapq-score-scale    float   0.001   0.001   0.001   uniform
 zipcode-tree-score-threshold    float   50  50  50  uniform
 pad-zipcode-tree-score-threshold    float 20  20  20  uniform
 zipcode-tree-coverage-threshold float   0.3 0.3 0.3  uniform
@@ -15,7 +15,7 @@ fragment-min-score  float   0  0  0  uniform
 fragment-set-score-threshold    float   1.79769e+308   01.79769e+308   01.79769e+308   uniform
 min-chaining-problems   int 1   1   1   uniform
 max-chaining-problems   int 2147483647  2147483647  2147483647  uniform
-max-lookback-bases  int 3000    3000    3000    uniform
+max-lookback-bases  int 300    300    300    uniform
 max-indel-bases int 2000    2000    2000    uniform
 item-bonus  int 0   0   0   uniform
 item-scale  int 1   1   1   uniform
@@ -24,7 +24,7 @@ chain-score-threshold   float   100 100 100 uniform
 min-chains  int 4   4   4   uniform
 min-chain-score-per-base    float   0.01    0.01    0.01    uniform
 max-min-chain-score int 200 200 200 uniform
-max-chains-per-tree int 1   1   1   uniform
+max-chains-per-tree int 5   5   5   uniform
 max-chain-connection    int 100 100 100 uniform
 max-tail-length int 100 100 100 uniform
 max-dp-cells    int 18446744073709551615    18446744073709551615    18446744073709551615    uniform
