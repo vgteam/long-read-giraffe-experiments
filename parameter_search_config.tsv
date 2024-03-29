@@ -1,9 +1,10 @@
 #name   type    min_val max_val default sampling_strategy
 hard-hit-cap    int    16384 16384 16384  uniform
+max-unique-min  int 0   0   0   uniform
 downsample-min  int 200   200   200   uniform
 zipcode-tree-score-threshold    float   50  50  50  uniform
 pad-zipcode-tree-score-threshold    float 20  20  20  uniform
-zipcode-tree-coverage-threshold float   20  20  20  uniform
+zipcode-tree-coverage-threshold float   0.3 0.3 0.3  uniform
 zipcode-tree-scale  float   2.0 2.0 2.0 uniform
 min-to-fragment int 2   2   2   uniform
 max-to-fragment int 10  10  10  uniform
