@@ -654,8 +654,8 @@ rule subset_base_fastq_gz:
     threads: 8
     resources:
         mem_mb=10000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        runtime=120,
+        slurm_partition=choose_partition(120)
     shell:
         # We need to account for bgzip getting upset that we close the pipe before it is done writing.
         "(bgzip -d <{input.base_fastq} || true) | head -n {params.lines} >{output.fastq}"
@@ -1324,8 +1324,8 @@ rule parameter_search_mapping_stats:
         times = get_real_param_search_tsv_name,
         mapping_stats = expand("{{root}}/stats/{{reference}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
-        outfile="{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.parameter_mapping_stats.tsv"
-    log: "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.param_search_mapping_stats.log"
+        outfile="{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
+    log: "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.param_search_mapping_stats.log"
     threads: 1
     resources:
         mem_mb=2000,
@@ -1345,7 +1345,7 @@ rule parameter_search_mapping_stats:
 
             time_f = open(times_file)
             l = time_f.readline().split()
-            speed = str(1/floar(l[0]))
+            speed = str(1/float(l[0]))
             time_f.close()
 
             parameters = PARAM_SEARCH.hash_to_parameters[param_hash]
@@ -1354,9 +1354,9 @@ rule parameter_search_mapping_stats:
 
 rule plot_correct_speed_vs_parameter:
     input:
-        tsv = "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.parameter_mapping_stats.tsv"
+        tsv = "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
     output:
-        plot = "{root}/parameter_search/plots/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{tech}/{sample}{trimmedness}.{subset}.correct_speed_vs_{parameter}.{ext}"
+        plot = "{root}/parameter_search/plots/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.correct_speed_vs_{parameter}.{ext}"
     threads: 1
     resources:
         mem_mb=512,
