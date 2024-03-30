@@ -124,9 +124,7 @@ SLURM_PARTITIONS = [
 ]
 
 # How many threads do we want mapping to use?
-# A few more threads will be used for filters
-MAPPER_THREADS=32
-
+MAPPER_THREADS=64
 
 PARAM_SEARCH = parameter_search.ParameterSearch()
 
@@ -297,7 +295,7 @@ def base_fastq(wildcards):
                 return trimmed_base
         raise FileNotFoundError(f"No files found matching {full_gz_pattern}")
     elif len(results) > 1:
-        raise AmbiguousRuleException("Multiple files matched " + full_gz_pattern)
+        raise RuntimeError("Multiple files matched " + full_gz_pattern)
     return results[0]
 
 def fastq(wildcards):
@@ -558,19 +556,25 @@ def has_stat_filter(stat_name):
     return filter_function
 
 def get_vg_flags(wildcard_flag):
-    if wildcard_flag == "gapExt":
-        return "--do-gapless-extension"
-    elif wildcard_flag == "mqCap":
-        return "--explored-cap"
-    elif wildcard_flag[0:10] == "downsample":
-        return "--downsample-min " + wildcard_flag[10:]
-    elif wildcard_flag == "fragonly":
-        return "--fragment-max-lookback-bases 3000 --max-lookback-bases 0"
-    elif(wildcard_flag == "noflags"):
-        return ""
-    else:
-        #otherwise this is a hash and we get the flags from ParameterSearch
-        return PARAM_SEARCH.hash_to_parameter_string(wildcard_flag)
+    match wildcard_flag:
+        case "gapExt":
+            return "--do-gapless-extension"
+        case "mqCap":
+            return "--explored-cap"
+        case downsample_number if downsample_number[0:10] == "downsample":
+            return "--downsample-min " + downsample_number[10:]
+        case "fragonly":
+            return "--fragment-max-lookback-bases 3000 --max-lookback-bases 0"
+        case minfrag_number if minfrag_number[0:7] == "minfrag":
+            return "--fragment-score-fraction 0  --fragment-min-score " + minfrag_number[7:]
+        case maxminfrag_number if maxminfrag_number[0:10] == "maxminfrag":
+            return "--fragment-max-min-score " + maxminfrag_number[10:]
+        case "noflags":
+            return ""
+        case unknown:
+            #otherwise this is a hash and we get the flags from ParameterSearch
+            return PARAM_SEARCH.hash_to_parameter_string(wildcard_flag)
+        #raise ValueError(f"Unknown flag set: \"{unknown}\"")
 
 def get_vg_version(wildcard_vgversion):
     if wildcard_vgversion == "default":
@@ -714,26 +718,46 @@ rule giraffe_sim_reads:
 
         shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
 
+rule giraffe_sim_reads_with_correctness:
+    input:
+        unpack(indexed_graph),
+        gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
+    output:
+        gam="{root}/correctness/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        realness="sim"
+    threads: MAPPER_THREADS
+    resources:
+        mem_mb=500000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    run:
+        vg_binary = get_vg_version(wildcards.vgversion)
+        flags=get_vg_flags(wildcards.vgflag)
+
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
+
 rule winnowmap_reads:
     input:
         reference_fasta=reference_fasta,
         repetitive_kmers=repetitive_kmers,
         fastq=fastq
     params:
-        mode=minimap_derivative_mode
+        mode=minimap_derivative_mode,
+        map_threads=MAPPER_THREADS - 4
     output:
         bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
         # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
         # So match any string but that. See https://stackoverflow.com/a/14683066
         tech="(?!illumina).+"
-    threads: MAPPER_THREADS + 4
+    threads: MAPPER_THREADS
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "winnowmap -t {MAPPER_THREADS} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
+        "winnowmap -t {params.map_threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
 
 rule minimap2_index_reference:
     input:
@@ -980,21 +1004,20 @@ rule stats_from_alignments:
     shell:
         "vg stats -p {threads} -a {input.gam} >{output.stats}"
 
-rule facts_from_alignments:
+rule facts_from_alignments_with_correctness:
     input:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/correctness/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        facts="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt",
-        facts_dir=directory("{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts")
-    wildcard_constraints:
-        mapper="giraffe-.+"
-    threads: 17
+        facts="{root}/stats/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt",
+        facts_dir=directory("{root}/stats/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts")
+    threads: 64
     resources:
         mem_mb=10000,
         runtime=90,
         slurm_partition=choose_partition(90)
-    shell:
-        "python3 giraffe-facts.py {input.gam} {output.facts_dir} >{output.facts}"
+    run:
+        vg_binary = get_vg_version(wildcards.vgversion)
+        shell("python3 giraffe-facts.py --threads {threads} {input.gam} {output.facts_dir} --stage --filter-help --vg " + vg_binary + " >{output.facts}")
 
 rule mapping_rate_from_stats:
     input:

@@ -138,7 +138,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["minimap2", "giraffe-k31.w50.W-lr-9abbab-noflags", "giraffe-k31.w50.W-lr-26b5b0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
+      mapper: ["minimap2", "giraffe-k31.w50.W-lr-default-noflags"]
   #This is used to test different mappers on hifi reads
   #Add vg versions with `-commit` instead of `-default`, and make sure the binary
   # is called `vg_commit`
@@ -151,7 +151,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["minimap2", "giraffe-k31.w50.W-lr-9abbab-noflags", "giraffe-k31.w50.W-lr-26b5b0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
+      mapper: ["minimap2", "giraffe-k31.w50.W-lr-default-noflags"]
 
   # Experiment to decide if new fragment filtering introduced any regressions
   filter_regression:
@@ -164,6 +164,19 @@ experiments:
       sample: HG002
     vary:
       mapper: ["giraffe-k31.w50.W-lr-3779c0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
+      tech: ["r10", "hifi"]
+
+  # Experiment to decide if lower fragment scores are good 
+  fragment_score:
+    control:
+      realness: sim
+      subset: 10k
+      reference: chm13
+      tech: r10
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W-lr-default-noflags", "minimap2", "giraffe-k31.w50.W-lr-default-maxminfrag60"]
       tech: ["r10", "hifi"]
 
   # This experiment compares different ways of mapping Illumina reads
