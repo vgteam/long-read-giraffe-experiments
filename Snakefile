@@ -1135,7 +1135,7 @@ rule stage_time:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg filter -t {threads} -T \"annotation.stage_{wildcards.stage}_time\" {input.gam} | grep -v \"#\" >{output}"
+        "vg filter -t {threads} -T \"annotation.stage.{wildcards.stage}.time\" {input.gam} | grep -v \"#\" >{output}"
 
 rule length_by_mapping_chunk:
     input:
@@ -1253,7 +1253,7 @@ rule time_used_histogram:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Time Used, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Time (s)' --no_n --save {output}"
+        "python3 histogram.py {input.tsv} --log_counts --bins 100 --title \"{wildcards.tech} {wildcards.realness} Time Used, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Time (s)' --no_n --save {output}"
 
 rule stage_time_histogram:
     input:
@@ -1390,7 +1390,7 @@ rule plot_correct_speed_vs_parameter:
         header = infile.readline().split()
         parameter_col = str(header.index(wildcards.parameter)+1) 
         infile.close()
-        shell("cat <(cat {input.tsv} | grep -v \"#\" | awk -v OFS=\'\t\' \'{{print $" + parameter_col + ", $4}}\' | sed \'s/^/RPS /g\') <(cat {input.tsv} | grep -v \"#\" | awk -v OFS=\'\t\' \'{{print $" + parameter_col + ", $1}}\' | sed \'s/^/Correct /g\') | ./scatter.py --title \"Statistics vs. Score Fraction\" --x_label " + wildcards.parameter + "  --y_per_category --categories \"RPS\" \"Correct\" --y_label \"Reads per Second\" \"Reads Correct\" --legend_overlay \"best\" --save {output.plot} /dev/stdin")
+        shell("cat <(cat {input.tsv} | grep -v \"#\" | awk -v OFS=\'\t\' \'{{print $" + parameter_col + ", $4}}\' | sed \'s/^/RPS /g\') <(cat {input.tsv} | grep -v \"#\" | awk -v OFS=\'\t\' \'{{print $" + parameter_col + ", $1}}\' | sed \'s/^/Correct /g\') | ./scatter.py --title \"Speed vs Correctness vs " + wildcards.parameter + "\" --x_label " + wildcards.parameter + "  --y_per_category --categories \"RPS\" \"Correct\" --y_label \"Reads per Second\" \"Reads Correct\" --legend_overlay \"best\" --save {output.plot} /dev/stdin")
 
 
 ruleorder: chain_coverage > merge_stat_chunks
