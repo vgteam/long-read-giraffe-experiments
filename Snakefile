@@ -157,38 +157,6 @@ def subset_to_number(subset):
 
     return int(subset) * multiplier
 
-def chunk_count(items, chunk_size):
-    """
-    Return the number of chunks of the given size needed to fit the given number of items.
-    """
-
-    # Since integer division rounds negatively, we can work in negative numbers
-    # to make it round away from 0. See <https://stackoverflow.com/a/33300093>
-    return -(-items // chunk_size)
-
-def each_chunk_of(subset):
-    """
-    Given a subset string like "10k", produce a collection of all the p[added chunk number strings.
-    """
-    return [f"{i:06}" for i in range(1, chunk_count(subset_to_number(subset), CHUNK_SIZE) + 1)]
-
-def all_chunk(wildcard_values, pattern, debug=False):
-    """
-    Produce all values of pattern substituted with the wildcards and the
-    0-padded GAM chunk numbers as {chunk}, from subset.
-    
-    Needs to be used like:
-        lambda w: all_chunk(w, "your pattern")
-    """
-
-    for chunk in each_chunk_of(wildcard_values["subset"]):
-        merged = dict(wildcard_values)
-        merged.update(chunk=chunk)
-        if debug:
-            print(f"Evaluate {pattern} in {merged}")
-        filename = pattern.format(**merged)
-        yield filename
-
 def repetitive_kmers(wildcards):
     """
     Find the Winnowmap repetitive kmers file from a reference.
@@ -1064,27 +1032,6 @@ rule experiment_mapping_speed_plot:
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Speed' --y_label 'Reads per Second' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
-for subset in KNOWN_SUBSETS:
-    for stage in ["annotated-1", "compared"]:
-        # We can chunk reads either before or after comparison.
-        # TODO: This is now like 3 copies of the whole GAM.
-
-        # This rule has a variable number of outputs so we need to generate it in a loop.
-        rule:
-            input:
-                gam="{root}/" + stage + "/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}." + str(subset) + ".gam"
-            params:
-                basename="{root}/" + stage + "/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}." + str(subset) + ".chunk"
-            output:
-                expand("{{root}}/{stage}/{{reference}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{subset}.chunk{chunk}.gam", stage=stage, subset=subset, chunk=each_chunk_of(subset))
-            threads: 1
-            resources:
-                mem_mb=4000,
-                runtime=90,
-                slurm_partition=choose_partition(90)
-            shell:
-                "vg chunk -t {threads} --gam-split-size " + str(CHUNK_SIZE) + " -a {input.gam} -b {params.basename}"
-
 rule chain_coverage:
     input:
         gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
@@ -1124,22 +1071,9 @@ rule stage_time:
     shell:
         "vg filter -t {threads} -T \"annotation.stage_{wildcards.stage}_time\" {input.gam} | grep -v \"#\" >{output}"
 
-rule length_by_mapping_chunk:
-    input:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
-    output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length_by_mapping.tsv"
-    threads: 2
-    resources:
-        mem_mb=2000,
-        runtime=30,
-        slurm_partition=choose_partition(30)
-    shell:
-        "vg view -aj {input.gam} | jq -r '[if (.path.mapping // []) == [] then \"unmapped\" else \"mapped\" end, (.sequence | length)] | @tsv' >{output}"
-
 rule length:
     input:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
+        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length.tsv"
     threads: 5
@@ -1162,19 +1096,6 @@ rule length_by_correctness:
         slurm_partition=choose_partition(60)
     shell:
         "vg filter -t {threads} -T \"correctness;sequence\" {input.gam} | grep -v \"#\" | awk -v OFS='\t' '{{print $1, length($2)}}' > {output}"
-
-rule merge_stat_chunks:
-    input:
-        lambda w: all_chunk(w, "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.{statname}.tsv")
-    output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv"
-    threads: 1
-    resources:
-        mem_mb=1000,
-        runtime=20,
-        slurm_partition=choose_partition(20)
-    shell:
-        "cat {input} >{output}"
 
 rule mean_stat:
     input:
@@ -1298,9 +1219,4 @@ rule length_by_correctness_histogram:
         "python3 histogram.py {input.tsv} --log_counts --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length for {wildcards.mapper}' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories correct incorrect off-reference --category_labels Correct Incorrect 'Off Reference' --legend_overlay 'best' --stack --save {output}"
 
 
-ruleorder: chain_coverage > merge_stat_chunks 
-ruleorder: time_used > merge_stat_chunks 
-ruleorder: stage_time > merge_stat_chunks
-ruleorder: length > merge_stat_chunks 
-ruleorder: length_by_correctness > merge_stat_chunks  
 
