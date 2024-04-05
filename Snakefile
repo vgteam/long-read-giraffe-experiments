@@ -207,6 +207,25 @@ def gfa(wildcards):
     """
     return graph_base(wildcards) + ".gfa"
 
+def minimizer_k(wildcards):
+    """
+    Find the minimizer kmer size from mapper.
+    """
+    if wildcards["mapper"].startswith("giraffe"):
+        # Looks like "giraffe-k31.w50.W-lr-default-noflags".
+        # So get second part on - and first part of that on . and number-ify it after the k.
+        return int(wildcards["mapper"].split("-")[1].split(".")[0][1:])
+    else:
+        mode = minimap_derivative_mode(wildcards)
+        match mode:
+            # See minimap2 man page
+            case "map-ont":
+                return 15
+            case "map-pb":
+                return 19
+            case "sr":
+                return 21
+
 def dist_indexed_graph(wildcards):
     """
     Find a GBZ and its dist index from reference.
@@ -1043,7 +1062,67 @@ rule chain_coverage:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg filter -t {threads} -T \"annotation.best_chain_coverage\" {input.gam} | grep -v \"#\" >{output}"
+        "vg filter -t {threads} -T \"annotation.best_chain.coverage\" {input.gam} | grep -v \"#\" >{output}"
+
+rule chain_anchors_by_name_giraffe:
+    input:
+        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors_by_name.tsv"
+    wildcard_constraints:
+        mapper="giraffe.*"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t {threads} -T \"name;annotation.best_chain.anchors\" {input.gam} | grep -v \"#\" >{output}"
+
+rule chain_anchors_by_name_other:
+    input:
+        bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors_by_name.tsv"
+    wildcard_constraints:
+        mapper="(?!giraffe).+"
+    threads: 7
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        r"samtools view {input.bam} | sed 's/^\([^\t]*\).*\tcm:i:\([0-9]*\).*$/\1\t\2/' > {output}"
+
+rule chain_anchor_bases_by_name:
+    input:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors_by_name.tsv"
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchor_bases_by_name.tsv"
+    params:
+        minimizer_k=minimizer_k
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "awk '{{ print $1 \"\\t\" $2 * {params.minimizer_k} }}' {input} >{output}"
+
+rule remove_names:
+    input:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{allowedstat}_by_name.tsv"
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{allowedstat}.tsv"
+    wildcard_constraints:
+        allowedstat="(best_chain_anchors|best_chain_anchor_bases)"  
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cut -f2 {input} > {output}"
 
 rule time_used:
     input:
@@ -1275,6 +1354,20 @@ rule softclips_histogram:
         slurm_partition=choose_partition(10)
     shell:
         "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Softclip Length, Mean=$(cat {input.mean})\" --y_label 'Ends' --x_label 'Softclip Length (bp)' --no_n --log_counts --save {output}"
+
+rule chain_anchor_bases_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchor_bases.tsv",
+        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchor_bases.mean.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/chain_anchor_length-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Chain Anchor Length, Mean=$(cat {input.mean})\" --y_label 'Reads' --x_label 'Chained Anchor Length (bp)' --no_n --save {output}"
 
 
 
