@@ -1355,6 +1355,20 @@ rule softclips_histogram:
     shell:
         "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Softclip Length, Mean=$(cat {input.mean})\" --y_label 'Ends' --x_label 'Softclip Length (bp)' --no_n --log_counts --save {output}"
 
+rule chain_anchors_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors.tsv",
+        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors.mean.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/chain_anchors-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Chained Anchors, Mean=$(cat {input.mean})\" --y_label 'Reads' --x_label 'Chained Anchors' --no_n --save {output}"
+
 rule chain_anchor_bases_histogram:
     input:
         tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchor_bases.tsv",
@@ -1370,4 +1384,15 @@ rule chain_anchor_bases_histogram:
         "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Chain Anchor Length, Mean=$(cat {input.mean})\" --y_label 'Reads' --x_label 'Chained Anchor Length (bp)' --no_n --save {output}"
 
 
-
+rule add_mapper_to_plot:
+    input:
+        "{root}/plots/{reference}/{mapper}/{plotname}-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    output:
+        "{root}/plots/{reference}/{plotname}-for-{mapper}-on-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "cp {input} {output}"
