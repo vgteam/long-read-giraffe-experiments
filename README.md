@@ -49,6 +49,7 @@ In these file name templates, `{root}` is your base output directory, `{expname}
 * `{root}/experiments/{expname}/plots/wrong.{ext}`: A bar chart of the fraction of eligible reads in each condition that are mapped incorrectly.
 * `{root}/experiments/{expname}/plots/mapping_rate.{ext}`: A bar chart of the fraction of reads in each condition that are mapped.
 * `{root}/experiments/{expname}/plots/mapping_speed.{ext}`: A bar chart of the speed of each Giraffe condition, in reads per second per thread.
+* `{root}/experiments/{expname}/plots/chain_coverage.{ext}`: A bar chart of the best-chain coverage fraction of each Giraffe condition.
 * `{root}/experiments/{expname}/plots/pr.{ext}`: A precision-recall plot for mapping accuracy showing each condition.
 * `{root}/experiments/{expname}/plots/qq.{ext}`: A "QQ" plot with error bars, showing the calibration of mapping quality for detecting incorrectly-mapped reads.
 

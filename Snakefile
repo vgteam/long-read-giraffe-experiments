@@ -527,7 +527,7 @@ def has_stat_filter(stat_name):
             if condition["realness"] != "sim":
                 return False
 
-        if stat_name.startswith("time_used") or stat_name == "mapping_speed":
+        if stat_name.startswith("time_used") or stat_name in ("mapping_speed", "chain_coverage"):
             # This is a Giraffe time used stat or mean thereof. We need to be a
             # Giraffe condition.
             if not condition["mapper"].startswith("giraffe"):
@@ -551,6 +551,10 @@ def get_vg_flags(wildcard_flag):
             return "--fragment-score-fraction 0  --fragment-min-score " + minfrag_number[7:]
         case maxminfrag_number if maxminfrag_number[0:10] == "maxminfrag":
             return "--fragment-max-min-score " + maxminfrag_number[10:]
+        case "cheaplongindels":
+            return "--gap-scale 0.05 --max-indel-bases 10000"
+        case "longindels":
+            return "--max-indel-bases 10000"
         case "noflags":
             return ""
         case unknown:
@@ -1051,7 +1055,38 @@ rule experiment_mapping_speed_plot:
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Speed' --y_label 'Reads per Second' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
-rule chain_coverage:
+rule chain_coverage_from_mean_best_chain_coverage:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.mean.tsv"
+    params:
+        condition_name=condition_name
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chain_coverage.tsv"
+    wildcard_constraints:
+        mapper="giraffe-.+"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.tsv} >>{output.tsv}"
+
+rule experiment_chain_coverage_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/chain_coverage.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/chain_coverage.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Speed' --y_label 'Best Chain Coverage (fraction)' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+
+rule best_chain_coverage:
     input:
         gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
@@ -1259,7 +1294,7 @@ rule average_stage_time_table:
             for (stage, filename) in zip(STAGES, input):
                 out_stream.write(f"{stage}\t{open(filename).read().strip()}\n")
 
-rule chain_coverage_histogram:
+rule best_chain_coverage_histogram:
     input:
         tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv"
     output:
@@ -1382,6 +1417,22 @@ rule chain_anchor_bases_histogram:
         slurm_partition=choose_partition(10)
     shell:
         "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Chain Anchor Length, Mean=$(cat {input.mean})\" --y_label 'Reads' --x_label 'Chained Anchor Length (bp)' --no_n --save {output}"
+
+rule chain_coverage_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv",
+        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.mean.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/chain_coverage-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    wildcard_constraints:
+        mapper="giraffe.*"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Best Chain Coverage, Mean=$(cat {input.mean})\" --y_label 'Reads' --x_label 'Best Chain Coverage' --no_n --save {output}"
 
 
 rule add_mapper_to_plot:
