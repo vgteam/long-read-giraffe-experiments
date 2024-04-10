@@ -551,6 +551,8 @@ def get_vg_flags(wildcard_flag):
             return "--fragment-score-fraction 0  --fragment-min-score " + minfrag_number[7:]
         case maxminfrag_number if maxminfrag_number[0:10] == "maxminfrag":
             return "--fragment-max-min-score " + maxminfrag_number[10:]
+        case "variablelengths":
+            return "--gap-scale 0.05 --max-indel-bases-per-base 0.2 --max-lookback-bases-per-base 0.3 --max-lookback-bases 24000 --max-indel-bases 10000 --fragment-gap-scale 0.05 --fragment-max-indel-bases-per-base 0 --fragment-max-lookback-bases-per-base 0"
         case "cheaplongindels":
             return "--gap-scale 0.05 --max-indel-bases 10000"
         case "longindels":
