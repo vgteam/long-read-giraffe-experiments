@@ -162,38 +162,6 @@ def subset_to_number(subset):
 
     return int(subset) * multiplier
 
-def chunk_count(items, chunk_size):
-    """
-    Return the number of chunks of the given size needed to fit the given number of items.
-    """
-
-    # Since integer division rounds negatively, we can work in negative numbers
-    # to make it round away from 0. See <https://stackoverflow.com/a/33300093>
-    return -(-items // chunk_size)
-
-def each_chunk_of(subset):
-    """
-    Given a subset string like "10k", produce a collection of all the p[added chunk number strings.
-    """
-    return [f"{i:06}" for i in range(1, chunk_count(subset_to_number(subset), CHUNK_SIZE) + 1)]
-
-def all_chunk(wildcard_values, pattern, debug=False):
-    """
-    Produce all values of pattern substituted with the wildcards and the
-    0-padded GAM chunk numbers as {chunk}, from subset.
-    
-    Needs to be used like:
-        lambda w: all_chunk(w, "your pattern")
-    """
-
-    for chunk in each_chunk_of(wildcard_values["subset"]):
-        merged = dict(wildcard_values)
-        merged.update(chunk=chunk)
-        if debug:
-            print(f"Evaluate {pattern} in {merged}")
-        filename = pattern.format(**merged)
-        yield filename
-
 def repetitive_kmers(wildcards):
     """
     Find the Winnowmap repetitive kmers file from a reference.
@@ -243,6 +211,25 @@ def gfa(wildcards):
     Find a graph GFA file from reference.
     """
     return graph_base(wildcards) + ".gfa"
+
+def minimizer_k(wildcards):
+    """
+    Find the minimizer kmer size from mapper.
+    """
+    if wildcards["mapper"].startswith("giraffe"):
+        # Looks like "giraffe-k31.w50.W-lr-default-noflags".
+        # So get second part on - and first part of that on . and number-ify it after the k.
+        return int(wildcards["mapper"].split("-")[1].split(".")[0][1:])
+    else:
+        mode = minimap_derivative_mode(wildcards)
+        match mode:
+            # See minimap2 man page
+            case "map-ont":
+                return 15
+            case "map-pb":
+                return 19
+            case "sr":
+                return 21
 
 def dist_indexed_graph(wildcards):
     """
@@ -545,7 +532,7 @@ def has_stat_filter(stat_name):
             if condition["realness"] != "sim":
                 return False
 
-        if stat_name.startswith("time_used") or stat_name == "mapping_speed":
+        if stat_name.startswith("time_used") or stat_name in ("mapping_speed", "chain_coverage"):
             # This is a Giraffe time used stat or mean thereof. We need to be a
             # Giraffe condition.
             if not condition["mapper"].startswith("giraffe"):
@@ -569,6 +556,12 @@ def get_vg_flags(wildcard_flag):
             return "--fragment-score-fraction 0  --fragment-min-score " + minfrag_number[7:]
         case maxminfrag_number if maxminfrag_number[0:10] == "maxminfrag":
             return "--fragment-max-min-score " + maxminfrag_number[10:]
+        case "variablelengths":
+            return "--gap-scale 0.05 --max-indel-bases-per-base 0.2 --max-lookback-bases-per-base 0.3 --max-lookback-bases 24000 --max-indel-bases 10000 --fragment-gap-scale 0.05 --fragment-max-indel-bases-per-base 0 --fragment-max-lookback-bases-per-base 0"
+        case "cheaplongindels":
+            return "--gap-scale 0.05 --max-indel-bases 10000"
+        case "longindels":
+            return "--max-indel-bases 10000"
         case "noflags":
             return ""
         case unknown:
@@ -1077,28 +1070,38 @@ rule experiment_mapping_speed_plot:
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Speed' --y_label 'Reads per Second' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
-for subset in KNOWN_SUBSETS:
-    for stage in ["annotated-1", "compared"]:
-        # We can chunk reads either before or after comparison.
-        # TODO: This is now like 3 copies of the whole GAM.
+rule chain_coverage_from_mean_best_chain_coverage:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.mean.tsv"
+    params:
+        condition_name=condition_name
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chain_coverage.tsv"
+    wildcard_constraints:
+        mapper="giraffe-.+"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.tsv} >>{output.tsv}"
 
-        # This rule has a variable number of outputs so we need to generate it in a loop.
-        rule:
-            input:
-                gam="{root}/" + stage + "/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}." + str(subset) + ".gam"
-            params:
-                basename="{root}/" + stage + "/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}." + str(subset) + ".chunk"
-            output:
-                expand("{{root}}/{stage}/{{reference}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{subset}.chunk{chunk}.gam", stage=stage, subset=subset, chunk=each_chunk_of(subset))
-            threads: 1
-            resources:
-                mem_mb=4000,
-                runtime=90,
-                slurm_partition=choose_partition(90)
-            shell:
-                "vg chunk -t {threads} --gam-split-size " + str(CHUNK_SIZE) + " -a {input.gam} -b {params.basename}"
+rule experiment_chain_coverage_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/chain_coverage.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/chain_coverage.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Speed' --y_label 'Best Chain Coverage (fraction)' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
-rule chain_coverage:
+
+rule best_chain_coverage:
     input:
         gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
@@ -1109,7 +1112,67 @@ rule chain_coverage:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg filter -t {threads} -T \"annotation.best_chain_coverage\" {input.gam} | grep -v \"#\" >{output}"
+        "vg filter -t {threads} -T \"annotation.best_chain.coverage\" {input.gam} | grep -v \"#\" >{output}"
+
+rule chain_anchors_by_name_giraffe:
+    input:
+        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors_by_name.tsv"
+    wildcard_constraints:
+        mapper="giraffe.*"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t {threads} -T \"name;annotation.best_chain.anchors\" {input.gam} | grep -v \"#\" >{output}"
+
+rule chain_anchors_by_name_other:
+    input:
+        bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors_by_name.tsv"
+    wildcard_constraints:
+        mapper="(?!giraffe).+"
+    threads: 7
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        r"samtools view {input.bam} | sed 's/^\([^\t]*\).*\tcm:i:\([0-9]*\).*$/\1\t\2/' > {output}"
+
+rule chain_anchor_bases_by_name:
+    input:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors_by_name.tsv"
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchor_bases_by_name.tsv"
+    params:
+        minimizer_k=minimizer_k
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "awk '{{ print $1 \"\\t\" $2 * {params.minimizer_k} }}' {input} >{output}"
+
+rule remove_names:
+    input:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{allowedstat}_by_name.tsv"
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{allowedstat}.tsv"
+    wildcard_constraints:
+        allowedstat="(best_chain_anchors|best_chain_anchor_bases)"  
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cut -f2 {input} > {output}"
 
 rule time_used:
     input:
@@ -1137,22 +1200,9 @@ rule stage_time:
     shell:
         "vg filter -t {threads} -T \"annotation.stage.{wildcards.stage}.time\" {input.gam} | grep -v \"#\" >{output}"
 
-rule length_by_mapping_chunk:
-    input:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
-    output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length_by_mapping.tsv"
-    threads: 2
-    resources:
-        mem_mb=2000,
-        runtime=30,
-        slurm_partition=choose_partition(30)
-    shell:
-        "vg view -aj {input.gam} | jq -r '[if (.path.mapping // []) == [] then \"unmapped\" else \"mapped\" end, (.sequence | length)] | @tsv' >{output}"
-
 rule length:
     input:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
+        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length.tsv"
     threads: 5
@@ -1176,18 +1226,49 @@ rule length_by_correctness:
     shell:
         "vg filter -t {threads} -T \"correctness;sequence\" {input.gam} | grep -v \"#\" | awk -v OFS='\t' '{{print $1, length($2)}}' > {output}"
 
-rule merge_stat_chunks:
+rule softclips_by_name_giraffe:
     input:
-        lambda w: all_chunk(w, "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.{statname}.tsv")
+        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv"
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
+    wildcard_constraints:
+        mapper="giraffe.*"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t {threads} -T \"name;softclip_start;softclip_end\" {input.gam} | grep -v \"#\" > {output}"
+
+rule softclips_by_name_other:
+    input:
+        bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
+    wildcard_constraints:
+        mapper="(?!giraffe).+"
+    threads: 7
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        r"samtools view {input.bam} | cut -f1,2,6 | sed 's/\t\(\([0-9]*\)S\)\?\([0-9]*[IDM]\|\*\)*\(\([0-9]*\)S\)\?$/\t\2\t\5/g' | sed 's/\t\t/\t0\t/g' | sed 's/\t$/\t0/g' | sed 's/16\t\([0-9]*\)\t\([0-9]*\)/\2\t\1/g' | sed 's/\t[0-9]+\t\([0-9]*\t[0-9]*\)$/\t\1/g' > {output}"
+
+rule softclips:
+    input:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv"
     threads: 1
     resources:
-        mem_mb=1000,
-        runtime=20,
-        slurm_partition=choose_partition(20)
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
     shell:
-        "cat {input} >{output}"
+        r"sed 's/^.*\t\([0-9]*\)\t\([0-9]*\)$/\1\n\2/' {input} > {output}"
+
 
 rule mean_stat:
     input:
@@ -1228,7 +1309,7 @@ rule average_stage_time_table:
             for (stage, filename) in zip(STAGES, input):
                 out_stream.write(f"{stage}\t{open(filename).read().strip()}\n")
 
-rule chain_coverage_histogram:
+rule best_chain_coverage_histogram:
     input:
         tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv"
     output:
@@ -1310,6 +1391,19 @@ rule length_by_correctness_histogram:
     shell:
         "python3 histogram.py {input.tsv} --log_counts --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length for {wildcards.mapper}' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories correct incorrect off-reference --category_labels Correct Incorrect 'Off Reference' --legend_overlay 'best' --stack --save {output}"
 
+rule softclips_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv",
+        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.mean.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/softclips-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Softclip Length, Mean=$(cat {input.mean})\" --y_label 'Ends' --x_label 'Softclip Length (bp)' --no_n --log_counts --save {output}"
 
 rule mapping_stats:
     input:
@@ -1392,6 +1486,63 @@ rule plot_correct_speed_vs_parameter:
         infile.close()
         shell("cat <(cat {input.tsv} | grep -v \"#\" | awk -v OFS=\'\t\' \'{{print $" + parameter_col + ", $4}}\' | sed \'s/^/RPS /g\') <(cat {input.tsv} | grep -v \"#\" | awk -v OFS=\'\t\' \'{{print $" + parameter_col + ", $1}}\' | sed \'s/^/Correct /g\') | ./scatter.py --title \"Speed vs Correctness vs " + wildcards.parameter + "\" --x_label " + wildcards.parameter + "  --y_per_category --categories \"RPS\" \"Correct\" --y_label \"Reads per Second\" \"Reads Correct\" --legend_overlay \"best\" --save {output.plot} /dev/stdin")
 
+rule chain_anchors_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors.tsv",
+        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors.mean.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/chain_anchors-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Chained Anchors, Mean=$(cat {input.mean})\" --y_label 'Reads' --x_label 'Chained Anchors' --no_n --save {output}"
+
+rule chain_anchor_bases_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchor_bases.tsv",
+        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchor_bases.mean.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/chain_anchor_length-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Chain Anchor Length, Mean=$(cat {input.mean})\" --y_label 'Reads' --x_label 'Chained Anchor Length (bp)' --no_n --save {output}"
+
+rule chain_coverage_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv",
+        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.mean.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/chain_coverage-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    wildcard_constraints:
+        mapper="giraffe.*"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Best Chain Coverage, Mean=$(cat {input.mean})\" --y_label 'Reads' --x_label 'Best Chain Coverage' --no_n --save {output}"
+
+
+rule add_mapper_to_plot:
+    input:
+        "{root}/plots/{reference}/{mapper}/{plotname}-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    output:
+        "{root}/plots/{reference}/{plotname}-for-{mapper}-on-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "cp {input} {output}"
 
 ruleorder: chain_coverage > merge_stat_chunks
 ruleorder: time_used > merge_stat_chunks
