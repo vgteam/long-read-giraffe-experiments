@@ -138,7 +138,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["minimap2", "giraffe-k31.w50.W-lr-default-noflags"]
+      mapper: ["minimap2", "winnowmap", "giraffe-k31.w50.W-lr-594ce5-noflags", "giraffe-k31.w50.W-lr-c36ae6-noflags"]
   #This is used to test different mappers on hifi reads
   #Add vg versions with `-commit` instead of `-default`, and make sure the binary
   # is called `vg_commit`
@@ -151,7 +151,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["minimap2", "giraffe-k31.w50.W-lr-default-noflags"]
+      mapper: ["minimap2", "winnowmap", "giraffe-k31.w50.W-lr-594ce5-noflags", "giraffe-k31.w50.W-lr-c36ae6-noflags"]
 
   # Experiment to decide if new fragment filtering introduced any regressions
   filter_regression:

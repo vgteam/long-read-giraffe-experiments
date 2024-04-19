@@ -2,6 +2,8 @@
 # Experimental procedure for evaluating Long Read Giraffe #
 ###########################################################
 
+import parameter_search
+
 # Set a default config file. This can be overridden with --configfile.
 # See the config file for how to define experiments.
 configfile: "lr-config.yaml"
@@ -124,6 +126,9 @@ SLURM_PARTITIONS = [
 # How many threads do we want mapping to use?
 MAPPER_THREADS=64
 
+PARAM_SEARCH = parameter_search.ParameterSearch()
+
+
 wildcard_constraints:
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
@@ -193,8 +198,8 @@ def graph_base(wildcards):
     """
     Find the base name for a collection of graph files from reference.
     """
-    if wildcards["reftype"] == "linear" or wildcards["reftype"] == "primary":
-        return os.path.join(GRAPHS_DIR, "primaryhs38d1.cover")
+    if wildcards["refgraph"] == "linear":
+        return os.path.join(GRAPHS_DIR, "primary-" + wildcards["reference"])
     else:
         return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9")
 
@@ -563,7 +568,9 @@ def get_vg_flags(wildcard_flag):
         case "noflags":
             return ""
         case unknown:
-            raise ValueError(f"Unknown flag set: \"{unknown}\"")
+            #otherwise this is a hash and we get the flags from ParameterSearch
+            return PARAM_SEARCH.hash_to_parameter_string(wildcard_flag)
+        #raise ValueError(f"Unknown flag set: \"{unknown}\"")
 
 def get_vg_version(wildcard_vgversion):
     if wildcard_vgversion == "default":
@@ -571,12 +578,16 @@ def get_vg_version(wildcard_vgversion):
     else:
         return "./vg_"+wildcard_vgversion
 
+#TODO: This is a hacky way to get around the fact that we have two different samples for real and simulated hifi reads
+def get_real_param_search_tsv_name(wildcards):
+    sample_name = "HiFi" if wildcards["tech"] == "hifi" and wildcards["sample"] == "HG002" else wildcards["sample"]
+    return expand(wildcards["root"] + "/stats/" + wildcards["reference"] + "/giraffe-" + wildcards["minparams"] + "-" + wildcards["preset"] + "-" + wildcards["vgversion"] + "-{param_hash}/real/" + wildcards["tech"] + "/" + sample_name + wildcards["trimmedness"] + "." + wildcards["subset"] + ".time_used.mean.tsv", param_hash=PARAM_SEARCH.get_hashes())
 rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
     output:
-        minfile="{graphs_dir}/hprc-v1.1-mc-{reference}.d9.k{k}.w{w}{weightedness}.withzip.min",
-        zipfile="{graphs_dir}/hprc-v1.1-mc-{reference}.d9.k{k}.w{w}{weightedness}.zipcodes"
+        minfile="{graphs_dir}/{refgraph}-{reference}.d9.k{k}.w{w}{weightedness}.withzip.min",
+        zipfile="{graphs_dir}/{refgraph}-{reference}.d9.k{k}.w{w}{weightedness}.zipcodes"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
@@ -643,8 +654,8 @@ rule subset_base_fastq_gz:
     threads: 8
     resources:
         mem_mb=10000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        runtime=120,
+        slurm_partition=choose_partition(120)
     shell:
         # We need to account for bgzip getting upset that we close the pipe before it is done writing.
         "(bgzip -d <{input.base_fastq} || true) | head -n {params.lines} >{output.fastq}"
@@ -668,26 +679,28 @@ rule giraffe_real_reads:
         fastq=fastq,
     output:
         # Giraffe can dump out pre-annotated reads at annotation range -1.
-        gam="{root}/annotated-1/{reference}/giraffe-{reftype}-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/annotated-1/{reference}/giraffe-{refgraph}-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="real"
     threads: MAPPER_THREADS
     resources:
         mem_mb=500000,
         runtime=600,
-        slurm_partition=choose_partition(600)
+        slurm_partition=choose_partition(600),
+        slurm_extra="--exclusive",
+        giraffe_full_nodes=1
     run:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " --output-format {wildcards.reftype} >{output.gam}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam}")
 
 rule giraffe_sim_reads:
     input:
         unpack(indexed_graph),
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
-        gam="{root}/annotated-1/{reference}/giraffe-{reftype}-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/annotated-1/{reference}/giraffe-{refgraph}-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
     threads: MAPPER_THREADS
@@ -699,14 +712,14 @@ rule giraffe_sim_reads:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " --output-format {wildcards.reftype} >{output.gam}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
 
 rule giraffe_sim_reads_with_correctness:
     input:
         unpack(indexed_graph),
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
-        gam="{root}/correctness/{reference}/giraffe-{reftype}-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/correctness/{reference}/giraffe-{refgraph}-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
     threads: MAPPER_THREADS
@@ -718,7 +731,7 @@ rule giraffe_sim_reads_with_correctness:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " --output-format {wildcards.reftype} >{output.gam}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
 
 rule winnowmap_reads:
     input:
@@ -1188,7 +1201,7 @@ rule stage_time:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg filter -t {threads} -T \"annotation.stage_{wildcards.stage}_time\" {input.gam} | grep -v \"#\" >{output}"
+        "vg filter -t {threads} -T \"annotation.stage.{wildcards.stage}.time\" {input.gam} | grep -v \"#\" >{output}"
 
 rule length:
     input:
@@ -1324,7 +1337,7 @@ rule time_used_histogram:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Time Used, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Time (s)' --no_n --save {output}"
+        "python3 histogram.py {input.tsv} --log_counts --bins 100 --title \"{wildcards.tech} {wildcards.realness} Time Used, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Time (s)' --no_n --save {output}"
 
 rule stage_time_histogram:
     input:
@@ -1395,6 +1408,87 @@ rule softclips_histogram:
     shell:
         "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Softclip Length, Mean=$(cat {input.mean})\" --y_label 'Ends' --x_label 'Softclip Length (bp)' --no_n --log_counts --save {output}"
 
+rule mapping_stats:
+    input:
+        compared_tsv="{root}/compared/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
+    output:
+        "{root}/stats/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_stats.tsv"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=100,
+        slurm_partition=choose_partition(100)
+    log: "{root}/stats/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_stats.log"
+    run:
+
+        correct_count = 0
+        mapq60_count = 0
+        wrong_mapq60_count = 0
+
+        f = open(input.compared_tsv)
+        f.readline()
+        for line in f:
+            l = line.split()
+            if l[0] == "1":
+                correct_count+=1
+            if int(l[1]) == 60:
+                mapq60_count += 1
+                if int(l[0]) == 0 and int(l[4]) == 1:
+                    wrong_mapq60_count+=1
+        f.close()
+        shell("printf \"" + str(correct_count) + "\t" + str(mapq60_count) + "\t" + str(wrong_mapq60_count) + "\" > {output}")
+        
+
+rule parameter_search_mapping_stats:
+    input:
+        times = get_real_param_search_tsv_name,
+        mapping_stats = expand("{{root}}/stats/{{reference}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
+    output:
+        outfile="{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
+    log: "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.param_search_mapping_stats.log"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=100,
+        slurm_partition=choose_partition(100)
+    run:
+        f = open(output.outfile, "w")
+        f.write("#correct\tmapq60\twrong_mapq60\tspeed(r/s/t)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
+        for param_hash, stats_file, times_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_stats, input.times):
+
+            param_f = open(stats_file)
+            l = param_f.readline().split()
+            correct_count = l[0]
+            mapq60_count = l[1]
+            wrong_mapq60_count = l[2]
+            param_f.close()
+
+            time_f = open(times_file)
+            l = time_f.readline().split()
+            speed = str(1/float(l[0]))
+            time_f.close()
+
+            parameters = PARAM_SEARCH.hash_to_parameters[param_hash]
+            f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + speed + "\t" + '\t'.join([str(x) for x in parameters])) 
+        f.close()
+
+rule plot_correct_speed_vs_parameter:
+    input:
+        tsv = "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
+    output:
+        plot = "{root}/parameter_search/plots/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.correct_speed_vs_{parameter}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    run:
+        infile = open(input.tsv)
+        header = infile.readline().split()
+        parameter_col = str(header.index(wildcards.parameter)+1) 
+        infile.close()
+        shell("cat <(cat {input.tsv} | grep -v \"#\" | awk -v OFS=\'\t\' \'{{print $" + parameter_col + ", $4}}\' | sed \'s/^/RPS /g\') <(cat {input.tsv} | grep -v \"#\" | awk -v OFS=\'\t\' \'{{print $" + parameter_col + ", $1}}\' | sed \'s/^/Correct /g\') | ./scatter.py --title \"Speed vs Correctness vs " + wildcards.parameter + "\" --x_label " + wildcards.parameter + "  --y_per_category --categories \"RPS\" \"Correct\" --y_label \"Reads per Second\" \"Reads Correct\" --legend_overlay \"best\" --save {output.plot} /dev/stdin")
+
 rule chain_anchors_histogram:
     input:
         tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors.tsv",
@@ -1452,3 +1546,11 @@ rule add_mapper_to_plot:
         slurm_partition=choose_partition(10)
     shell:
         "cp {input} {output}"
+
+ruleorder: chain_coverage > merge_stat_chunks
+ruleorder: time_used > merge_stat_chunks
+ruleorder: stage_time > merge_stat_chunks
+ruleorder: length > merge_stat_chunks
+ruleorder: length_by_correctness > merge_stat_chunks
+ruleorder: mapping_stats > merge_stat_chunks
+
