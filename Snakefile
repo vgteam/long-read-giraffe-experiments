@@ -810,7 +810,7 @@ rule minimap2_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minimap2 -t {MAPPER_THREADS} -ax {minimapmode} {input.minimap2_index} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
+        "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} {input.minimap2_index} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
 
 rule minimap2_real_reads:
     input:
@@ -829,7 +829,7 @@ rule minimap2_real_reads:
         slurm_extra="--exclusive",
         full_cluster_nodes=1
     shell:
-        "minimap2 -t {MAPPER_THREADS} -ax {minimapmode} {input.minimap2_index} {input.fastq} >{output.bam}"
+        "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} {input.minimap2_index} {input.fastq} >{output.bam}"
 
 rule graphaligner_sim_reads:
     input:
@@ -873,7 +873,7 @@ rule inject_bam:
     output:
         gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
-        mapper="(minimap2|winnowmap)"
+        mapper="(minimap2.+|winnowmap)"
     threads: 64
     resources:
         mem_mb=300000,
