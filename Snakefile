@@ -680,6 +680,7 @@ rule giraffe_real_reads:
     output:
         # Giraffe can dump out pre-annotated reads at annotation range -1.
         gam="{root}/annotated-1/{reference}/giraffe-{refgraph}-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    benchmark: "{root}/annotated-1/{reference}/giraffe-{refgraph}-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="real"
     threads: MAPPER_THREADS
@@ -688,7 +689,7 @@ rule giraffe_real_reads:
         runtime=600,
         slurm_partition=choose_partition(600),
         slurm_extra="--exclusive",
-        giraffe_full_nodes=1
+        full_cluster_nodes=1
     run:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
@@ -733,7 +734,7 @@ rule giraffe_sim_reads_with_correctness:
 
         shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
 
-rule winnowmap_reads:
+rule winnowmap_sim_reads:
     input:
         reference_fasta=reference_fasta,
         repetitive_kmers=repetitive_kmers,
@@ -743,6 +744,8 @@ rule winnowmap_reads:
         map_threads=MAPPER_THREADS - 4
     output:
         bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    wildcard_constraints:
+        realness="sim"
     wildcard_constraints:
         # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
         # So match any string but that. See https://stackoverflow.com/a/14683066
@@ -754,6 +757,31 @@ rule winnowmap_reads:
         slurm_partition=choose_partition(600)
     shell:
         "winnowmap -t {params.map_threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
+rule winnowmap_real_reads:
+    input:
+        reference_fasta=reference_fasta,
+        repetitive_kmers=repetitive_kmers,
+        fastq=fastq
+    params:
+        mode=minimap_derivative_mode,
+    output:
+        bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    benchmark: "{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    wildcard_constraints:
+        realness="real"
+    wildcard_constraints:
+        # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
+        # So match any string but that. See https://stackoverflow.com/a/14683066
+        tech="(?!illumina).+"
+    threads: MAPPER_THREADS
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600),
+        slurm_extra="--exclusive",
+        full_cluster_nodes=1
+    shell:
+        "winnowmap -t {MAPPER_THREADS} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.bam}"
 
 rule minimap2_index_reference:
     input:
@@ -768,7 +796,7 @@ rule minimap2_index_reference:
     shell:
          "minimap2 -t {threads} -x {wildcards.preset} -d {output.index} {input.reference_fasta}"
 
-rule minimap2_reads:
+rule minimap2_sim_reads:
     input:
         minimap2_index=minimap2_index,
         fastq=fastq
@@ -776,6 +804,8 @@ rule minimap2_reads:
         mode=minimap_derivative_mode
     output:
         bam="{root}/aligned/{reference}/minimap2/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    wildcard_constraints:
+        realness="sim"
     threads: MAPPER_THREADS + 4
     resources:
         mem_mb=300000,
@@ -784,17 +814,59 @@ rule minimap2_reads:
     shell:
         "minimap2 -t {MAPPER_THREADS} -ax {params.mode} {input.minimap2_index} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
 
-rule graphaligner_reads:
+rule minimap2_real_reads:
+    input:
+        minimap2_index=minimap2_index,
+        fastq=fastq
+    params:
+        mode=minimap_derivative_mode
+    output:
+        bam="{root}/aligned/{reference}/minimap2/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    benchmark: "{root}/aligned/{reference}/minimap2/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    wildcard_constraints:
+        realness="real"
+    threads: MAPPER_THREADS
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600),
+        slurm_extra="--exclusive",
+        full_cluster_nodes=1
+    shell:
+        "minimap2 -t {MAPPER_THREADS} -ax {params.mode} {input.minimap2_index} {input.fastq} >{output.bam}"
+
+rule graphaligner_sim_reads:
     input:
         gfa=gfa,
         fastq=fastq
     output:
         gam="{root}/aligned/{reference}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        realness="sim"
     threads: MAPPER_THREADS
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
+    shell:
+        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
+
+rule graphaligner_real_reads:
+    input:
+        gfa=gfa,
+        fastq=fastq
+    output:
+        gam="{root}/aligned/{reference}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    benchmark: "{root}/aligned/{reference}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        realness="real"
+    threads: MAPPER_THREADS
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600),
+        slurm_extra="--exclusive",
+        full_cluster_nodes=1
     shell:
         "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
 
