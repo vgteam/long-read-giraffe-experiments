@@ -198,10 +198,10 @@ def graph_base(wildcards):
     """
     Find the base name for a collection of graph files from reference.
     """
-    if wildcards["refgraph"] == "linear":
-        return os.path.join(GRAPHS_DIR, "primary-" + wildcards["reference"])
-    else:
+    if "refgraph" not in wildcards or wildcards["refgraph"] == "hprc-v1.1-mc":
         return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9")
+    else:
+        return os.path.join(GRAPHS_DIR, "primary-" + wildcards["reference"])
 
 def gbz(wildcards):
     """
@@ -586,8 +586,8 @@ rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
     output:
-        minfile="{graphs_dir}/{refgraph}-{reference}.d9.k{k}.w{w}{weightedness}.withzip.min",
-        zipfile="{graphs_dir}/{refgraph}-{reference}.d9.k{k}.w{w}{weightedness}.zipcodes"
+        minfile="{graphs_dir}/{refgraph}-{reference}{d9}.k{k}.w{w}{weightedness}.withzip.min",
+        zipfile="{graphs_dir}/{refgraph}-{reference}{d9}.k{k}.w{w}{weightedness}.zipcodes"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
@@ -816,7 +816,6 @@ rule inject_bam:
 
 rule compare_alignments:
     input:
-        gbz=gbz,
         gam="{root}/annotated-1/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
         truth_gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
@@ -1547,10 +1546,4 @@ rule add_mapper_to_plot:
     shell:
         "cp {input} {output}"
 
-ruleorder: chain_coverage > merge_stat_chunks
-ruleorder: time_used > merge_stat_chunks
-ruleorder: stage_time > merge_stat_chunks
-ruleorder: length > merge_stat_chunks
-ruleorder: length_by_correctness > merge_stat_chunks
-ruleorder: mapping_stats > merge_stat_chunks
 
