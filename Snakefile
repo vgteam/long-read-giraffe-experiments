@@ -586,8 +586,8 @@ rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
     output:
-        minfile="{graphs_dir}/{refgraph}-{reference}{d9}.k{k}.w{w}{weightedness}.withzip.min",
-        zipfile="{graphs_dir}/{refgraph}-{reference}{d9}.k{k}.w{w}{weightedness}.zipcodes"
+        minfile="{graphs_dir}/{refgraph}-{reference}.{d9}k{k}.w{w}{weightedness}.withzip.min",
+        zipfile="{graphs_dir}/{refgraph}-{reference}.{d9}k{k}.w{w}{weightedness}.zipcodes"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
