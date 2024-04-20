@@ -800,10 +800,8 @@ rule minimap2_sim_reads:
     input:
         minimap2_index=minimap2_index,
         fastq=fastq
-    params:
-        mode=minimap_derivative_mode
     output:
-        bam="{root}/aligned/{reference}/minimap2/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+        bam="{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
         realness="sim"
     threads: MAPPER_THREADS + 4
@@ -812,17 +810,15 @@ rule minimap2_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minimap2 -t {MAPPER_THREADS} -ax {params.mode} {input.minimap2_index} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
+        "minimap2 -t {MAPPER_THREADS} -ax {minimapmode} {input.minimap2_index} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
 
 rule minimap2_real_reads:
     input:
         minimap2_index=minimap2_index,
         fastq=fastq
-    params:
-        mode=minimap_derivative_mode
     output:
-        bam="{root}/aligned/{reference}/minimap2/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
-    benchmark: "{root}/aligned/{reference}/minimap2/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+        bam="{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    benchmark: "{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
         realness="real"
     threads: MAPPER_THREADS
@@ -833,7 +829,7 @@ rule minimap2_real_reads:
         slurm_extra="--exclusive",
         full_cluster_nodes=1
     shell:
-        "minimap2 -t {MAPPER_THREADS} -ax {params.mode} {input.minimap2_index} {input.fastq} >{output.bam}"
+        "minimap2 -t {MAPPER_THREADS} -ax {minimapmode} {input.minimap2_index} {input.fastq} >{output.bam}"
 
 rule graphaligner_sim_reads:
     input:
