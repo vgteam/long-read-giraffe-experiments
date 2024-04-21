@@ -592,6 +592,7 @@ rule minimizer_index_graph:
         weightedness="\\.W|",
         k="[0-9]+",
         w="[0-9]+"
+        d9="d9\.|"
     threads: 16
     resources:
         mem_mb=80000,
