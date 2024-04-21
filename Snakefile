@@ -681,7 +681,7 @@ rule giraffe_real_reads:
     output:
         # Giraffe can dump out pre-annotated reads at annotation range -1.
         gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    benchmark: "{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    benchmark: "{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
     threads: MAPPER_THREADS
@@ -767,7 +767,7 @@ rule winnowmap_real_reads:
         mode=minimap_derivative_mode,
     output:
         bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
-    benchmark: "{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    benchmark: "{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
     wildcard_constraints:
@@ -819,7 +819,7 @@ rule minimap2_real_reads:
         fastq=fastq
     output:
         bam="{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
-    benchmark: "{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    benchmark: "{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
     threads: MAPPER_THREADS
@@ -854,7 +854,7 @@ rule graphaligner_real_reads:
         fastq=fastq
     output:
         gam="{root}/aligned/{reference}/{refgraph}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    benchmark: "{root}/aligned/{reference}/{refgraph}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
     threads: MAPPER_THREADS
