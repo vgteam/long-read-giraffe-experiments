@@ -54,6 +54,8 @@
 # reference: The name of the linear reference assembly to use. Right now we
 # only use "chm13".
 #
+# refgraph: The graph to use. "primary" or "hprc-v1.1-mc"
+#
 # mapper: the read mapper to run. Can be "minimap2" or "winnowmap". Can also be
 # "giraffe-" and then a minimizer configuration like "k31.w50.W" or "k29.w11",
 # and then a dash and a Giraffe preset like "-lr", and then "-default" or a Git
@@ -71,6 +73,8 @@
 # "control" section (to hold them constant) or the "vary" section (to run them
 # through a list of values).
 
+#graphs_dir: "/private/groups/patenlab/xhchang/graphs/lr_giraffe_graphs"
+
 experiments:
   # This experiment tests all the mappers, realnesses, technologies, and
   # trimming levels on a small number of reads.
@@ -78,6 +82,7 @@ experiments:
     control:
       subset: 1k
       reference: chm13
+      refgraph: "hprc-v1.1-mc"
     vary:
       mapper: ["giraffe-k31.w50.W-lr-default-noflags", "giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2", "winnowmap"]
       tech: ["r10", "hifi", "illumina"]
@@ -121,6 +126,7 @@ experiments:
       realness: sim
       subset: 1k
       reference: chm13
+      refgraph: "hprc-v1.1-mc"
       tech: r10
       trimmedness: ""
       sample: HG002
@@ -134,11 +140,19 @@ experiments:
       realness: sim
       subset: 1m
       reference: chm13
+      refgraph: "hprc-v1.1-mc"
       tech: r10
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["minimap2", "winnowmap", "giraffe-k31.w50.W-lr-594ce5-noflags", "giraffe-k31.w50.W-lr-c36ae6-noflags"]
+      mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-lr-c36ae6-noflags", "giraffe-k31.w50.W-lr-c36ae6-noflags"]
+      refgraph: ["hprc-v1.1-mc", "primary"]
+    constrain:
+        - refgraph: "hprc-v1.1-mc"
+          mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-lr-c36ae6-noflags", "giraffe-k31.w50.W-lr-c36ae6-noflags"]
+        - refgraph: "primary"
+          mapper: "giraffe-k31.w50.W-lr-c36ae6-newparam"
+
   #This is used to test different mappers on hifi reads
   #Add vg versions with `-commit` instead of `-default`, and make sure the binary
   # is called `vg_commit`
@@ -146,12 +160,21 @@ experiments:
     control:
       realness: sim
       subset: 1m
-      reference: chm13
       tech: hifi
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["minimap2", "winnowmap", "giraffe-k31.w50.W-lr-594ce5-noflags", "giraffe-k31.w50.W-lr-c36ae6-noflags"]
+      mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-lr-c36ae6-newparam"]
+      refgraph: ["hprc-v1.1-mc", "primary"]
+      reference: ["chm13", "grch38"]
+    constrain:
+        - refgraph: "hprc-v1.1-mc"
+          mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-lr-c36ae6-newparam"]
+          reference: "chm13"
+        - refgraph: "primary"          
+          mapper: "giraffe-k31.w50.W-lr-c36ae6-newparam"
+          reference: "grch38"
+
 
   # Experiment to decide if new fragment filtering introduced any regressions
   filter_regression:
@@ -159,6 +182,7 @@ experiments:
       realness: sim
       subset: 1m
       reference: chm13
+      refgraph: "hprc-v1.1-mc"
       tech: r10
       trimmedness: ""
       sample: HG002
@@ -172,6 +196,7 @@ experiments:
       realness: sim
       subset: 10k
       reference: chm13
+      refgraph: "hprc-v1.1-mc"
       tech: r10
       trimmedness: ""
       sample: HG002
@@ -184,6 +209,7 @@ experiments:
       realness: sim
       subset: 1m
       reference: chm13
+      refgraph: "hprc-v1.1-mc"
       tech: illumina
       trimmedness: ""
       sample: HG002
@@ -194,30 +220,9 @@ experiments:
       realness: sim
       subset: 1k
       reference: chm13
+      refgraph: "hprc-v1.1-mc"
       tech: illumina
       trimmedness: ""
       sample: HG002
     vary:
       mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2"]
-  #Vary graph for hifi
-  giraffe_sampled_graphs_hifi:
-    control:
-      realness: sim
-      subset: 1m
-      tech: hifi
-      trimmedness: ""
-      sample: HG002
-      mapper: giraffe-k31.w50.W-lr-d8c1af-noflags
-    vary:
-      reference: ["hg002hifi", "hg002illumina", "hg002nanopore"]
-  #Vary graph for r10
-  giraffe_sampled_graphs_r10:
-    control:
-      realness: sim
-      subset: 1m
-      tech: r10
-      trimmedness: ""
-      sample: HG002
-      mapper: giraffe-k31.w50.W-lr-d8c1af-noflags
-    vary:
-      reference: ["hg002hifi", "hg002illumina", "hg002nanopore"]
