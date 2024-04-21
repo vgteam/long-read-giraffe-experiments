@@ -591,7 +591,7 @@ rule minimizer_index_graph:
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
-        w="[0-9]+"
+        w="[0-9]+",
         d9="d9\.|"
     threads: 16
     resources:
@@ -744,7 +744,7 @@ rule winnowmap_sim_reads:
         mode=minimap_derivative_mode,
         map_threads=MAPPER_THREADS - 4
     output:
-        bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+        bam="{root}/aligned/{reference}/{refgraph}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
         realness="sim"
     wildcard_constraints:
@@ -766,8 +766,8 @@ rule winnowmap_real_reads:
     params:
         mode=minimap_derivative_mode,
     output:
-        bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
-    benchmark: "{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+        bam="{root}/aligned/{reference}/{refgraph}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
         realness="real"
     wildcard_constraints:
@@ -802,7 +802,7 @@ rule minimap2_sim_reads:
         minimap2_index=minimap2_index,
         fastq=fastq
     output:
-        bam="{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+        bam="{root}/aligned/{reference}/{refgraph}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
         realness="sim"
     threads: MAPPER_THREADS + 4
@@ -818,8 +818,8 @@ rule minimap2_real_reads:
         minimap2_index=minimap2_index,
         fastq=fastq
     output:
-        bam="{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
-    benchmark: "{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+        bam="{root}/aligned/{reference}/{refgraph}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
         realness="real"
     threads: MAPPER_THREADS
