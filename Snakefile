@@ -1185,7 +1185,7 @@ rule stage_time:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg filter -t {threads} -T \"annotation.stage_{wildcards.stage}_time\" {input.gam} | grep -v \"#\" >{output}"
+        "vg filter -t {threads} -T \"annotation.stage.{wildcards.stage}.time\" {input.gam} | grep -v \"#\" >{output}"
 
 rule length:
     input:
