@@ -552,9 +552,9 @@ def get_vg_flags(wildcard_flag):
         case maxminfrag_number if maxminfrag_number[0:10] == "maxminfrag":
             return "--fragment-max-min-score " + maxminfrag_number[10:]
         case "variablelengths":
-            return "--gap-scale 0.05 --max-indel-bases-per-base 0.2 --max-lookback-bases-per-base 0.3 --max-lookback-bases 24000 --max-indel-bases 10000 --fragment-gap-scale 0.05 --fragment-max-indel-bases-per-base 0 --fragment-max-lookback-bases-per-base 0"
+            return "--gap-scale 0.05 --max-indel-bases-per-base 0.2 --max-lookback-bases-per-base 0.3 --max-lookback-bases 3000 --max-indel-bases 2000 --fragment-gap-scale 1.0 --fragment-max-indel-bases-per-base 0 --fragment-max-lookback-bases-per-base 0.003"
         case "cheaplongindels":
-            return "--gap-scale 0.05 --max-indel-bases 10000"
+            return "--gap-scale 0.05 --fragment-gap-scale 0.05 --max-indel-bases 10000"
         case "longindels":
             return "--max-indel-bases 10000"
         case "noflags":
@@ -1085,7 +1085,7 @@ rule experiment_chain_coverage_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Speed' --y_label 'Best Chain Coverage (fraction)' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Chain Coverage' --y_label 'Best Chain Coverage (fraction)' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 
 rule best_chain_coverage:

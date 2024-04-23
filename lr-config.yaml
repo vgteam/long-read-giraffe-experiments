@@ -166,8 +166,8 @@ experiments:
       mapper: ["giraffe-k31.w50.W-lr-3779c0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
       tech: ["r10", "hifi"]
 
-  # Experiment to decide if more permissive chaining is good
-  chain_cheap_gaps:
+  # Experiment to decide if fragment parameters are right
+  test_variablelengths:
     control:
       realness: sim
       subset: 10k
@@ -176,7 +176,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-lr-default-noflags", "minimap2", "giraffe-k31.w50.W-lr-default-longindels", "giraffe-k31.w50.W-lr-default-cheaplongindels"]
+      mapper: ["giraffe-k31.w50.W-lr-default-noflags", "minimap2", "giraffe-k31.w50.W-lr-default-variablelengths", "giraffe-k31.w50.W-lr-default-cheaplongindels"]
 
   # This experiment compares different ways of mapping Illumina reads
   illumina_test:
