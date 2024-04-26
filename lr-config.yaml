@@ -166,17 +166,17 @@ experiments:
       mapper: ["giraffe-k31.w50.W-lr-3779c0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
       tech: ["r10", "hifi"]
 
-  # Experiment to decide if fragment parameters are right
-  test_variablelengths:
+  # Experiment to decide if WFAExtender is useful
+  test_wfa:
     control:
       realness: sim
       subset: 10k
       reference: chm13
-      tech: r10
+      tech: hifi
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-lr-default-noflags", "minimap2", "giraffe-k31.w50.W-lr-default-variablelengths", "giraffe-k31.w50.W-lr-default-cheaplongindels"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "minimap2", "giraffe-k31.w50.W-hifi-default-nowfa", "giraffe-k31.w50.W-hifi-default-morewfa"]
 
   # This experiment compares different ways of mapping Illumina reads
   illumina_test:
