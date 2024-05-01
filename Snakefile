@@ -554,10 +554,8 @@ def get_vg_flags(wildcard_flag):
             return "--fragment-score-fraction 0  --fragment-min-score " + minfrag_number[7:]
         case maxminfrag_number if maxminfrag_number[0:10] == "maxminfrag":
             return "--fragment-max-min-score " + maxminfrag_number[10:]
-        case "nowfa":
-            return "--max-chain-connection 0 --max-tail-length 0"
-        case "morewfa":
-            return "--max-chain-connection 1000 --max-tail-length 1000"
+        case maxgap_number if minfrag_number[0:6] == "maxgap":
+            return "--max-tail-gap " + maxgap_number[6:]
         case "noflags":
             return ""
         case unknown:
@@ -1500,7 +1498,7 @@ rule average_aligner_probsize_barchart:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "python3 barchart.py {input.tsv} --categories {ALIGNER_PARTS} --title '{wildcards.tech} {wildcards.realness} Mean Aligner Problem Size' --y_label 'Average of Read Problem Sizes (bp)' --x_label 'Aligner and Part' --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --categories {ALIGNER_PARTS} --title '{wildcards.tech} {wildcards.realness} Mean Aligner Problem Size' --y_label 'Average of Read Average Problem Sizes (bp)' --x_label 'Aligner and Part' --no_n --save {output}"
 
 rule length_by_mapping_histogram:
     input:
