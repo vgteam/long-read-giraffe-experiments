@@ -556,6 +556,10 @@ def get_vg_flags(wildcard_flag):
             return "--fragment-max-min-score " + maxminfrag_number[10:]
         case maxgap_number if minfrag_number[0:6] == "maxgap":
             return "--max-tail-gap " + maxgap_number[6:]
+        case "lesswfa":
+            return "--wfa-max-mismatches 0 --wfa-max-mismatches-per-base 0.02 --wfa-max-max-mismatches 10"
+        case "morewfa":
+            return "--wfa-max-mismatches 4 --wfa-max-mismatches-per-base 0.15 --wfa-max-max-mismatches 50"
         case "noflags":
             return ""
         case unknown:

@@ -166,8 +166,8 @@ experiments:
       mapper: ["giraffe-k31.w50.W-lr-3779c0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
       tech: ["r10", "hifi"]
 
-  # Experiment to decide if max gap limit is useful
-  test_maxgap:
+  # Experiment to see if fiddling with the WFA parameters does anything
+  test_wfa:
     control:
       realness: sim
       subset: 10k
@@ -176,18 +176,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "minimap2", "giraffe-k31.w50.W-hifi-default-maxgap10", "giraffe-k31.w50.W-hifi-default-maxgap100", "giraffe-k31.w50.W-hifi-default-maxgap1000"]
-
-  test_maxgap_r10:
-    control:
-      realness: sim
-      subset: 10k
-      reference: chm13
-      tech: r10
-      trimmedness: ""
-      sample: HG002
-    vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "minimap2", "giraffe-k31.w50.W-r10-default-maxgap10", "giraffe-k31.w50.W-r10-default-maxgap100", "giraffe-k31.w50.W-r10-default-maxgap1000"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "minimap2", "giraffe-k31.w50.W-hifi-default-lesswfa", "giraffe-k31.w50.W-hifi-default-morewfa"]
 
   # This experiment compares different ways of mapping Illumina reads
   illumina_test:
