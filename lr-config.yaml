@@ -178,6 +178,17 @@ experiments:
     vary:
       mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "minimap2", "giraffe-k31.w50.W-hifi-default-maxgap10", "giraffe-k31.w50.W-hifi-default-maxgap100", "giraffe-k31.w50.W-hifi-default-maxgap1000"]
 
+  test_maxgap_r10:
+    control:
+      realness: sim
+      subset: 10k
+      reference: chm13
+      tech: r10
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "minimap2", "giraffe-k31.w50.W-r10-default-maxgap10", "giraffe-k31.w50.W-r10-default-maxgap100", "giraffe-k31.w50.W-r10-default-maxgap1000"]
+
   # This experiment compares different ways of mapping Illumina reads
   illumina_test:
     control:
