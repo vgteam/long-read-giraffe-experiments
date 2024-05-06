@@ -581,7 +581,7 @@ def get_vg_version(wildcard_vgversion):
 #TODO: This is a hacky way to get around the fact that we have two different samples for real and simulated hifi reads
 def get_real_param_search_tsv_name(wildcards):
     sample_name = "HiFi" if wildcards["tech"] == "hifi" and wildcards["sample"] == "HG002" else wildcards["sample"]
-    return expand(wildcards["root"] + "/stats/" + wildcards["reference"] + "/giraffe-" + wildcards["minparams"] + "-" + wildcards["preset"] + "-" + wildcards["vgversion"] + "-{param_hash}/real/" + wildcards["tech"] + "/" + sample_name + wildcards["trimmedness"] + "." + wildcards["subset"] + ".time_used.mean.tsv", param_hash=PARAM_SEARCH.get_hashes())
+    return expand(wildcards["root"] + "/stats/" + wildcards["reference"] +"/" + wildcards["refgraph"] + "/giraffe-" + wildcards["minparams"] + "-" + wildcards["preset"] + "-" + wildcards["vgversion"] + "-{param_hash}/real/" + wildcards["tech"] + "/" + sample_name + wildcards["trimmedness"] + "." + wildcards["subset"] + ".time_used.mean.tsv", param_hash=PARAM_SEARCH.get_hashes())
 rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
@@ -592,6 +592,7 @@ rule minimizer_index_graph:
         weightedness="\\.W|",
         k="[0-9]+",
         w="[0-9]+",
+        reference="chm13|grch38",
         d9="d9\.|"
     threads: 16
     resources:
@@ -890,14 +891,14 @@ rule compare_alignments:
     output:
         gam="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
         tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
-        report="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+        compare="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     threads: 16
     resources:
         mem_mb=200000,
-        runtime=600,
-        slurm_partition=choose_partition(600)
+        runtime=800,
+        slurm_partition=choose_partition(800)
     shell:
-        "vg gamcompare --threads 16 --range 200 {input.gam} {input.truth_gam} --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
+        "vg gamcompare --threads 16 --range 200 {input.gam} {input.truth_gam} --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
 
 rule annotate_alignments:
     input:
@@ -918,7 +919,7 @@ rule annotate_alignments:
 
 rule correct_from_comparison:
     input:
-        report="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+        compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
         condition_name=condition_name
     output:
@@ -929,11 +930,11 @@ rule correct_from_comparison:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.report} | grep -o '[0-9]* reads correct' | cut -f1 -d' ' >>{output.tsv}"
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.compare} | grep -o '[0-9]* reads correct' | cut -f1 -d' ' >>{output.tsv}"
 
 rule accuracy_from_comparison:
     input:
-        report="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+        compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
         condition_name=condition_name
     output:
@@ -944,11 +945,11 @@ rule accuracy_from_comparison:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.report} | grep -o '[0-9%.]* accuracy' | cut -f1 -d' ' >>{output.tsv}"
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.compare} | grep -o '[0-9%.]* accuracy' | cut -f1 -d' ' >>{output.tsv}"
 
 rule wrong_from_comparison:
     input:
-        report="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+        compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
         condition_name=condition_name
     output:
@@ -959,7 +960,7 @@ rule wrong_from_comparison:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "printf '{params.condition_name}\\t' >{output.tsv} && echo \"$(cat {input.report} | grep -o '[0-9]* reads eligible' | cut -f1 -d' ') - $(cat {input.report} | grep -o '[0-9]* reads correct' | cut -f1 -d' ')\" | bc -l >>{output.tsv}"
+        "printf '{params.condition_name}\\t' >{output.tsv} && echo \"$(cat {input.compare} | grep -o '[0-9]* reads eligible' | cut -f1 -d' ') - $(cat {input.compare} | grep -o '[0-9]* reads correct' | cut -f1 -d' ')\" | bc -l >>{output.tsv}"
 
 rule experiment_stat_table:
     input:
@@ -1010,8 +1011,8 @@ rule compared_named_from_compared:
     threads: 3
     resources:
         mem_mb=1000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        runtime=120,
+        slurm_partition=choose_partition(120)
     shell:
         "printf 'correct\\tmq\\taligner\\tread\\teligible\\n' >{output.tsv} && cat {input.tsv} | grep -v '^correct' | awk -F '\\t' -v OFS='\\t' '{{ $3 = \"{params.condition_name}\"; print }}' >>{output.tsv}"
 
@@ -1366,7 +1367,7 @@ rule mean_stat:
 rule average_stage_time_table:
     input:
         # Input files must be in the same order as STAGES
-        expand("{{root}}/stats/{{reference}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.stage_{stage}_time.mean.tsv", stage=STAGES)
+        expand("{{root}}/stats/{{reference}}/{{refgraph}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.stage_{stage}_time.mean.tsv", stage=STAGES)
     output:
         "{root}/tables/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_stage_time.tsv"
     threads: 1
@@ -1510,7 +1511,7 @@ rule mapping_stats:
 rule parameter_search_mapping_stats:
     input:
         times = get_real_param_search_tsv_name,
-        mapping_stats = expand("{{root}}/stats/{{reference}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
+        mapping_stats = expand("{{root}}/stats/{{reference}}/{{refgraph}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
         outfile="{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
     log: "{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.param_search_mapping_stats.log"
