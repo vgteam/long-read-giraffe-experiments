@@ -1652,7 +1652,7 @@ rule accuracy_and_runtime:
                         correct_count += 1
                     if l[1] == "60":
                         mq60_count += 1
-                        if l[0] != "1":
+                        if l[0] != "1" and l[4] == "1":
                             wrong_mq60_count += 1
                     seen_reads.insert(l[3])
             out_file.write(wildcards.mapper+"-"+wildcards.refgraph + "\t" + correct_count + "\t" + mq60_count + "\t" + wrong_mq60_count + "\t" + runtime)
