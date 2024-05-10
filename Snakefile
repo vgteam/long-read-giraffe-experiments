@@ -203,8 +203,6 @@ def graph_base(wildcards):
     """
     if wildcards["refgraph"] == "hprc-v1.1-mc":
         return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9")
-    elif wildcards["refgraph"] == "hprc-v1.1-mc-sampled":
-        return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".sampled." + wildcards["sample"] + "." + wildcards["tech"])
     else:
         return os.path.join(GRAPHS_DIR, wildcards["refgraph"] + "-" + wildcards["reference"])
 
@@ -591,14 +589,14 @@ rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
     output:
-        minfile="{graphs_dir}/{refgraph}-{reference}.{extra}k{k}.w{w}{weightedness}.withzip.min",
-        zipfile="{graphs_dir}/{refgraph}-{reference}.{extra}k{k}.w{w}{weightedness}.zipcodes"
+        minfile="{graphs_dir}/{refgraph}-{reference}.{d9}k{k}.w{w}{weightedness}.withzip.min",
+        zipfile="{graphs_dir}/{refgraph}-{reference}.{d9}k{k}.w{w}{weightedness}.zipcodes"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
         w="[0-9]+",
         reference="chm13|grch38",
-        extra="d9\.|sampled\.HG002\.hifi\.|sampled\.HG002\.r10\.|sampled\.HG002\.illumina\.|"
+        d9="d9\.|"
     threads: 16
     resources:
         mem_mb=80000,
