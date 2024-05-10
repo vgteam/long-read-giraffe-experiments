@@ -128,6 +128,9 @@ MAPPER_THREADS=64
 
 PARAM_SEARCH = parameter_search.ParameterSearch()
 
+#Different phoenix nodes seem to run at different speeds, so we can specify which node to run
+#This gets added as a slurm_extra for all the real read runs
+REAL_SLURM_EXTRA = config.get("real_slurm_extra", None) or ""
 
 wildcard_constraints:
     trimmedness="\\.trimmed|",
@@ -692,7 +695,7 @@ rule giraffe_real_reads:
         mem_mb=500000,
         runtime=600,
         slurm_partition=choose_partition(600),
-        slurm_extra="--exclusive",
+        slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
         full_cluster_nodes=1
     run:
         vg_binary = get_vg_version(wildcards.vgversion)
@@ -782,7 +785,7 @@ rule winnowmap_real_reads:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600),
-        slurm_extra="--exclusive",
+        slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
         full_cluster_nodes=1
     shell:
         "winnowmap -t {MAPPER_THREADS} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.bam}"
@@ -830,7 +833,7 @@ rule minimap2_real_reads:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600),
-        slurm_extra="--exclusive",
+        slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
         full_cluster_nodes=1
     shell:
         "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} {input.minimap2_index} {input.fastq} >{output.bam}"
@@ -865,7 +868,7 @@ rule graphaligner_real_reads:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600),
-        slurm_extra="--exclusive",
+        slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
         full_cluster_nodes=1
     shell:
         "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
