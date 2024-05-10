@@ -166,8 +166,8 @@ experiments:
       mapper: ["giraffe-k31.w50.W-lr-3779c0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
       tech: ["r10", "hifi"]
 
-  # Experiment to see if caching in the WFA is good 
-  test_wfa_cache:
+  # Experiment to see if simplified WFA is good
+  test_wfa_simplification:
     control:
       realness: sim
       subset: 10k
@@ -176,7 +176,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-96cbc4-noflags", "minimap2", "giraffe-k31.w50.W-hifi-default-noflags"]
+      mapper: ["giraffe-k31.w50.W-hifi-a4b74a-noflags", "minimap2", "giraffe-k31.w50.W-hifi-bf1a1d-noflags"]
 
   # This experiment compares different ways of mapping Illumina reads
   illumina_test:
