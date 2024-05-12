@@ -74,7 +74,7 @@
 # through a list of values).
 
 #graphs_dir: "/private/groups/patenlab/xhchang/graphs/lr_giraffe_graphs"
-#real_slurm_extra: "--nodelist phoenix-08"
+#real_slurm_extra: "--exclude=phoenix-[00-10,22-24]"
 
 experiments:
   # This experiment tests all the mappers, realnesses, technologies, and
