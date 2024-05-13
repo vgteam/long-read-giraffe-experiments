@@ -131,6 +131,9 @@ MAPPER_THREADS=64
 
 PARAM_SEARCH = parameter_search.ParameterSearch()
 
+#Different phoenix nodes seem to run at different speeds, so we can specify which node to run
+#This gets added as a slurm_extra for all the real read runs
+REAL_SLURM_EXTRA = config.get("real_slurm_extra", None) or ""
 
 wildcard_constraints:
     trimmedness="\\.trimmed|",
@@ -201,7 +204,10 @@ def graph_base(wildcards):
     """
     Find the base name for a collection of graph files from reference.
     """
-    return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9")
+    if wildcards["refgraph"] == "hprc-v1.1-mc":
+        return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9")
+    else:
+        return os.path.join(GRAPHS_DIR, wildcards["refgraph"] + "-" + wildcards["reference"])
 
 def gbz(wildcards):
     """
@@ -519,7 +525,7 @@ def has_stat_filter(stat_name):
     Produce a filter function for conditions that might have the stat stat_name.
 
     Applies to stat files like:
-    {root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv
+    {root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv
 
     Use with all_experiment() when aggregating stats to compare, to avoid
     trying to agregate from conditions for which the stat cannot be measured.
@@ -581,17 +587,19 @@ def get_vg_version(wildcard_vgversion):
 #TODO: This is a hacky way to get around the fact that we have two different samples for real and simulated hifi reads
 def get_real_param_search_tsv_name(wildcards):
     sample_name = "HiFi" if wildcards["tech"] == "hifi" and wildcards["sample"] == "HG002" else wildcards["sample"]
-    return expand(wildcards["root"] + "/stats/" + wildcards["reference"] + "/giraffe-" + wildcards["minparams"] + "-" + wildcards["preset"] + "-" + wildcards["vgversion"] + "-{param_hash}/real/" + wildcards["tech"] + "/" + sample_name + wildcards["trimmedness"] + "." + wildcards["subset"] + ".time_used.mean.tsv", param_hash=PARAM_SEARCH.get_hashes())
+    return expand(wildcards["root"] + "/stats/" + wildcards["reference"] +"/" + wildcards["refgraph"] + "/giraffe-" + wildcards["minparams"] + "-" + wildcards["preset"] + "-" + wildcards["vgversion"] + "-{param_hash}/real/" + wildcards["tech"] + "/" + sample_name + wildcards["trimmedness"] + "." + wildcards["subset"] + ".time_used.mean.tsv", param_hash=PARAM_SEARCH.get_hashes())
 rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
     output:
-        minfile="{graphs_dir}/hprc-v1.1-mc-{reference}.d9.k{k}.w{w}{weightedness}.withzip.min",
-        zipfile="{graphs_dir}/hprc-v1.1-mc-{reference}.d9.k{k}.w{w}{weightedness}.zipcodes"
+        minfile="{graphs_dir}/{refgraph}-{reference}.{d9}k{k}.w{w}{weightedness}.withzip.min",
+        zipfile="{graphs_dir}/{refgraph}-{reference}.{d9}k{k}.w{w}{weightedness}.zipcodes"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
-        w="[0-9]+"
+        w="[0-9]+",
+        reference="chm13|grch38",
+        d9="d9\.|"
     threads: 16
     resources:
         mem_mb=80000,
@@ -679,7 +687,8 @@ rule giraffe_real_reads:
         fastq=fastq,
     output:
         # Giraffe can dump out pre-annotated reads at annotation range -1.
-        gam="{root}/annotated-1/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    benchmark: "{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
     threads: MAPPER_THREADS
@@ -687,8 +696,8 @@ rule giraffe_real_reads:
         mem_mb=500000,
         runtime=600,
         slurm_partition=choose_partition(600),
-        slurm_extra="--exclusive",
-        giraffe_full_nodes=1
+        slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
+        full_cluster_nodes=1
     run:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
@@ -700,7 +709,7 @@ rule giraffe_sim_reads:
         unpack(indexed_graph),
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
-        gam="{root}/annotated-1/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
     threads: MAPPER_THREADS
@@ -719,7 +728,7 @@ rule giraffe_sim_reads_with_correctness:
         unpack(indexed_graph),
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
-        gam="{root}/correctness/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/correctness/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
     threads: MAPPER_THREADS
@@ -733,7 +742,7 @@ rule giraffe_sim_reads_with_correctness:
 
         shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
 
-rule winnowmap_reads:
+rule winnowmap_sim_reads:
     input:
         reference_fasta=reference_fasta,
         repetitive_kmers=repetitive_kmers,
@@ -743,6 +752,8 @@ rule winnowmap_reads:
         map_threads=MAPPER_THREADS - 4
     output:
         bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    wildcard_constraints:
+        realness="sim"
     wildcard_constraints:
         # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
         # So match any string but that. See https://stackoverflow.com/a/14683066
@@ -754,6 +765,31 @@ rule winnowmap_reads:
         slurm_partition=choose_partition(600)
     shell:
         "winnowmap -t {params.map_threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
+rule winnowmap_real_reads:
+    input:
+        reference_fasta=reference_fasta,
+        repetitive_kmers=repetitive_kmers,
+        fastq=fastq
+    params:
+        mode=minimap_derivative_mode,
+    output:
+        bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    benchmark: "{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    wildcard_constraints:
+        realness="real"
+    wildcard_constraints:
+        # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
+        # So match any string but that. See https://stackoverflow.com/a/14683066
+        tech="(?!illumina).+"
+    threads: MAPPER_THREADS
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600),
+        slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
+        full_cluster_nodes=1
+    shell:
+        "winnowmap -t {MAPPER_THREADS} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.bam}"
 
 rule minimap2_index_reference:
     input:
@@ -768,28 +804,49 @@ rule minimap2_index_reference:
     shell:
          "minimap2 -t {threads} -x {wildcards.preset} -d {output.index} {input.reference_fasta}"
 
-rule minimap2_reads:
+rule minimap2_sim_reads:
     input:
         minimap2_index=minimap2_index,
         fastq=fastq
-    params:
-        mode=minimap_derivative_mode
     output:
-        bam="{root}/aligned/{reference}/minimap2/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+        bam="{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    wildcard_constraints:
+        realness="sim"
     threads: MAPPER_THREADS + 4
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minimap2 -t {MAPPER_THREADS} -ax {params.mode} {input.minimap2_index} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
+        "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} {input.minimap2_index} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
 
-rule graphaligner_reads:
+rule minimap2_real_reads:
+    input:
+        minimap2_index=minimap2_index,
+        fastq=fastq
+    output:
+        bam="{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    benchmark: "{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    wildcard_constraints:
+        realness="real"
+    threads: MAPPER_THREADS
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600),
+        slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
+        full_cluster_nodes=1
+    shell:
+        "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} {input.minimap2_index} {input.fastq} >{output.bam}"
+
+rule graphaligner_sim_reads:
     input:
         gfa=gfa,
         fastq=fastq
     output:
-        gam="{root}/aligned/{reference}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/{refgraph}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        realness="sim"
     threads: MAPPER_THREADS
     resources:
         mem_mb=300000,
@@ -798,14 +855,33 @@ rule graphaligner_reads:
     shell:
         "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
 
+rule graphaligner_real_reads:
+    input:
+        gfa=gfa,
+        fastq=fastq
+    output:
+        gam="{root}/aligned/{reference}/{refgraph}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    wildcard_constraints:
+        realness="real"
+    threads: MAPPER_THREADS
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600),
+        slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
+        full_cluster_nodes=1
+    shell:
+        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
+
 rule inject_bam:
     input:
         gbz=gbz,
         bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     output:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
-        mapper="(minimap2|winnowmap)"
+        mapper="(minimap2.+|winnowmap)"
     threads: 64
     resources:
         mem_mb=300000,
@@ -816,27 +892,26 @@ rule inject_bam:
 
 rule compare_alignments:
     input:
-        gbz=gbz,
-        gam="{root}/annotated-1/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
         truth_gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
-        gam="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
-        tsv="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
-        report="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+        gam="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
+        tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
+        compare="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     threads: 16
     resources:
         mem_mb=200000,
-        runtime=600,
-        slurm_partition=choose_partition(600)
+        runtime=800,
+        slurm_partition=choose_partition(800)
     shell:
-        "vg gamcompare --threads 16 --range 200 {input.gam} {input.truth_gam} --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
+        "vg gamcompare --threads 16 --range 200 {input.gam} {input.truth_gam} --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
 
 rule annotate_alignments:
     input:
         gbz=gbz,
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     output:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         # Giraffe pre-annotates output reads
         mapper="(?!giraffe).+"
@@ -850,52 +925,52 @@ rule annotate_alignments:
 
 rule correct_from_comparison:
     input:
-        report="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+        compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.correct.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.correct.tsv"
     threads: 1
     resources:
         mem_mb=1000,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.report} | grep -o '[0-9]* reads correct' | cut -f1 -d' ' >>{output.tsv}"
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.compare} | grep -o '[0-9]* reads correct' | cut -f1 -d' ' >>{output.tsv}"
 
 rule accuracy_from_comparison:
     input:
-        report="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+        compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.accuracy.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.accuracy.tsv"
     threads: 1
     resources:
         mem_mb=1000,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.report} | grep -o '[0-9%.]* accuracy' | cut -f1 -d' ' >>{output.tsv}"
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.compare} | grep -o '[0-9%.]* accuracy' | cut -f1 -d' ' >>{output.tsv}"
 
 rule wrong_from_comparison:
     input:
-        report="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+        compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.wrong.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.wrong.tsv"
     threads: 1
     resources:
         mem_mb=1000,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "printf '{params.condition_name}\\t' >{output.tsv} && echo \"$(cat {input.report} | grep -o '[0-9]* reads eligible' | cut -f1 -d' ') - $(cat {input.report} | grep -o '[0-9]* reads correct' | cut -f1 -d' ')\" | bc -l >>{output.tsv}"
+        "printf '{params.condition_name}\\t' >{output.tsv} && echo \"$(cat {input.compare} | grep -o '[0-9]* reads eligible' | cut -f1 -d' ') - $(cat {input.compare} | grep -o '[0-9]* reads correct' | cut -f1 -d' ')\" | bc -l >>{output.tsv}"
 
 rule experiment_stat_table:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv", filter_function=has_stat_filter(w["statname"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv", filter_function=has_stat_filter(w["statname"]))
     output:
         table="{root}/experiments/{expname}/results/{statname}.tsv"
     threads: 1
@@ -934,23 +1009,23 @@ rule experiment_wrongness_plot:
 
 rule compared_named_from_compared:
     input:
-        tsv="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
+        tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
     threads: 3
     resources:
         mem_mb=1000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        runtime=120,
+        slurm_partition=choose_partition(120)
     shell:
         "printf 'correct\\tmq\\taligner\\tread\\teligible\\n' >{output.tsv} && cat {input.tsv} | grep -v '^correct' | awk -F '\\t' -v OFS='\\t' '{{ $3 = \"{params.condition_name}\"; print }}' >>{output.tsv}"
 
 
 rule experiment_compared_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv", lambda condition: condition["realness"] == "sim")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv", lambda condition: condition["realness"] == "sim")
     output:
         tsv="{root}/experiments/{expname}/results/compared.tsv"
     threads: 1
@@ -989,9 +1064,9 @@ rule experiment_pr_plot_from_compared:
 
 rule stats_from_alignments:
     input:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        stats="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt"
+        stats="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt"
     threads: 16
     resources:
         mem_mb=10000,
@@ -1002,10 +1077,10 @@ rule stats_from_alignments:
 
 rule facts_from_alignments_with_correctness:
     input:
-        gam="{root}/correctness/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/correctness/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        facts="{root}/stats/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt",
-        facts_dir=directory("{root}/stats/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts")
+        facts="{root}/stats/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt",
+        facts_dir=directory("{root}/stats/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts")
     threads: 64
     resources:
         mem_mb=10000,
@@ -1017,11 +1092,11 @@ rule facts_from_alignments_with_correctness:
 
 rule mapping_rate_from_stats:
     input:
-        stats="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt"
+        stats="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt"
     params:
         condition_name=condition_name
     output:
-        rate="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_rate.tsv"
+        rate="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_rate.tsv"
     threads: 1
     resources:
         mem_mb=1000,
@@ -1045,11 +1120,11 @@ rule experiment_mapping_rate_plot:
 
 rule mapping_speed_from_mean_time_used:
     input:
-        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.mean.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.mean.tsv"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_speed.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_speed.tsv"
     wildcard_constraints:
         mapper="giraffe-.+"
     threads: 1
@@ -1075,11 +1150,11 @@ rule experiment_mapping_speed_plot:
 
 rule chain_coverage_from_mean_best_chain_coverage:
     input:
-        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.mean.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.mean.tsv"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chain_coverage.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chain_coverage.tsv"
     wildcard_constraints:
         mapper="giraffe-.+"
     threads: 1
@@ -1106,9 +1181,9 @@ rule experiment_chain_coverage_plot:
 
 rule best_chain_coverage:
     input:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv"
     threads: 5
     resources:
         mem_mb=2000,
@@ -1119,9 +1194,9 @@ rule best_chain_coverage:
 
 rule chain_anchors_by_name_giraffe:
     input:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors_by_name.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors_by_name.tsv"
     wildcard_constraints:
         mapper="giraffe.*"
     threads: 5
@@ -1136,7 +1211,7 @@ rule chain_anchors_by_name_other:
     input:
         bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors_by_name.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors_by_name.tsv"
     wildcard_constraints:
         mapper="(?!giraffe).+"
     threads: 7
@@ -1149,9 +1224,9 @@ rule chain_anchors_by_name_other:
 
 rule chain_anchor_bases_by_name:
     input:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors_by_name.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors_by_name.tsv"
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchor_bases_by_name.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchor_bases_by_name.tsv"
     params:
         minimizer_k=minimizer_k
     threads: 1
@@ -1164,9 +1239,9 @@ rule chain_anchor_bases_by_name:
 
 rule remove_names:
     input:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{allowedstat}_by_name.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{allowedstat}_by_name.tsv"
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{allowedstat}.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{allowedstat}.tsv"
     wildcard_constraints:
         allowedstat="(best_chain_anchors|best_chain_anchor_bases)"  
     threads: 1
@@ -1179,9 +1254,9 @@ rule remove_names:
 
 rule time_used:
     input:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.tsv"
     threads: 5
     resources:
         mem_mb=2000,
@@ -1192,9 +1267,9 @@ rule time_used:
 
 rule stage_time:
     input:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.tsv"
     threads: 5
     resources:
         mem_mb=2000,
@@ -1262,9 +1337,9 @@ rule aligner_part_probsize:
 
 rule length:
     input:
-        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length.tsv"
     threads: 5
     resources:
         mem_mb=2000,
@@ -1275,9 +1350,9 @@ rule length:
 
 rule length_by_correctness:
     input:
-        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_correctness.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_correctness.tsv"
     threads: 5
     resources:
         mem_mb=2000,
@@ -1288,9 +1363,9 @@ rule length_by_correctness:
 
 rule softclips_by_name_giraffe:
     input:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
         mapper="giraffe.*"
     threads: 5
@@ -1305,7 +1380,7 @@ rule softclips_by_name_other:
     input:
         bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
         mapper="(?!giraffe).+"
     threads: 7
@@ -1318,9 +1393,9 @@ rule softclips_by_name_other:
 
 rule softclips:
     input:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv"
     threads: 1
     resources:
         mem_mb=2000,
@@ -1332,9 +1407,9 @@ rule softclips:
 
 rule mean_stat:
     input:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv"
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.mean.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.mean.tsv"
     threads: 1
     resources:
         mem_mb=512,
@@ -1355,9 +1430,9 @@ rule mean_stat:
 rule average_stage_time_table:
     input:
         # Input files must be in the same order as STAGES
-        expand("{{root}}/stats/{{reference}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.stage_{stage}_time.mean.tsv", stage=STAGES)
+        expand("{{root}}/stats/{{reference}}/{{refgraph}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.stage_{stage}_time.mean.tsv", stage=STAGES)
     output:
-        "{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_stage_time.tsv"
+        "{root}/tables/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_stage_time.tsv"
     threads: 1
     resources:
         mem_mb=512,
@@ -1387,9 +1462,9 @@ rule average_aligner_stat_table:
 
 rule best_chain_coverage_histogram:
     input:
-        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/best_chain_coverage-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/best_chain_coverage-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=2000,
@@ -1400,10 +1475,10 @@ rule best_chain_coverage_histogram:
 
 rule time_used_histogram:
     input:
-        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.tsv",
-        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.mean.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.tsv",
+        mean="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.mean.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/time_used-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/time_used-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=2000,
@@ -1414,10 +1489,10 @@ rule time_used_histogram:
 
 rule stage_time_histogram:
     input:
-        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.tsv",
-        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.mean.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.tsv",
+        mean="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.mean.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/stage_{stage}_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/stage_{stage}_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=2000,
@@ -1428,9 +1503,9 @@ rule stage_time_histogram:
 
 rule average_stage_time_barchart:
     input:
-        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_stage_time.tsv"
+        tsv="{root}/tables/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_stage_time.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/average_stage_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/average_stage_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=512,
@@ -1519,10 +1594,10 @@ rule average_aligner_probsize_barchart:
 
 rule length_by_mapping_histogram:
     input:
-        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv",
-        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length.mean.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv",
+        mean="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length.mean.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/length_by_mapping-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/length_by_mapping-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=2000,
@@ -1534,9 +1609,9 @@ rule length_by_mapping_histogram:
 
 rule length_by_correctness_histogram:
     input:
-        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_correctness.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_correctness.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/length_by_correctness-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/length_by_correctness-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=2000,
@@ -1547,10 +1622,10 @@ rule length_by_correctness_histogram:
 
 rule softclips_histogram:
     input:
-        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv",
-        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.mean.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv",
+        mean="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.mean.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/softclips-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/softclips-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=2000,
@@ -1561,15 +1636,15 @@ rule softclips_histogram:
 
 rule mapping_stats:
     input:
-        compared_tsv="{root}/compared/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
+        compared_tsv="{root}/compared/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
     output:
-        "{root}/stats/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_stats.tsv"
+        "{root}/stats/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_stats.tsv"
     threads: 1
     resources:
         mem_mb=2000,
         runtime=100,
         slurm_partition=choose_partition(100)
-    log: "{root}/stats/{reference}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_stats.log"
+    log: "{root}/stats/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_stats.log"
     run:
 
         correct_count = 0
@@ -1593,10 +1668,10 @@ rule mapping_stats:
 rule parameter_search_mapping_stats:
     input:
         times = get_real_param_search_tsv_name,
-        mapping_stats = expand("{{root}}/stats/{{reference}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
+        mapping_stats = expand("{{root}}/stats/{{reference}}/{{refgraph}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
-        outfile="{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
-    log: "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.param_search_mapping_stats.log"
+        outfile="{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
+    log: "{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.param_search_mapping_stats.log"
     threads: 1
     resources:
         mem_mb=2000,
@@ -1625,9 +1700,9 @@ rule parameter_search_mapping_stats:
 
 rule plot_correct_speed_vs_parameter:
     input:
-        tsv = "{root}/parameter_search/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
+        tsv = "{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
     output:
-        plot = "{root}/parameter_search/plots/{reference}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.correct_speed_vs_{parameter}.{ext}"
+        plot = "{root}/parameter_search/plots/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.correct_speed_vs_{parameter}.{ext}"
     threads: 1
     resources:
         mem_mb=512,
@@ -1642,10 +1717,10 @@ rule plot_correct_speed_vs_parameter:
 
 rule chain_anchors_histogram:
     input:
-        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors.tsv",
-        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors.mean.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors.tsv",
+        mean="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchors.mean.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/chain_anchors-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/chain_anchors-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=2000,
@@ -1656,10 +1731,10 @@ rule chain_anchors_histogram:
 
 rule chain_anchor_bases_histogram:
     input:
-        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchor_bases.tsv",
-        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchor_bases.mean.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchor_bases.tsv",
+        mean="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_anchor_bases.mean.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/chain_anchor_length-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/chain_anchor_length-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=2000,
@@ -1670,10 +1745,10 @@ rule chain_anchor_bases_histogram:
 
 rule chain_coverage_histogram:
     input:
-        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv",
-        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.mean.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv",
+        mean="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.mean.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/chain_coverage-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/chain_coverage-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     wildcard_constraints:
         mapper="giraffe.*"
     threads: 1
@@ -1687,9 +1762,9 @@ rule chain_coverage_histogram:
 
 rule add_mapper_to_plot:
     input:
-        "{root}/plots/{reference}/{mapper}/{plotname}-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/{plotname}-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     output:
-        "{root}/plots/{reference}/{plotname}-for-{mapper}-on-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{plotname}-for-{mapper}-on-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=2000,
@@ -1698,10 +1773,45 @@ rule add_mapper_to_plot:
     shell:
         "cp {input} {output}"
 
-ruleorder: chain_coverage > merge_stat_chunks
-ruleorder: time_used > merge_stat_chunks
-ruleorder: stage_time > merge_stat_chunks
-ruleorder: length > merge_stat_chunks
-ruleorder: length_by_correctness > merge_stat_chunks
-ruleorder: mapping_stats > merge_stat_chunks
+rule accuracy_and_runtime:
+    input:
+        runtime_benchmark=lambda w: all_experiment("{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark", lambda condition: condition["realness"] == "real")
+        compared=lambda w: all_exmeriments("{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv", lambda condition: condition["realness"] == "sim")
+    output:
+        tsv="{root}/experiments/{expname}/results/accuracy_and_runtime.tsv"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    run:
+        out_file = open(output.tsv, "w")
+        out_file.write("#mapper\tcorrect\tmapq60\twrong_mapq60\truntime")
+
+        for (benchmark_tsv, compared_tsv) in zip(input.runtime_benchmark, input.compared):
+            benchmark_file = open(benchmark_tsv)
+            benchmark_file.readline()
+            line = benchmark_file.readline()
+            runtime = line.split()[1]
+            benchmark_file.close()
+
+            correct_count = 0
+            mq60_count = 0
+            wrong_mq60_count = 0
+            seen_reads = {}
+            for line in open(compared.tsv):
+                l = line.split()
+                if l[3] not in seen_reads:
+                    if l[0] == "1":
+                        #If correct
+                        correct_count += 1
+                    if l[1] == "60":
+                        mq60_count += 1
+                        if l[0] != "1" and l[4] == "1":
+                            wrong_mq60_count += 1
+                    seen_reads.insert(l[3])
+            out_file.write(wildcards.mapper+"-"+wildcards.refgraph + "\t" + correct_count + "\t" + mq60_count + "\t" + wrong_mq60_count + "\t" + runtime)
+
+        out_file.close
+
 
