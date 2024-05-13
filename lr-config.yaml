@@ -58,7 +58,7 @@
 #
 # mapper: the read mapper to run. Can be "minimap2" or "winnowmap". Can also be
 # "giraffe-" and then a minimizer configuration like "k31.w50.W" or "k29.w11",
-# and then a dash and a Giraffe preset like "-lr", and then "-default" or a Git
+# and then a dash and a Giraffe preset like "-hifi", and then "-default" or a Git
 # commit, and then "-noflags" or a string understandable to get_vg_flags() in the
 # Snakefile that determines a set of command line flags to pass.
 #
@@ -85,7 +85,7 @@ experiments:
       reference: chm13
       refgraph: "hprc-v1.1-mc"
     vary:
-      mapper: ["giraffe-k31.w50.W-lr-default-noflags", "giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2-lr:hqae", "minimap2-sr", "winnowmap"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2-lr:hqae", "minimap2-sr", "winnowmap"]
       tech: ["r10", "hifi", "illumina"]
       sample: ["HG002", "HiFi"]
       trimmedness: ["", ".trimmed"]
@@ -115,7 +115,11 @@ experiments:
       -
         # Only run the short read modes of Giraffe on the short reads. And
         # don't run Winnowmap on short reads since it can't do them.
-        - mapper: ["giraffe-k31.w50.W-lr-default-noflags", "winnowmap"]
+        - mapper: "giraffe-k31.w50.W-r10-default-noflags"
+          tech: "r10"
+        - mapper: "giraffe-k31.w50.W-hifi-default-noflags"
+          tech: "hifi"
+        - mapper: "winnowmap"
           tech: ["r10", "hifi"]
         - mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags"]
           tech: "illumina"
@@ -135,7 +139,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-lr-default-noflags", "winnowmap"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "winnowmap"]
   #This is used to test different mappers on r10 reads
   #Add different vg versions with `-commit` instead of `-default`, and make sure the binary
   # is called `vg_commit`
