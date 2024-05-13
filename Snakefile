@@ -820,7 +820,7 @@ rule minimap2_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} {input.minimap2_index} {input.fastq} >{output.sam}"
+        "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam}"
 
 rule minimap2_real_reads:
     input:
@@ -839,7 +839,7 @@ rule minimap2_real_reads:
         slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
         full_cluster_nodes=1
     shell:
-        "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} {input.minimap2_index} {input.fastq} >{output.sam}"
+        "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam}"
 
 # Minimap2 and Winnowmap include secondary alignments in the output by default, and Winnowmap doesn't quite have a way to limit them (minimap2 has -N)
 # Also they only speak SAM and we don't want to benchmark the BAM-ification time.
