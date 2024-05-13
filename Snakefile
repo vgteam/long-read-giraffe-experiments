@@ -933,9 +933,6 @@ rule annotate_alignments:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     output:
         gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    wildcard_constraints:
-        # Giraffe pre-annotates output reads
-        mapper="(?!giraffe).+"
     threads: 16
     resources:
         mem_mb=100000,
