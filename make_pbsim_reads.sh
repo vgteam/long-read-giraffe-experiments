@@ -240,8 +240,14 @@ for READ_COUNT in 100 1000 10000 100000 1000000 ; do
     # Subset to manageable sizes (always)
     # Get the fraction of reads to keep, overestimated, with no leading 0, to paste onto subsample seed.
     FRACTION="$(echo "(${READ_COUNT} + 500)/${TOTAL_READS}" | bc -l | sed 's/^[0-9]*//g')"
-    # Can't use pipefail here because head will cut off the pipe and fail the previous command
-    vg filter -d "${SUBSAMPLE_SEED}${FRACTION}" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | vg view -aj - | shuf | head -n"${READ_COUNT}" | vg view -JGa - > "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam"
+    
+    if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam" ]] ; then
+        vg filter -d "${SUBSAMPLE_SEED}${FRACTION}" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.gam"
+        vg gamsort --shuffle "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.gam" >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.shuffled.gam"
+        vg filter -t1 --max-reads "${READ_COUNT}" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.shuffled.gam" >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam.tmp"
+        mv "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam.tmp" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam"
+    fi
+   
     ((SUBSAMPLE_SEED+=1))    
 done
 

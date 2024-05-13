@@ -166,17 +166,17 @@ experiments:
       mapper: ["giraffe-k31.w50.W-lr-3779c0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
       tech: ["r10", "hifi"]
 
-  # Experiment to decide if more permissive chaining is good
-  chain_cheap_gaps:
+  # Experiment to see if WFA distance limit is good
+  test_wfa_banding:
     control:
       realness: sim
       subset: 10k
       reference: chm13
-      tech: r10
+      tech: hifi
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-lr-default-noflags", "minimap2", "giraffe-k31.w50.W-lr-default-longindels", "giraffe-k31.w50.W-lr-default-cheaplongindels"]
+      mapper: ["minimap2", "giraffe-k31.w50.W-hifi-bf1a1d-noflags", "giraffe-k31.w50.W-hifi-6546d2-noflags"]
 
   # This experiment compares different ways of mapping Illumina reads
   illumina_test:

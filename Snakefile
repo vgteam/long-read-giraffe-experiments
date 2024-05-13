@@ -110,6 +110,9 @@ REFS_DIR = config.get("refs_dir", None) or "/private/groups/patenlab/anovak/proj
 # What stages does the Giraffe mapper report times for?
 STAGES = ["minimizer", "seed", "tree", "fragment", "chain", "align", "winner"]
 
+# What aligner and read part combinations does Giraffe report statistics for?
+ALIGNER_PARTS = ["wfa_tail", "dozeu_tail", "wfa_middle", "bga_middle"]
+
 # To allow for splitting and variable numbers of output files, we need to know
 # the available subset values to generate rules.
 KNOWN_SUBSETS = ["100", "1k", "10k", "100k", "1m"]
@@ -556,12 +559,12 @@ def get_vg_flags(wildcard_flag):
             return "--fragment-score-fraction 0  --fragment-min-score " + minfrag_number[7:]
         case maxminfrag_number if maxminfrag_number[0:10] == "maxminfrag":
             return "--fragment-max-min-score " + maxminfrag_number[10:]
-        case "variablelengths":
-            return "--gap-scale 0.05 --max-indel-bases-per-base 0.2 --max-lookback-bases-per-base 0.3 --max-lookback-bases 24000 --max-indel-bases 10000 --fragment-gap-scale 0.05 --fragment-max-indel-bases-per-base 0 --fragment-max-lookback-bases-per-base 0"
-        case "cheaplongindels":
-            return "--gap-scale 0.05 --max-indel-bases 10000"
-        case "longindels":
-            return "--max-indel-bases 10000"
+        case maxgap_number if minfrag_number[0:6] == "maxgap":
+            return "--max-tail-gap " + maxgap_number[6:]
+        case "lesswfa":
+            return "--wfa-max-mismatches 0 --wfa-max-mismatches-per-base 0.02 --wfa-max-max-mismatches 10"
+        case "morewfa":
+            return "--wfa-max-mismatches 4 --wfa-max-mismatches-per-base 0.15 --wfa-max-max-mismatches 50"
         case "noflags":
             return ""
         case unknown:
@@ -1098,7 +1101,7 @@ rule experiment_chain_coverage_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Speed' --y_label 'Best Chain Coverage (fraction)' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Chain Coverage' --y_label 'Best Chain Coverage (fraction)' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 
 rule best_chain_coverage:
@@ -1200,6 +1203,63 @@ rule stage_time:
     shell:
         "vg filter -t {threads} -T \"annotation.stage.{wildcards.stage}.time\" {input.gam} | grep -v \"#\" >{output}"
 
+rule aligner_part_stat:
+    input:
+        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.aligner_{aligner}_{part}_{stat}.tsv"
+    wildcard_constraints:
+        stat="(time|bases|invocations)"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t {threads} -T \"annotation.aligner_stats.per_read.{wildcards.part}.{wildcards.stat}.{wildcards.aligner}\" {input.gam} | grep -v \"#\" >{output}"
+
+# We also want to get the fraction of the read processed by each aligner
+rule aligner_part_fraction:
+    input:
+        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.aligner_{aligner}_{part}_fraction.tsv"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t {threads} -T \"annotation.aligner_stats.per_read.{wildcards.part}.bases.{wildcards.aligner};length\" {input.gam} | grep -v \"#\" | awk '{{ print $1 / $2 }}' >{output}"
+
+# And the speed in bases per second
+rule aligner_part_speed:
+    input:
+        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.aligner_{aligner}_{part}_speed.tsv"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t {threads} -T \"annotation.aligner_stats.per_read.{wildcards.part}.bases.{wildcards.aligner};annotation.aligner_stats.per_read.{wildcards.part}.time.{wildcards.aligner}\" {input.gam} | grep -v \"#\" | grep -v \"^0.0$\" | awk '{{ print $1 / $2 }}' >{output}"
+
+# And the problem sizes
+rule aligner_part_probsize:
+    input:
+        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.aligner_{aligner}_{part}_probsize.tsv"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t {threads} -T \"annotation.aligner_stats.per_read.{wildcards.part}.bases.{wildcards.aligner};annotation.aligner_stats.per_read.{wildcards.part}.invocations.{wildcards.aligner}\" {input.gam} | grep -v \"#\" | grep -v \"^0.0$\" | awk '{{ print $1 / $2 }}' >{output}"
+
 rule length:
     input:
         gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
@@ -1211,7 +1271,7 @@ rule length:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg filter -t {threads} -T \"sequence\" {input.gam} | grep -v \"#\" | awk '{{print length($1)}}' >{output}"
+        "vg filter -t {threads} -T \"length\" {input.gam} >{output}"
 
 rule length_by_correctness:
     input:
@@ -1309,6 +1369,22 @@ rule average_stage_time_table:
             for (stage, filename) in zip(STAGES, input):
                 out_stream.write(f"{stage}\t{open(filename).read().strip()}\n")
 
+rule average_aligner_stat_table:
+    input:
+        expand("{{root}}/stats/{{reference}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.aligner_{alignerpart}_{{stat}}.mean.tsv", alignerpart=ALIGNER_PARTS)
+    output:
+        "{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_{stat}.tsv"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=20,
+        slurm_partition=choose_partition(20)
+    run:
+        # Make a TSV of aligner and part name and its average value
+        with open(output[0], "w") as out_stream:
+            for (alignerpart, filename) in zip(ALIGNER_PARTS, input):
+                out_stream.write(f"{alignerpart}\t{open(filename).read().strip()}\n")
+
 rule best_chain_coverage_histogram:
     input:
         tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv"
@@ -1362,6 +1438,84 @@ rule average_stage_time_barchart:
         slurm_partition=choose_partition(10)
     shell:
         "python3 barchart.py {input.tsv} --categories {STAGES} --title '{wildcards.tech} {wildcards.realness} Mean Stage Times' --y_label 'Time (s)' --x_label 'Stage' --no_n --save {output}"
+
+rule average_aligner_time_barchart:
+    input:
+        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_time.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/average_aligner_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 barchart.py {input.tsv} --categories {ALIGNER_PARTS} --title '{wildcards.tech} {wildcards.realness} Mean Aligner Times' --y_label 'Time per Read (s)' --x_label 'Aligner and Part' --no_n --save {output}"
+
+rule average_aligner_bases_barchart:
+    input:
+        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_bases.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/average_aligner_bases-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 barchart.py {input.tsv} --categories {ALIGNER_PARTS} --title '{wildcards.tech} {wildcards.realness} Mean Aligner Bases' --y_label 'Bases Processed per Read (bp)' --x_label 'Aligner and Part' --no_n --save {output}"
+
+rule average_aligner_invocations_barchart:
+    input:
+        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_invocations.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/average_aligner_invocations-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 barchart.py {input.tsv} --categories {ALIGNER_PARTS} --title '{wildcards.tech} {wildcards.realness} Mean Aligner Invocations' --y_label 'Invocations per Read (count)' --x_label 'Aligner and Part' --no_n --save {output}"
+
+rule average_aligner_fraction_barchart:
+    input:
+        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_fraction.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/average_aligner_fraction-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 barchart.py {input.tsv} --categories {ALIGNER_PARTS} --title '{wildcards.tech} {wildcards.realness} Mean Aligner Fraction' --y_label 'Read Processed (fraction)' --x_label 'Aligner and Part' --no_n --save {output}"
+
+rule average_aligner_speed_barchart:
+    input:
+        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_speed.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/average_aligner_speed-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 barchart.py {input.tsv} --categories {ALIGNER_PARTS} --title '{wildcards.tech} {wildcards.realness} Mean Aligner Speed' --y_label 'Average of Read Speeds (bp/s)' --x_label 'Aligner and Part' --no_n --save {output}"
+
+rule average_aligner_probsize_barchart:
+    input:
+        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_probsize.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/average_aligner_probsize-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 barchart.py {input.tsv} --categories {ALIGNER_PARTS} --title '{wildcards.tech} {wildcards.realness} Mean Aligner Problem Size' --y_label 'Average of Read Average Problem Sizes (bp)' --x_label 'Aligner and Part' --no_n --save {output}"
 
 rule length_by_mapping_histogram:
     input:
