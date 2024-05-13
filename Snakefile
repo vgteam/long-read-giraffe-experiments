@@ -176,9 +176,11 @@ def repetitive_kmers(wildcards):
 
 def minimap_derivative_mode(wildcards):
     """
-    Determine the right Minimap2/Winnowmap preset (map-pb, etc.) from tech.
+    Determine the right Minimap2/Winnowmap preset (map-pb, etc.) from minimapmode or tech.
     """
-
+    if "minimapmode" in wildcards:
+        return wildcards["minimapmode"]
+    
     return {
         "r9": "map-ont",
         "r10": "map-ont",
@@ -239,6 +241,7 @@ def minimizer_k(wildcards):
                 return 19
             case "sr":
                 return 21
+        raise RuntimeError("Unimplemented mode: " + mode)
 
 def dist_indexed_graph(wildcards):
     """
@@ -1148,6 +1151,34 @@ rule experiment_mapping_speed_plot:
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Speed' --y_label 'Reads per Second' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
+rule softclips_from_mean_softclips:
+    input:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.mean.tsv"
+    params:
+        condition_name=condition_name
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.tsv} >>{output.tsv}"
+
+rule experiment_softclips_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/softclips.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/softclips.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Softclips' --y_label 'Mean Softclip (bp)' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
 rule chain_coverage_from_mean_best_chain_coverage:
     input:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.mean.tsv"
@@ -1775,8 +1806,8 @@ rule add_mapper_to_plot:
 
 rule accuracy_and_runtime:
     input:
-        runtime_benchmark=lambda w: all_experiment("{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark", lambda condition: condition["realness"] == "real")
-        compared=lambda w: all_exmeriments("{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv", lambda condition: condition["realness"] == "sim")
+        runtime_benchmark=lambda w: all_experiment("{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark", lambda condition: condition["realness"] == "real"),
+        compared=lambda w: all_experiments("{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv", lambda condition: condition["realness"] == "sim")
     output:
         tsv="{root}/experiments/{expname}/results/accuracy_and_runtime.tsv"
     threads: 1

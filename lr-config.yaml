@@ -85,7 +85,7 @@ experiments:
       reference: chm13
       refgraph: "hprc-v1.1-mc"
     vary:
-      mapper: ["giraffe-k31.w50.W-lr-default-noflags", "giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2", "winnowmap"]
+      mapper: ["giraffe-k31.w50.W-lr-default-noflags", "giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2-lr:hqae", "minimap2-sr", "winnowmap"]
       tech: ["r10", "hifi", "illumina"]
       sample: ["HG002", "HiFi"]
       trimmedness: ["", ".trimmed"]
@@ -119,7 +119,10 @@ experiments:
           tech: ["r10", "hifi"]
         - mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags"]
           tech: "illumina"
-        - mapper: "minimap2"
+        - mapper: "minimap2-lr:hqae"
+          tech: ["r10", "hifi"]
+        - mapper: "minimap2-sr"
+          tech: "illumina"
   # This experiment compares mapping accuracy between Giraffe and Winnowmap on
   # simulated R10 reads.
   r10_accuracy_small:
