@@ -684,8 +684,8 @@ rule giraffe_real_reads:
         fastq=fastq,
     output:
         # Giraffe can dump out pre-annotated reads at annotation range -1.
-        gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    benchmark: "{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+        gam="{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
     threads: MAPPER_THREADS
@@ -1621,8 +1621,8 @@ rule add_mapper_to_plot:
 
 rule accuracy_and_runtime:
     input:
-        runtime_benchmark=lambda w: all_experiment("{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark", lambda condition: condition["realness"] == "real"),
-        compared=lambda w: all_experiment("{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv", lambda condition: condition["realness"] == "sim")
+        runtime_benchmark=lambda w: all_experiment(w, "{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.benchmark", lambda condition: condition["realness"] == "real"),
+        compared=lambda w: all_experiment(w, "{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv", lambda condition: condition["realness"] == "sim")
     output:
         tsv="{root}/experiments/{expname}/stats/accuracy_and_runtime.tsv"
     threads: 1
