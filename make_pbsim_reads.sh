@@ -242,9 +242,9 @@ for READ_COUNT in 100 1000 10000 100000 1000000 ; do
     FRACTION="$(echo "(${READ_COUNT} + 500)/${TOTAL_READS}" | bc -l | sed 's/^[0-9]*//g')"
     
     if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam" ]] ; then
-        set -o pipefail
-        vg filter -d "${SUBSAMPLE_SEED}${FRACTION}" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | vg gamsort --shuffle - | vg filter -t1 --max-reads "${READ_COUNT}" > "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam.tmp"
-        set +o pipefail
+        vg filter -d "${SUBSAMPLE_SEED}${FRACTION}" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.gam"
+        vg gamsort --shuffle "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.gam" >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.shuffled.gam"
+        vg filter -t1 --max-reads "${READ_COUNT}" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.shuffled.gam" >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam.tmp"
         mv "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam.tmp" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam"
     fi
    
