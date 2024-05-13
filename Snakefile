@@ -752,9 +752,8 @@ rule winnowmap_sim_reads:
         fastq=fastq
     params:
         mode=minimap_derivative_mode,
-        map_threads=MAPPER_THREADS - 4
     output:
-        bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+        sam="{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
     wildcard_constraints:
         realness="sim"
     wildcard_constraints:
@@ -767,7 +766,8 @@ rule winnowmap_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "winnowmap -t {params.map_threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
+        "winnowmap -t {MAPPER_THREADS} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >output.sam"
+
 rule winnowmap_real_reads:
     input:
         reference_fasta=reference_fasta,
@@ -776,8 +776,8 @@ rule winnowmap_real_reads:
     params:
         mode=minimap_derivative_mode,
     output:
-        bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
-    benchmark: "{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+        sam="{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+    benchmark: "{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
     wildcard_constraints:
@@ -792,7 +792,7 @@ rule winnowmap_real_reads:
         slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
         full_cluster_nodes=1
     shell:
-        "winnowmap -t {MAPPER_THREADS} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.bam}"
+        "winnowmap -t {MAPPER_THREADS} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam}"
 
 rule minimap2_index_reference:
     input:
@@ -812,24 +812,23 @@ rule minimap2_sim_reads:
         minimap2_index=minimap2_index,
         fastq=fastq
     output:
-        bam="{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+        sam="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
     wildcard_constraints:
         realness="sim"
-    threads: MAPPER_THREADS + 4
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} {input.minimap2_index} {input.fastq} | samtools view --threads 4 -h -F 2048 -F 256 --bam - >{output.bam}"
+        "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} {input.minimap2_index} {input.fastq} >{output.sam}"
 
 rule minimap2_real_reads:
     input:
         minimap2_index=minimap2_index,
         fastq=fastq
     output:
-        bam="{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
-    benchmark: "{root}/aligned/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+        sam="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+    benchmark: "{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
     threads: MAPPER_THREADS
@@ -840,7 +839,26 @@ rule minimap2_real_reads:
         slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
         full_cluster_nodes=1
     shell:
-        "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} {input.minimap2_index} {input.fastq} >{output.bam}"
+        "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} {input.minimap2_index} {input.fastq} >{output.sam}"
+
+# Minimap2 and Winnowmap include secondary alignments in the output by default, and Winnowmap doesn't quite have a way to limit them (minimap2 has -N)
+# Also they only speak SAM and we don't want to benchmark the BAM-ification time.
+# So drop secondary and supplementary alignments and conver tto BAM.
+# TODO: Get the downstream stats tools to be able to do things like measure average softclips when there are supplementary alignments.
+rule drop_secondary_and_supplementary:
+    input:
+        sam="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+    output:
+        bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    wildcard_constraints:
+        mapper="(minimap2-.*|winnowmap)"
+    threads: 16
+    resources:
+        mem_mb=30000,
+        runtime=600,
+        slurm_partition=choose_partition(600),
+    shell:
+        "samtools view --threads 16 -h -F 2048 -F 256 --bam {input.sam} >{output.bam}"
 
 rule graphaligner_sim_reads:
     input:
@@ -1420,7 +1438,7 @@ rule softclips_by_name_other:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        r"samtools view {input.bam} | cut -f1,2,6 | sed 's/\t\(\([0-9]*\)S\)\?\([0-9]*[IDM]\|\*\)*\(\([0-9]*\)S\)\?$/\t\2\t\5/g' | sed 's/\t\t/\t0\t/g' | sed 's/\t$/\t0/g' | sed 's/16\t\([0-9]*\)\t\([0-9]*\)/\2\t\1/g' | sed 's/\t[0-9]+\t\([0-9]*\t[0-9]*\)$/\t\1/g' > {output}"
+        r"samtools view {input.bam} | cut -f1,2,6 | sed 's/\t\(\([0-9]*\)S\)\?\([0-9]*[IDMH]\|\*\)*\(\([0-9]*\)S\)\?$/\t\2\t\5/g' | sed 's/\t\t/\t0\t/g' | sed 's/\t$/\t0/g' | sed 's/16\t\([0-9]*\)\t\([0-9]*\)/\2\t\1/g' | sed 's/\t[0-9]+\t\([0-9]*\t[0-9]*\)$/\t\1/g' > {output}"
 
 rule softclips:
     input:
