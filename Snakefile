@@ -1621,10 +1621,10 @@ rule add_mapper_to_plot:
 
 rule accuracy_and_runtime:
     input:
-        runtime_benchmark=lambda w: all_experiment("{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark", lambda condition: condition["realness"] == "real")
-        compared=lambda w: all_exmeriments("{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv", lambda condition: condition["realness"] == "sim")
+        runtime_benchmark=lambda w: all_experiment("{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark", lambda condition: condition["realness"] == "real"),
+        compared=lambda w: all_experiment("{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv", lambda condition: condition["realness"] == "sim")
     output:
-        tsv="{root}/experiments/{expname}/results/accuracy_and_runtime.tsv"
+        tsv="{root}/experiments/{expname}/stats/accuracy_and_runtime.tsv"
     threads: 1
     resources:
         mem_mb=2000,
