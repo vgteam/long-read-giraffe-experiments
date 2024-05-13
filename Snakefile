@@ -1759,7 +1759,7 @@ rule plot_correct_speed_vs_parameter:
         header = infile.readline().split()
         parameter_col = str(header.index(wildcards.parameter)+1) 
         infile.close()
-        shell("cat <(cat {input.tsv} | grep -v \"#\" | awk -v OFS=\'\t\' \'{{print $" + parameter_col + ", $4}}\' | sed \'s/^/RPS /g\') <(cat {input.tsv} | grep -v \"#\" | awk -v OFS=\'\t\' \'{{print $" + parameter_col + ", $1}}\' | sed \'s/^/Correct /g\') | ./scatter.py --title \"Speed vs Correctness vs " + wildcards.parameter + "\" --x_label " + wildcards.parameter + "  --y_per_category --categories \"RPS\" \"Correct\" --y_label \"Reads per Second\" \"Reads Correct\" --legend_overlay \"best\" --save {output.plot} /dev/stdin")
+        shell("cat <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $4}}' | sed 's/^/RPS /g') <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $1}}' | sed 's/^/Correct /g') | ./scatter.py --title 'Speed vs Correctness vs " + wildcards.parameter + "' --x_label " + wildcards.parameter + "  --y_per_category --categories 'RPS' 'Correct' --y_label 'Reads per Second' 'Reads Correct' --legend_overlay 'best' --save {output.plot} /dev/stdin")
 
 rule chain_anchors_histogram:
     input:
