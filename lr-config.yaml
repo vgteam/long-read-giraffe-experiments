@@ -166,8 +166,8 @@ experiments:
       mapper: ["giraffe-k31.w50.W-lr-3779c0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
       tech: ["r10", "hifi"]
 
-  # Experiment to see if simplified WFA is good
-  test_wfa_simplification:
+  # Experiment to see if WFA distance limit is good
+  test_wfa_banding:
     control:
       realness: sim
       subset: 10k
@@ -176,7 +176,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-a4b74a-noflags", "minimap2", "giraffe-k31.w50.W-hifi-bf1a1d-noflags"]
+      mapper: ["minimap2", "giraffe-k31.w50.W-hifi-bf1a1d-noflags", "giraffe-k31.w50.W-hifi-6546d2-noflags"]
 
   # This experiment compares different ways of mapping Illumina reads
   illumina_test:
