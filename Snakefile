@@ -690,8 +690,8 @@ rule giraffe_real_reads:
         fastq=fastq,
     output:
         # Giraffe can dump out pre-annotated reads at annotation range -1.
-        gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    benchmark: "{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+        gam="{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
     threads: MAPPER_THREADS
@@ -1821,46 +1821,4 @@ rule add_mapper_to_plot:
         slurm_partition=choose_partition(10)
     shell:
         "cp {input} {output}"
-
-rule accuracy_and_runtime:
-    input:
-        runtime_benchmark=lambda w: all_experiment("{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark", lambda condition: condition["realness"] == "real"),
-        compared=lambda w: all_experiments("{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv", lambda condition: condition["realness"] == "sim")
-    output:
-        tsv="{root}/experiments/{expname}/results/accuracy_and_runtime.tsv"
-    threads: 1
-    resources:
-        mem_mb=2000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
-    run:
-        out_file = open(output.tsv, "w")
-        out_file.write("#mapper\tcorrect\tmapq60\twrong_mapq60\truntime")
-
-        for (benchmark_tsv, compared_tsv) in zip(input.runtime_benchmark, input.compared):
-            benchmark_file = open(benchmark_tsv)
-            benchmark_file.readline()
-            line = benchmark_file.readline()
-            runtime = line.split()[1]
-            benchmark_file.close()
-
-            correct_count = 0
-            mq60_count = 0
-            wrong_mq60_count = 0
-            seen_reads = {}
-            for line in open(compared.tsv):
-                l = line.split()
-                if l[3] not in seen_reads:
-                    if l[0] == "1":
-                        #If correct
-                        correct_count += 1
-                    if l[1] == "60":
-                        mq60_count += 1
-                        if l[0] != "1" and l[4] == "1":
-                            wrong_mq60_count += 1
-                    seen_reads.insert(l[3])
-            out_file.write(wildcards.mapper+"-"+wildcards.refgraph + "\t" + correct_count + "\t" + mq60_count + "\t" + wrong_mq60_count + "\t" + runtime)
-
-        out_file.close
-
 
