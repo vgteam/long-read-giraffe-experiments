@@ -36,7 +36,7 @@ The general flow for using this repository is:
     snakemake --rerun-incomplete --slurm --latency-wait 120 -j128 \
         output/experiments/r10_accuracy_small/plots/mapping_rate.png \
         output/experiments/r10_accuracy_small/plots/correct.png \
-        output/plots/chm13/minimap2/length_by_correctness-sim-r10-HG002.trimmed.1k.png
+        output/plots/chm13/hprc-v1.1-mc/minimap2/length_by_correctness-sim-r10-HG002.trimmed.1k.png
     ```
 
     And you can use the `--dry-run` flag to see all the rules that will be executed and the files that will be created.
@@ -57,20 +57,20 @@ In these file name templates, `{root}` is your base output directory, `{expname}
 
 In these file name templates, `{root}` is your base output directory, `{ext}` is the image format you want the plot in, such as `png`, and the other placeholders are experimental variables that define the condition being run.
 
-* `{root}/plots/{reference}/{mapper}/best_chain_coverage-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of the amount of the read covered by the best chain, for Giraffe conditions.
-* `{root}/plots/{reference}/{mapper}/chain_anchor_length-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of the number of bases in seed anchors in the best chain.
-* `{root}/plots/{reference}/{mapper}/chain_anchors-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of the number of seed anchors in the best chain.
-* `{root}/plots/{reference}/{mapper}/time_used-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of the CPU time used to map each read, for Giraffe conditions.
-* `{root}/plots/{reference}/{mapper}/average_stage_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average CPU time used per mapping stage, for Giraffe conditions.
-* `{root}/plots/{reference}/{mapper}/average_aligner_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average wall clock time used per dynamic programming method, for Giraffe conditions.
-* `{root}/plots/{reference}/{mapper}/average_aligner_bases-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average bases aligned per dynamic programming method, for Giraffe conditions.
-* `{root}/plots/{reference}/{mapper}/average_aligner_invocations-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average invocation count per dynamic programming method, for Giraffe conditions.
-* `{root}/plots/{reference}/{mapper}/average_aligner_fraction-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average read fraction aligned per dynamic programming method, for Giraffe conditions.
-* `{root}/plots/{reference}/{mapper}/average_aligner_speed-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average bases aligned per second per dynamic programming method, for Giraffe conditions.
-* `{root}/plots/{reference}/{mapper}/average_aligner_probsize-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average problem size averaged again over reads, per dynamic programming method, for Giraffe conditions.
-* `{root}/plots/{reference}/{mapper}/length_by_mapping-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of read length, broken out by whether the read mapped or not.
-* `{root}/plots/{reference}/{mapper}/length_by_correctness-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of read length, broken out by whether the read was correct, incorrect, or without a truth position.
-* `{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt`: A Giraffe Facts report about where candidates are filtered, for Giraffe conditions. 
+* `{root}/plots/{reference}/{refgraph}/{mapper}/best_chain_coverage-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of the amount of the read covered by the best chain, for Giraffe conditions.
+* `{root}/plots/{reference}/{refgraph}/{mapper}/chain_anchor_length-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of the number of bases in seed anchors in the best chain.
+* `{root}/plots/{reference}/{refgraph}/{mapper}/chain_anchors-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of the number of seed anchors in the best chain.
+* `{root}/plots/{reference}/{refgraph}/{mapper}/time_used-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of the CPU time used to map each read, for Giraffe conditions.
+* `{root}/plots/{reference}/{refgraph}/{mapper}/average_stage_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average CPU time used per mapping stage, for Giraffe conditions.
+* `{root}/plots/{reference}/{refgraph}/{mapper}/average_aligner_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average wall clock time used per dynamic programming method, for Giraffe conditions.
+* `{root}/plots/{reference}/{refgraph}/{mapper}/average_aligner_bases-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average bases aligned per dynamic programming method, for Giraffe conditions.
+* `{root}/plots/{reference}/{refgraph}/{mapper}/average_aligner_invocations-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average invocation count per dynamic programming method, for Giraffe conditions.
+* `{root}/plots/{reference}/{refgraph}/{mapper}/average_aligner_fraction-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average read fraction aligned per dynamic programming method, for Giraffe conditions.
+* `{root}/plots/{reference}/{refgraph}/{mapper}/average_aligner_speed-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average bases aligned per second per dynamic programming method, for Giraffe conditions.
+* `{root}/plots/{reference}/{refgraph}/{mapper}/average_aligner_probsize-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average problem size averaged again over reads, per dynamic programming method, for Giraffe conditions.
+* `{root}/plots/{reference}/{refgraph}/{mapper}/length_by_mapping-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of read length, broken out by whether the read mapped or not.
+* `{root}/plots/{reference}/{refgraph}/{mapper}/length_by_correctness-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of read length, broken out by whether the read was correct, incorrect, or without a truth position.
+* `{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt`: A Giraffe Facts report about where candidates are filtered, for Giraffe conditions. 
 
 
 

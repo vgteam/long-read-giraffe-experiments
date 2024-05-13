@@ -1280,9 +1280,9 @@ rule stage_time:
 
 rule aligner_part_stat:
     input:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.aligner_{aligner}_{part}_{stat}.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.aligner_{aligner}_{part}_{stat}.tsv"
     wildcard_constraints:
         stat="(time|bases|invocations)"
     threads: 5
@@ -1296,9 +1296,9 @@ rule aligner_part_stat:
 # We also want to get the fraction of the read processed by each aligner
 rule aligner_part_fraction:
     input:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.aligner_{aligner}_{part}_fraction.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.aligner_{aligner}_{part}_fraction.tsv"
     threads: 5
     resources:
         mem_mb=2000,
@@ -1310,9 +1310,9 @@ rule aligner_part_fraction:
 # And the speed in bases per second
 rule aligner_part_speed:
     input:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.aligner_{aligner}_{part}_speed.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.aligner_{aligner}_{part}_speed.tsv"
     threads: 5
     resources:
         mem_mb=2000,
@@ -1324,9 +1324,9 @@ rule aligner_part_speed:
 # And the problem sizes
 rule aligner_part_probsize:
     input:
-        gam="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.aligner_{aligner}_{part}_probsize.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.aligner_{aligner}_{part}_probsize.tsv"
     threads: 5
     resources:
         mem_mb=2000,
@@ -1446,9 +1446,9 @@ rule average_stage_time_table:
 
 rule average_aligner_stat_table:
     input:
-        expand("{{root}}/stats/{{reference}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.aligner_{alignerpart}_{{stat}}.mean.tsv", alignerpart=ALIGNER_PARTS)
+        expand("{{root}}/stats/{{reference}}/{{refgraph}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.aligner_{alignerpart}_{{stat}}.mean.tsv", alignerpart=ALIGNER_PARTS)
     output:
-        "{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_{stat}.tsv"
+        "{root}/tables/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_{stat}.tsv"
     threads: 1
     resources:
         mem_mb=512,
@@ -1516,9 +1516,9 @@ rule average_stage_time_barchart:
 
 rule average_aligner_time_barchart:
     input:
-        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_time.tsv"
+        tsv="{root}/tables/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_time.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/average_aligner_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/average_aligner_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=512,
@@ -1529,9 +1529,9 @@ rule average_aligner_time_barchart:
 
 rule average_aligner_bases_barchart:
     input:
-        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_bases.tsv"
+        tsv="{root}/tables/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_bases.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/average_aligner_bases-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/average_aligner_bases-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=512,
@@ -1542,9 +1542,9 @@ rule average_aligner_bases_barchart:
 
 rule average_aligner_invocations_barchart:
     input:
-        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_invocations.tsv"
+        tsv="{root}/tables/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_invocations.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/average_aligner_invocations-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/average_aligner_invocations-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=512,
@@ -1555,9 +1555,9 @@ rule average_aligner_invocations_barchart:
 
 rule average_aligner_fraction_barchart:
     input:
-        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_fraction.tsv"
+        tsv="{root}/tables/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_fraction.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/average_aligner_fraction-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/average_aligner_fraction-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=512,
@@ -1568,9 +1568,9 @@ rule average_aligner_fraction_barchart:
 
 rule average_aligner_speed_barchart:
     input:
-        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_speed.tsv"
+        tsv="{root}/tables/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_speed.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/average_aligner_speed-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/average_aligner_speed-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=512,
@@ -1581,9 +1581,9 @@ rule average_aligner_speed_barchart:
 
 rule average_aligner_probsize_barchart:
     input:
-        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_probsize.tsv"
+        tsv="{root}/tables/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_aligner_probsize.tsv"
     output:
-        "{root}/plots/{reference}/{mapper}/average_aligner_probsize-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+        "{root}/plots/{reference}/{refgraph}/{mapper}/average_aligner_probsize-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
     resources:
         mem_mb=512,
