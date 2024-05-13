@@ -766,7 +766,7 @@ rule winnowmap_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "winnowmap -t {MAPPER_THREADS} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >output.sam"
+        "winnowmap -t {MAPPER_THREADS} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam}"
 
 rule winnowmap_real_reads:
     input:
