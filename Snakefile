@@ -604,8 +604,10 @@ def param_search_tsvs(wildcards, statname="time_used.mean", realness="real"):
 
     # TODO: This is a hacky way to get around the fact that we have two different samples for real and simulated hifi reads
     sample_name = "HiFi" if wildcards["tech"] == "hifi" and wildcards["sample"] == "HG002" else wildcards["sample"]
+    trimmedness = ".trimmed" if wildcards["tech"] in ("r9", "r10", "q27") and realness == "real" else wildcards["trimmedness"]
     values = dict(wildcards)
     values["sample"] = sample_name
+    values["trimmedness"] = trimmedness
     values["param_hash"] = PARAM_SEARCH.get_hashes()
     values["realness"] = realness
     values["statname"] = statname
