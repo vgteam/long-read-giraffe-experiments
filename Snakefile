@@ -140,7 +140,8 @@ wildcard_constraints:
     sample=".+(?<!\\.trimmed)",
     basename=".+(?<!\\.trimmed)",
     subset="[0-9]+[km]?",
-    statname="[a-zA-Z0-9_]+(?<!compared)"
+    statname="[a-zA-Z0-9_]+(?<!compared)(.mean|.total)?",
+    realness="(real|sim)"
 
 def choose_partition(minutes):
     """
@@ -1471,6 +1472,40 @@ rule softclips:
         slurm_partition=choose_partition(60)
     shell:
         r"sed 's/^.*\t\([0-9]*\)\t\([0-9]*\)$/\1\n\2/' {input} > {output}"
+
+rule memory_usage_gam:
+    input:
+        benchmark="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_usage.tsv"
+    wildcard_constraints:
+        realness="real",
+        mapper="(giraffe.+|graphaligner)"
+    threads: MAPPER_THREADS
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        # max_rss happens to be column 3, but try to check
+        "cat {input.benchmark} | cut -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
+
+rule memory_usage_sam:
+    input:
+        benchmark="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_usage.tsv"
+    wildcard_constraints:
+        realness="real",
+        mapper="(minimap2.+|winnowmap)"
+    threads: MAPPER_THREADS
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        # max_rss happens to be column 3, but try to check
+        "cat {input.benchmark} | cut -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
 
 rule mean_stat:
     input:
