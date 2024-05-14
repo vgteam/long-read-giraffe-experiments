@@ -146,13 +146,13 @@ experiments:
       sample: HG002
     vary:
       realness: ["sim", "real"]
-      mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-r10-default-noflags"]
+      mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50-r10-default-noflags"]
       refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled-HG002-r10", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc"
           mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-r10-default-noflags"]
         - refgraph: "hprc-v1.1-mc-sampled-HG002-r10"
-          mapper: "giraffe-k31.w50.W-r10-default-noflags"
+          mapper: "giraffe-k31.w50-r10-default-noflags"
         - refgraph: "primary"
           mapper: "giraffe-k31.w50.W-r10-default-noflags"
 
@@ -168,13 +168,13 @@ experiments:
       sample: HG002
     vary:
       realness: ["sim", "real"]
-      mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-hifi-default-noflags"]
+      mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50-hifi-default-noflags"]
       refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled-HG002-hifi", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc"
           mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-hifi-default-noflags"]
         - refgraph: "hprc-v1.1-mc-sampled-HG002-hifi"          
-          mapper: "giraffe-k31.w50.W-hifi-default-noflags"
+          mapper: "giraffe-k31.w50-hifi-default-noflags"
         - refgraph: "primary"          
           mapper: "giraffe-k31.w50.W-hifi-default-noflags"
 
@@ -217,13 +217,13 @@ experiments:
       sample: HG002
     vary:
       realness: ["sim", "real"]
-      mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags"]
+      mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11-sr-default-noflags", "giraffe-k29.w11-default-default-noflags"]
       refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled-HG002-illumina", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc"
           mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags"]
         - refgraph: "hprc-v1.1-mc-sampled-HG002-illumina"
-          mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags"]
+          mapper: ["giraffe-k29.w11-sr-default-noflags", "giraffe-k29.w11-default-default-noflags"]
         - refgraph: "primary"          
           mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags"]
   illumina_test_small:
