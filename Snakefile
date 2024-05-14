@@ -590,10 +590,28 @@ def get_vg_version(wildcard_vgversion):
     else:
         return "./vg_"+wildcard_vgversion
 
-#TODO: This is a hacky way to get around the fact that we have two different samples for real and simulated hifi reads
-def get_real_param_search_tsv_name(wildcards):
+
+def param_search_tsvs(wildcards, statname="time_used.mean", realness="real"):
+    """
+    Get the combined (i.e. mean) TSVs for the conditions in the parameter search.
+
+    TSVs are in the same order as PARAM_SEARCH.get_hashes().
+
+    Needs to be used like:
+        lambda w: param_search_tsv(w, "time_used.mean")
+    """
+
+    # TODO: This is a hacky way to get around the fact that we have two different samples for real and simulated hifi reads
     sample_name = "HiFi" if wildcards["tech"] == "hifi" and wildcards["sample"] == "HG002" else wildcards["sample"]
-    return expand(wildcards["root"] + "/stats/" + wildcards["reference"] +"/" + wildcards["refgraph"] + "/giraffe-" + wildcards["minparams"] + "-" + wildcards["preset"] + "-" + wildcards["vgversion"] + "-{param_hash}/real/" + wildcards["tech"] + "/" + sample_name + wildcards["trimmedness"] + "." + wildcards["subset"] + ".time_used.mean.tsv", param_hash=PARAM_SEARCH.get_hashes())
+    values = dict(wildcards)
+    values["sample"] = sample_name
+    values["param_hash"] = PARAM_SEARCH.get_hashes()
+    values["realness"] = realness
+    values["statname"] = statname
+    
+    return expand("{root}/stats/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv", **values)
+
+
 rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
@@ -1111,6 +1129,7 @@ rule facts_from_alignments_with_correctness:
         vg_binary = get_vg_version(wildcards.vgversion)
         shell("python3 giraffe-facts.py --threads {threads} {input.gam} {output.facts_dir} --stage --filter-help --vg " + vg_binary + " >{output.facts}")
 
+
 rule mapping_rate_from_stats:
     input:
         stats="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt"
@@ -1453,7 +1472,6 @@ rule softclips:
     shell:
         r"sed 's/^.*\t\([0-9]*\)\t\([0-9]*\)$/\1\n\2/' {input} > {output}"
 
-
 rule mean_stat:
     input:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv"
@@ -1476,6 +1494,52 @@ rule mean_stat:
         with open(output[0], "w") as f:
             f.write(f"{total/count}\n")
 
+rule total_stat:
+    input:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv"
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.total.tsv"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=20,
+        slurm_partition=choose_partition(20)
+    run:
+        # Sum the one-column TSV
+        total = 0
+        for line in open(input[0]):
+            line = line.strip()
+            if line:
+                total += float(line)
+        with open(output[0], "w") as f:
+            f.write(f"{total}\n")
+
+rule wfa_portion:
+    input:
+        lambda w: expand("{{root}}/stats/{{reference}}/{{refgraph}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.aligner_{alignerpart}_{{stat}}.total.tsv", alignerpart=[p for p in ALIGNER_PARTS if p.endswith(w["tailmiddle"])])
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.wfa_{tailmiddle}_portion_of_{stat}.tsv"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=20,
+        slurm_partition=choose_partition(20)
+    run:
+        # Make a TSV with just the fraction of this stat's total that belongs
+        # to WFA for tail or middle, whichever this is.
+        aligner_parts = [p for p in ALIGNER_PARTS if p.endswith(wildcards["tailmiddle"])]
+        total = 0
+        wfa = 0
+        for (aligner_part, filename) in zip(aligner_parts, input):
+            value = float(open(filename).read().strip())
+            total += value
+            if aligner_part.startswith("wfa"):
+                wfa += value
+        
+        with open(output[0], "w") as out_stream:
+            out_stream.write(f"{wfa/total}\n")
+
+
 rule average_stage_time_table:
     input:
         # Input files must be in the same order as STAGES
@@ -1493,7 +1557,7 @@ rule average_stage_time_table:
             for (stage, filename) in zip(STAGES, input):
                 out_stream.write(f"{stage}\t{open(filename).read().strip()}\n")
 
-rule average_aligner_stat_table:
+rule combine_aligner_stat_table:
     input:
         expand("{{root}}/stats/{{reference}}/{{refgraph}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.aligner_{alignerpart}_{{stat}}.mean.tsv", alignerpart=ALIGNER_PARTS)
     output:
@@ -1505,6 +1569,22 @@ rule average_aligner_stat_table:
         slurm_partition=choose_partition(20)
     run:
         # Make a TSV of aligner and part name and its average value
+        with open(output[0], "w") as out_stream:
+            for (alignerpart, filename) in zip(ALIGNER_PARTS, input):
+                out_stream.write(f"{alignerpart}\t{open(filename).read().strip()}\n")
+
+rule total_aligner_stat_table:
+    input:
+        expand("{{root}}/stats/{{reference}}/{{refgraph}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.aligner_{alignerpart}_{{stat}}.total.tsv", alignerpart=ALIGNER_PARTS)
+    output:
+        "{root}/tables/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.total_aligner_{stat}.tsv"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=20,
+        slurm_partition=choose_partition(20)
+    run:
+        # Make a TSV of aligner and part name and its total value
         with open(output[0], "w") as out_stream:
             for (alignerpart, filename) in zip(ALIGNER_PARTS, input):
                 out_stream.write(f"{alignerpart}\t{open(filename).read().strip()}\n")
@@ -1575,6 +1655,20 @@ rule average_aligner_time_barchart:
         slurm_partition=choose_partition(10)
     shell:
         "python3 barchart.py {input.tsv} --categories {ALIGNER_PARTS} --title '{wildcards.tech} {wildcards.realness} Mean Aligner Times' --y_label 'Time per Read (s)' --x_label 'Aligner and Part' --no_n --save {output}"
+
+rule total_aligner_time_barchart:
+    input:
+        tsv="{root}/tables/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.total_aligner_time.tsv"
+    output:
+        "{root}/plots/{reference}/{refgraph}/{mapper}/total_aligner_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 barchart.py {input.tsv} --categories {ALIGNER_PARTS} --title '{wildcards.tech} {wildcards.realness} Total Aligner Times' --y_label 'Time (s)' --x_label 'Aligner and Part' --no_n --save {output}"
+
 
 rule average_aligner_bases_barchart:
     input:
@@ -1716,7 +1810,7 @@ rule mapping_stats:
 
 rule parameter_search_mapping_stats:
     input:
-        times = get_real_param_search_tsv_name,
+        times = lambda w: param_search_tsvs(w, "time_used.mean"),
         mapping_stats = expand("{{root}}/stats/{{reference}}/{{refgraph}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
         outfile="{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
@@ -1763,6 +1857,48 @@ rule plot_correct_speed_vs_parameter:
         parameter_col = str(header.index(wildcards.parameter)+1) 
         infile.close()
         shell("cat <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $4}}' | sed 's/^/RPS /g') <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $1}}' | sed 's/^/Correct /g') | ./scatter.py --title 'Speed vs Correctness vs " + wildcards.parameter + "' --x_label " + wildcards.parameter + "  --y_per_category --categories 'RPS' 'Correct' --y_label 'Reads per Second' 'Reads Correct' --legend_overlay 'best' --save {output.plot} /dev/stdin")
+
+rule parameter_search_stat:
+    input:
+        stat_files=lambda w: param_search_tsvs(w, w["statname"], w["realness"]),
+    output:
+        outfile="{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.{realness}.parameter_{statname}.tsv"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=100,
+        slurm_partition=choose_partition(100)
+    run:
+        f = open(output.outfile, "w")
+        f.write("#" + wildcards["statname"] + "\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
+        for param_hash, stat_file in zip(PARAM_SEARCH.get_hashes(), input.stat_files):
+
+            param_f = open(stat_file)
+            l = param_f.readline().split()
+            stat_value = l[0]
+            param_f.close()
+
+            parameters = PARAM_SEARCH.hash_to_parameters[param_hash]
+            f.write("\n" + stat_value + "\t" + '\t'.join([str(x) for x in parameters])) 
+        f.close()
+
+rule plot_stat_vs_parameter:
+    input:
+        tsv = "{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.{realness}.parameter_{statname}.tsv"
+    output:
+        plot = "{root}/parameter_search/plots/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.{realness}.{statname}_vs_{parameter}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    run:
+        infile = open(input.tsv)
+        header = infile.readline().split()
+        parameter_col = str(header.index(wildcards.parameter)+1) 
+        infile.close()
+        # TODO: Aren't wildcards available here with {}?
+        shell("cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $1}}' | ./scatter.py --title '" + wildcards.statname + " vs. " + wildcards.parameter + "' --x_label " + wildcards.parameter + " --y_label '" + wildcards.statname + "' --legend_overlay 'best' --save {output.plot} /dev/stdin")
 
 rule chain_anchors_histogram:
     input:
