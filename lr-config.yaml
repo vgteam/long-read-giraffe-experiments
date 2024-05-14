@@ -213,6 +213,26 @@ experiments:
     vary:
       mapper: ["minimap2", "giraffe-k31.w50.W-hifi-bf1a1d-noflags", "giraffe-k31.w50.W-hifi-6546d2-noflags"]
 
+  # Compare different nanopore data types
+  compare_nanopore:
+    control:
+      subset: 10k
+      reference: chm13
+      refgraph: "hprc-v1.1-mc"
+      sample: HG002
+    vary:
+      realness: ["sim", "real"]
+      trimmedness: ["", ".trimmed"]
+      tech: ["r10", "q27"]
+      mapper: ["minimap2-lr:hqae", "giraffe-k31.w50.W-r10-default-noflags"]
+    constrain:
+        # Always trimming for real reads
+        - realness: real
+          trimmedness: ".trimmed"
+        # Always use no trimming after simulation for simulated reads
+        - realness: sim
+          trimmedness: ""
+
   # This experiment compares different ways of mapping Illumina reads
   illumina_test:
     control:

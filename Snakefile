@@ -178,15 +178,18 @@ def minimap_derivative_mode(wildcards):
     """
     Determine the right Minimap2/Winnowmap preset (map-pb, etc.) from minimapmode or tech.
     """
-    if "minimapmode" in wildcards:
-        return wildcards["minimapmode"]
-    
-    return {
+    explicit_mode = wildcards.get("minimapmode", None)
+    if explicit_mode is not None:
+        return explicit_mode
+
+    MODE_BY_TECH = {
         "r9": "map-ont",
         "r10": "map-ont",
         "hifi": "map-pb",
         "illumina": "sr" # Only Minimap2 has this one, Winnowmap doesn't.
-    }[wildcards["tech"]]
+    }
+
+    return MODE_BY_TECH[wildcards["tech"]]
 
 def minimap2_index(wildcards):
     """
