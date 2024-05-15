@@ -1,6 +1,6 @@
 #name   type    min_val max_val default sampling_strategy
-max-chain-connection	int	200	600	400	uniform
-max-tail-length	int	50	200	100	uniform
+max-chain-connection	int	50	600	400	uniform
+max-tail-length	int	50	400	100	uniform
 wfa-distance	int	10	50	10	uniform
 wfa-distance-per-base	float	0.05	0.2	0.1	uniform
 wfa-max-distance	int	100	300	200	uniform

@@ -140,8 +140,13 @@ wildcard_constraints:
     sample=".+(?<!\\.trimmed)",
     basename=".+(?<!\\.trimmed)",
     subset="[0-9]+[km]?",
+    tech="[a-zA-Z0-9]+",
     statname="[a-zA-Z0-9_]+(?<!compared)(.mean|.total)?",
-    realness="(real|sim)"
+    statnamex="[a-zA-Z0-9_]+(?<!compared)(.mean|.total)?",
+    statnamey="[a-zA-Z0-9_]+(?<!compared)(.mean|.total)?",
+    realness="(real|sim)",
+    realnessx="(real|sim)",
+    realnessy="(real|sim)",
 
 def choose_partition(minutes):
     """
@@ -603,7 +608,15 @@ def param_search_tsvs(wildcards, statname="time_used.mean", realness="real"):
     """
 
     # TODO: This is a hacky way to get around the fact that we have two different samples for real and simulated hifi reads
-    sample_name = "HiFi" if wildcards["tech"] == "hifi" and wildcards["sample"] == "HG002" else wildcards["sample"]
+    if wildcards["tech"] == "hifi":
+        if wildcards["sample"] == "HG002" and realness == "real":
+            sample_name = "HiFi"
+        elif wildcards["sample"] == "HiFi" and realness == "sim":
+            sample_name = "HG002"
+        else:
+            sample_name = wildcards["sample"]
+    else:
+        sample_name = wildcards["sample"]
     trimmedness = ".trimmed" if wildcards["tech"] in ("r9", "r10", "q27") and realness == "real" else wildcards["trimmedness"]
     values = dict(wildcards)
     values["sample"] = sample_name
@@ -968,47 +981,59 @@ rule annotate_alignments:
 rule correct_from_comparison:
     input:
         compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
-    params:
-        condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.correct.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.correct.tsv"
     threads: 1
     resources:
         mem_mb=1000,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.compare} | grep -o '[0-9]* reads correct' | cut -f1 -d' ' >>{output.tsv}"
+        "cat {input.compare} | grep -o '[0-9]* reads correct' | cut -f1 -d' ' >{output.tsv}"
 
 rule accuracy_from_comparison:
     input:
         compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
-    params:
-        condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.accuracy.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.accuracy.tsv"
     threads: 1
     resources:
         mem_mb=1000,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.compare} | grep -o '[0-9%.]* accuracy' | cut -f1 -d' ' >>{output.tsv}"
+        "cat {input.compare} | grep -o '[0-9%.]* accuracy' | cut -f1 -d' ' >{output.tsv}"
 
 rule wrong_from_comparison:
     input:
         compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
-    params:
-        condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.wrong.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.wrong.tsv"
     threads: 1
     resources:
         mem_mb=1000,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "printf '{params.condition_name}\\t' >{output.tsv} && echo \"$(cat {input.compare} | grep -o '[0-9]* reads eligible' | cut -f1 -d' ') - $(cat {input.compare} | grep -o '[0-9]* reads correct' | cut -f1 -d' ')\" | bc -l >>{output.tsv}"
+        "echo \"$(cat {input.compare} | grep -o '[0-9]* reads eligible' | cut -f1 -d' ') - $(cat {input.compare} | grep -o '[0-9]* reads correct' | cut -f1 -d' ')\" | bc -l >{output.tsv}"
+
+rule comparison_experiment_stat:
+    input:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{comparisonstat}.tsv"
+    params:
+        condition_name=condition_name
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{comparisonstat}.tsv"
+    wildcard_constraints:
+        comparisonstat="(wrong|accuracy|correct)"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.tsv} >>{output.tsv}"
+
 
 rule experiment_stat_table:
     input:
@@ -1164,6 +1189,21 @@ rule experiment_mapping_rate_plot:
 rule mapping_speed_from_mean_time_used:
     input:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.mean.tsv"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_speed.tsv"
+    wildcard_constraints:
+        mapper="giraffe-.+"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"1 / $(cat {input.tsv})\" | bc -l >>{output.tsv}"
+
+rule mapping_speed_from_stats:
+    input:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_speed.tsv"
     params:
         condition_name=condition_name
     output:
@@ -1176,7 +1216,7 @@ rule mapping_speed_from_mean_time_used:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "printf '{params.condition_name}\\t' >{output.tsv} && echo \"1 / $(cat {input.tsv})\" | bc -l >>{output.tsv}"
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.tsv} >>{output.tsv}"
 
 rule experiment_mapping_speed_plot:
     input:
@@ -1936,6 +1976,49 @@ rule plot_stat_vs_parameter:
         infile.close()
         # TODO: Aren't wildcards available here with {}?
         shell("cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $1}}' | ./scatter.py --title '" + wildcards.statname + " vs. " + wildcards.parameter + "' --x_label " + wildcards.parameter + " --y_label '" + wildcards.statname + "' --legend_overlay 'best' --save {output.plot} /dev/stdin")
+
+rule parameter_search_parametric_stats:
+    input:
+        stat_files_y=lambda w: param_search_tsvs(w, w["statnamey"], w["realnessy"]),
+        stat_files_x=lambda w: param_search_tsvs(w, w["statnamex"], w["realnessx"]),
+    output:
+        outfile="{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parametric.{realnessy}.{statnamey}_vs_{realnessx}.{statnamex}.tsv"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=100,
+        slurm_partition=choose_partition(100)
+    run:
+        f = open(output.outfile, "w")
+        f.write("#" + wildcards["statnamex"] + "\t" + wildcards["statnamey"] + "\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
+        for param_hash, stat_file_x, stat_file_y in zip(PARAM_SEARCH.get_hashes(), input.stat_files_x, input.stat_files_y):
+
+            param_f = open(stat_file_x)
+            l = param_f.readline().split()
+            stat_value_x = l[0]
+            param_f.close()
+
+            param_f = open(stat_file_y)
+            l = param_f.readline().split()
+            stat_value_y = l[0]
+            param_f.close()
+
+            parameters = PARAM_SEARCH.hash_to_parameters[param_hash]
+            f.write("\n" + stat_value_x + "\t" + stat_value_y + "\t" + '\t'.join([str(x) for x in parameters])) 
+        f.close()
+
+rule plot_stat_vs_stat:
+    input:
+        tsv = "{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parametric.{realnessy}.{statnamey}_vs_{realnessx}.{statnamex}.tsv"
+    output:
+        plot = "{root}/parameter_search/plots/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parametric.{realnessy}.{statnamey}_vs_{realnessx}.{statnamex}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "cat {input.tsv} | grep -v '#' | cut -f1-2 | ./scatter.py --title '{wildcards.statnamey} vs. {wildcards.statnamex}' --x_label '{wildcards.statnamex}' --y_label '{wildcards.statnamey}' --save {output.plot} /dev/stdin"
 
 rule chain_anchors_histogram:
     input:
