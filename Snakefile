@@ -135,6 +135,10 @@ PARAM_SEARCH = parameter_search.ParameterSearch()
 #This gets added as a slurm_extra for all the real read runs
 REAL_SLURM_EXTRA = config.get("real_slurm_extra", None) or ""
 
+# If set to True, jobs where we care about speed will demand entire nodes.
+# If False, they will just use one thread per core.
+EXCLUSIVE_TIMING = config.get("exclusive_timing", True)
+
 wildcard_constraints:
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
@@ -147,6 +151,58 @@ wildcard_constraints:
     realness="(real|sim)",
     realnessx="(real|sim)",
     realnessy="(real|sim)",
+
+def auto_mapping_threads(wildcards):
+    """
+    Choose the number of threads to use map reads, from subset.
+    """
+    number = subset_to_number(wildcards["subset"])
+    if number >= 100000:
+        return MAPPER_THREADS
+    elif number >= 10000:
+        return 16
+    else:
+        return 8
+
+def auto_mapping_slurm_extra(wildcards):
+    """
+    Determine Slurm extra arguments for a timed, real-read mapping job.
+    """
+    if EXCLUSIVE_TIMING:
+        return "--exclusive " + REAL_SLURM_EXTRA
+    else:
+        return "--threads-per-core 1 " + REAL_SLURM_EXTRA
+
+def auto_mapping_full_cluster_nodes(wildcards):
+    """
+    Determine number of full cluster nodes for a timed, real-read mapping job.
+
+    TODO: Is this really used by Slurm?
+    """
+    if EXCLUSIVE_TIMING:
+        return 1
+    else:
+        return 0
+
+def auto_mapping_memory(wildcards):
+    """
+    Determine the memory to use for Giraffe mapping, in MB, from subset and tech.
+    """
+    thread_count = auto_mapping_threads(wildcards)
+
+    base_mb = 25000
+
+    if wildcards["tech"] == "illumina":
+        scale_mb = 50000
+    elif wildcards["tech"] == "hifi":
+        scale_mb = 175000
+    else:
+        scale_mb = 475000
+
+    # Scale down memory with threads
+    return scale_mb / MAPPER_THREADS * thread_count + base_mb
+
+
 
 def choose_partition(minutes):
     """
@@ -731,13 +787,13 @@ rule giraffe_real_reads:
     benchmark: "{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
-    threads: MAPPER_THREADS
+    threads: auto_mapping_threads
     resources:
-        mem_mb=500000,
+        mem_mb=auto_mapping_memory,
         runtime=600,
         slurm_partition=choose_partition(600),
-        slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
-        full_cluster_nodes=1
+        slurm_extra=auto_mapping_slurm_extra,
+        full_cluster_nodes=auto_mapping_full_cluster_nodes
     run:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
@@ -752,9 +808,9 @@ rule giraffe_sim_reads:
         gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
-    threads: MAPPER_THREADS
+    threads: auto_mapping_threads
     resources:
-        mem_mb=500000,
+        mem_mb=auto_mapping_memory,
         runtime=600,
         slurm_partition=choose_partition(600)
     run:
@@ -771,9 +827,9 @@ rule giraffe_sim_reads_with_correctness:
         gam="{root}/correctness/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
-    threads: MAPPER_THREADS
+    threads: auto_mapping_threads
     resources:
-        mem_mb=500000,
+        mem_mb=auto_mapping_memory,
         runtime=600,
         slurm_partition=choose_partition(600)
     run:
@@ -797,13 +853,13 @@ rule winnowmap_sim_reads:
         # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
         # So match any string but that. See https://stackoverflow.com/a/14683066
         tech="(?!illumina).+"
-    threads: MAPPER_THREADS
+    threads: auto_mapping_threads
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "winnowmap -t {MAPPER_THREADS} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam}"
+        "winnowmap -t {threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam}"
 
 rule winnowmap_real_reads:
     input:
@@ -821,15 +877,15 @@ rule winnowmap_real_reads:
         # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
         # So match any string but that. See https://stackoverflow.com/a/14683066
         tech="(?!illumina).+"
-    threads: MAPPER_THREADS
+    threads: auto_mapping_threads
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600),
-        slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
-        full_cluster_nodes=1
+        slurm_extra=auto_mapping_slurm_extra,
+        full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "winnowmap -t {MAPPER_THREADS} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam}"
+        "winnowmap -t {threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam}"
 
 rule minimap2_index_reference:
     input:
@@ -852,12 +908,13 @@ rule minimap2_sim_reads:
         sam="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
     wildcard_constraints:
         realness="sim"
+    threads: auto_mapping_threads
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam}"
+        "minimap2 -t {threads} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam}"
 
 rule minimap2_real_reads:
     input:
@@ -868,15 +925,15 @@ rule minimap2_real_reads:
     benchmark: "{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
-    threads: MAPPER_THREADS
+    threads: auto_mapping_threads
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600),
-        slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
-        full_cluster_nodes=1
+        slurm_extra=auto_mapping_slurm_extra,
+        full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "minimap2 -t {MAPPER_THREADS} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam}"
+        "minimap2 -t {threads} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam}"
 
 # Minimap2 and Winnowmap include secondary alignments in the output by default, and Winnowmap doesn't quite have a way to limit them (minimap2 has -N)
 # Also they only speak SAM and we don't want to benchmark the BAM-ification time.
@@ -905,7 +962,7 @@ rule graphaligner_sim_reads:
         gam="{root}/aligned/{reference}/{refgraph}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
-    threads: MAPPER_THREADS
+    threads: auto_mapping_threads
     resources:
         mem_mb=300000,
         runtime=600,
@@ -922,13 +979,13 @@ rule graphaligner_real_reads:
     benchmark: "{root}/aligned/{reference}/{refgraph}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
-    threads: MAPPER_THREADS
+    threads: auto_mapping_threads
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600),
-        slurm_extra="--exclusive " + REAL_SLURM_EXTRA,
-        full_cluster_nodes=1
+        slurm_extra=auto_mapping_slurm_extra,
+        full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
         "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
 
