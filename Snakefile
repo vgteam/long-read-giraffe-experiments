@@ -923,6 +923,7 @@ rule minimap2_real_reads:
     output:
         sam="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
     benchmark: "{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    log: "{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="real"
     threads: auto_mapping_threads
@@ -933,7 +934,7 @@ rule minimap2_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "minimap2 -t {threads} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam}"
+        "minimap2 -t {threads} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
 
 # Minimap2 and Winnowmap include secondary alignments in the output by default, and Winnowmap doesn't quite have a way to limit them (minimap2 has -N)
 # Also they only speak SAM and we don't want to benchmark the BAM-ification time.
@@ -1089,6 +1090,24 @@ rule wrong_from_comparison:
         slurm_partition=choose_partition(5)
     shell:
         "echo \"$(cat {input.compare} | grep -o '[0-9]* reads eligible' | cut -f1 -d' ') - $(cat {input.compare} | grep -o '[0-9]* reads correct' | cut -f1 -d' ')\" | bc -l >{output.tsv}"
+
+rule minimap2_speed_from_log:
+    input:
+        minimap2_log="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.reads_per_second_per_thread.tsv"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        mapped_count = shell("cat {input.minimap2_log} | grep \"mapped\" | awk \'{sum+=$3} END {print sum}\'")
+        startup_time = shell("cat {input.minimap2_log} | grep \"loaded/built the index\" | sed \'s/.M::main::\([0-9]*\.[0-9]*\).*/\\1 /g\'")
+        total_time = shell("cat {input.minimap2_log} | grep \"\\[M::main\\] Real time\" | sed \'s/.*Real time: \([0-9]*\.[0-9]*\) sec.*/\\1/g\'")
+        thread_count = shell("cat {inpute.minimap2_log} | grep \"CMD:\" | sed \'s/-t\s\([0-9]*\)\s/\\1/g\'")
+        rpspt = (mapped_count / (total_time - startup_time)) / thread_count
+        shell("printf {rpspt} >{output.tsv}")
 
 rule comparison_experiment_stat:
     input:
