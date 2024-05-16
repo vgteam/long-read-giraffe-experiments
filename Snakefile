@@ -783,7 +783,8 @@ rule giraffe_real_reads:
         fastq=fastq,
     output:
         # Giraffe can dump out pre-annotated reads at annotation range -1.
-        gam="{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    log:"{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     benchmark: "{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
@@ -798,7 +799,7 @@ rule giraffe_real_reads:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam} 2>{log}")
 
 rule giraffe_sim_reads:
     input:
@@ -806,6 +807,7 @@ rule giraffe_sim_reads:
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
         gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    log:"{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim"
     threads: auto_mapping_threads
@@ -817,7 +819,7 @@ rule giraffe_sim_reads:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam} 2>{log}")
 
 rule giraffe_sim_reads_with_correctness:
     input:
@@ -825,6 +827,7 @@ rule giraffe_sim_reads_with_correctness:
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
         gam="{root}/correctness/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    log:"{root}/correctness/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim"
     threads: auto_mapping_threads
@@ -836,7 +839,7 @@ rule giraffe_sim_reads_with_correctness:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam} 2>{log}")
 
 rule winnowmap_sim_reads:
     input:
@@ -847,6 +850,7 @@ rule winnowmap_sim_reads:
         mode=minimap_derivative_mode,
     output:
         sam="{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+    log:"{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim"
     wildcard_constraints:
@@ -859,7 +863,7 @@ rule winnowmap_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "winnowmap -t {threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam}"
+        "winnowmap -t {threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam} 2>{log}"
 
 rule winnowmap_real_reads:
     input:
@@ -870,6 +874,7 @@ rule winnowmap_real_reads:
         mode=minimap_derivative_mode,
     output:
         sam="{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+    log:"{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     benchmark: "{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
@@ -885,7 +890,7 @@ rule winnowmap_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "winnowmap -t {threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam}"
+        "winnowmap -t {threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam} 2>{log}"
 
 rule minimap2_index_reference:
     input:
@@ -1091,6 +1096,33 @@ rule wrong_from_comparison:
         slurm_partition=choose_partition(5)
     shell:
         "echo \"$(cat {input.compare} | grep -o '[0-9]* reads eligible' | cut -f1 -d' ') - $(cat {input.compare} | grep -o '[0-9]* reads correct' | cut -f1 -d' ')\" | bc -l >{output.tsv}"
+
+rule giraffe_speed_from_log:
+    input:
+        giraffe_log="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.reported_reads_per_second_per_thread.tsv"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"$(cat {input.giraffe_log} | grep \"reads per CPU-second\" | sed \'s/Achieved \([0-9]*\.[0-9]*\) reads per CPU-second.*/\\1/g\')\" >{output.tsv}"
+
+rule giraffe_memory_from_log:
+    input:
+        giraffe_log="{root}/annotated-1/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.reported_memory_GB.tsv"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"$(cat {input.giraffe_log} | grep \"Memory footprint\" | sed \'s/Memory footprint: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
+
 
 rule minimap2_speed_from_log:
     input:
