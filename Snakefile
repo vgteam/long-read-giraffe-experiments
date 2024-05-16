@@ -1096,7 +1096,7 @@ rule minimap2_speed_from_log:
     input:
         minimap2_log="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/stats/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.reads_per_second_per_thread.tsv"
+        tsv="{root}/stats/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.reported_reads_per_second_per_thread.tsv"
     threads: 1
     resources:
         mem_mb=200,
@@ -1104,6 +1104,19 @@ rule minimap2_speed_from_log:
         slurm_partition=choose_partition(5)
     shell:
         "echo \"($(cat {input.minimap2_log} | grep \"mapped\" | awk \'{{sum+=$3}} END {{print sum}}\') / ($(cat {input.minimap2_log} | grep \"\\[M::main\\] Real time\" | sed \'s/.*Real time: \([0-9]*\.[0-9]*\) sec.*/\\1/g\') - $(cat {input.minimap2_log} | grep \"loaded/built the index\" | sed \'s/.M::main::\([0-9]*\.[0-9]*\).*/\\1 /g\'))) / $(cat {input.minimap2_log} | grep \"CMD:\" | sed \'s/.*-t\s\([0-9]*\)\s.*/\\1/g\')\" | bc -l >{output.tsv}"
+
+rule minimap2_memory_from_log:
+    input:
+        minimap2_log="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/stats/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.reported_memory_GB.tsv"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"$(cat {input.minimap2_log} | grep \"Peak RSS\" | sed \'s/.*Peak RSS: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
 
 rule comparison_experiment_stat:
     input:
