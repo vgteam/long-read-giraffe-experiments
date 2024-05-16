@@ -1094,9 +1094,11 @@ rule wrong_from_comparison:
 
 rule minimap2_speed_from_log:
     input:
-        minimap2_log="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        minimap2_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/stats/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.reported_reads_per_second_per_thread.tsv"
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.reported_reads_per_second_per_thread.tsv"
+    wildcard_constraints:
+        mapper="(minimap2-.*|winnowmap)"
     threads: 1
     resources:
         mem_mb=200,
@@ -1107,9 +1109,11 @@ rule minimap2_speed_from_log:
 
 rule minimap2_memory_from_log:
     input:
-        minimap2_log="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        minimap2_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/stats/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.reported_memory_GB.tsv"
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.reported_memory_GB.tsv"
+    wildcard_constraints:
+        mapper="(minimap2-.*|winnowmap)"
     threads: 1
     resources:
         mem_mb=200,
