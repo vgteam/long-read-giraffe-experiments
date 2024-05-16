@@ -906,6 +906,7 @@ rule minimap2_sim_reads:
         fastq=fastq
     output:
         sam="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+    log:"{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim"
     threads: auto_mapping_threads
@@ -914,7 +915,7 @@ rule minimap2_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minimap2 -t {threads} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam}"
+        "minimap2 -t {threads} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
 
 rule minimap2_real_reads:
     input:
@@ -1095,19 +1096,14 @@ rule minimap2_speed_from_log:
     input:
         minimap2_log="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/stats/{reference}/{refgraph}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.reads_per_second_per_thread.tsv"
+        tsv="{root}/stats/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.reads_per_second_per_thread.tsv"
     threads: 1
     resources:
         mem_mb=200,
         runtime=5,
         slurm_partition=choose_partition(5)
-    run:
-        mapped_count = shell("cat {input.minimap2_log} | grep \"mapped\" | awk \'{sum+=$3} END {print sum}\'")
-        startup_time = shell("cat {input.minimap2_log} | grep \"loaded/built the index\" | sed \'s/.M::main::\([0-9]*\.[0-9]*\).*/\\1 /g\'")
-        total_time = shell("cat {input.minimap2_log} | grep \"\\[M::main\\] Real time\" | sed \'s/.*Real time: \([0-9]*\.[0-9]*\) sec.*/\\1/g\'")
-        thread_count = shell("cat {inpute.minimap2_log} | grep \"CMD:\" | sed \'s/-t\s\([0-9]*\)\s/\\1/g\'")
-        rpspt = (mapped_count / (total_time - startup_time)) / thread_count
-        shell("printf {rpspt} >{output.tsv}")
+    shell:
+        "echo \"($(cat {input.minimap2_log} | grep \"mapped\" | awk \'{{sum+=$3}} END {{print sum}}\') / ($(cat {input.minimap2_log} | grep \"\\[M::main\\] Real time\" | sed \'s/.*Real time: \([0-9]*\.[0-9]*\) sec.*/\\1/g\') - $(cat {input.minimap2_log} | grep \"loaded/built the index\" | sed \'s/.M::main::\([0-9]*\.[0-9]*\).*/\\1 /g\'))) / $(cat {input.minimap2_log} | grep \"CMD:\" | sed \'s/.*-t\s\([0-9]*\)\s.*/\\1/g\')\" | bc -l >{output.tsv}"
 
 rule comparison_experiment_stat:
     input:
