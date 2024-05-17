@@ -141,6 +141,31 @@ experiments:
       sample: HG002
     vary:
       mapper: ["giraffe-k31.w50.W-r10-default-noflags", "winnowmap"]
+
+  r10_param_accuracy:
+    control:
+      realness: sim
+      subset: 1000000
+      reference: chm13
+      refgraph: "hprc-v1.1-mc"
+      tech: r10
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-4811547045219443241"]
+
+  hifi_param_accuracy:
+    control:
+      realness: sim
+      subset: 1000000
+      reference: chm13
+      refgraph: "hprc-v1.1-mc"
+      tech: hifi
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-7092525087379468980"]
+
   #This is used to test different mappers on r10 reads
   #Add different vg versions with `-commit` instead of `-default`, and make sure the binary
   # is called `vg_commit`
@@ -224,7 +249,7 @@ experiments:
     vary:
       realness: ["sim", "real"]
       trimmedness: ["", ".trimmed"]
-      tech: ["r10", "q27"]
+      tech: ["r10", "r9"]
       mapper: ["minimap2-lr:hqae", "giraffe-k31.w50.W-r10-default-noflags"]
     constrain:
         # Always trimming for real reads
