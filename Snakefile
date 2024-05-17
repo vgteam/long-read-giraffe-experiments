@@ -785,7 +785,7 @@ rule giraffe_real_reads:
         # Giraffe can dump out pre-annotated reads at annotation range -1.
         gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     log:"{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
-    benchmark: "{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    benchmark: "{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
     threads: auto_mapping_threads
@@ -1323,6 +1323,56 @@ rule experiment_memory_from_log_plot:
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Memory From Log' --y_label 'Memory use (GB)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
 
+rule experiment_runtime_from_benchmark_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv", lambda condition: condition["realness"] == "real")
+    output:
+        tsv="{root}/experiments/{expname}/results/runtime_from_benchmark.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input} >>{output.tsv}"
+rule experiment_runtime_from_benchmark_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/runtime_from_benchmark.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/runtime_from_benchmark.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Runtime From Benchmark' --y_label 'Runtime (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+
+rule experiment_memory_from_benchmark_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv", lambda condition: condition["realness"] == "real")
+    output:
+        tsv="{root}/experiments/{expname}/results/memory_from_benchmark.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input} >>{output.tsv}"
+rule experiment_memory_from_benchmark_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/memory_from_benchmark.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/memory_from_benchmark.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+
 rule stats_from_alignments:
     input:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
@@ -1742,6 +1792,72 @@ rule memory_usage_sam:
     shell:
         # max_rss happens to be column 3, but try to check
         "cat {input.benchmark} | cut -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
+
+rule runtime_from_benchmark_sam:
+    input:
+        benchmark="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv"
+    wildcard_constraints:
+        realness="real",
+        mapper="(minimap2.+|winnowmap)"
+    threads: MAPPER_THREADS
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        f = open(input.benchmark)
+        assert(f.readline().split()[1] == "h:m:s")
+        runtime_list = f.readline().split()[1].split(":")
+        runtime = int(runtime_list[0]) + 60*int(runtime_list[1]) + 3600*int(runtime_list[2])
+        f.close()
+
+        shell("echo \"{mapper}-{refgraph}\t{runtime}\" >{output.tsv}")
+
+rule runtime_from_benchmark_giraffe:
+    input:
+        benchmark="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv"
+    wildcard_constraints:
+        realness="real",
+        mapper="(giraffe.*)"
+    threads: MAPPER_THREADS
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        f = open(input.benchmark)
+        assert(f.readline().split()[1] == "h:m:s")
+        runtime_list = f.readline().split()[1].split(":")
+        runtime = int(runtime_list[0]) + 60*int(runtime_list[1]) + 3600*int(runtime_list[2])
+        f.close()
+
+        shell("echo \"{mapper}-{refgraph}\t{runtime}\" >{output.tsv}")
+
+rule runtime_from_benchmark_graphaligner:
+    input:
+        benchmark="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv"
+    wildcard_constraints:
+        realness="real",
+        mapper="(giraffe.*)"
+    threads: MAPPER_THREADS
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        f = open(input.benchmark)
+        assert(f.readline().split()[1] == "h:m:s")
+        runtime_list = f.readline().split()[1].split(":")
+        runtime = int(runtime_list[0]) + 60*int(runtime_list[1]) + 3600*int(runtime_list[2])
+        f.close()
+
+        shell("echo \"{mapper}-{refgraph}\t{runtime}\" >{output.tsv}")
 
 rule mean_stat:
     input:
