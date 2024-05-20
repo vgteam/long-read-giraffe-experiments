@@ -242,7 +242,7 @@ experiments:
   # Compare different nanopore data types
   compare_nanopore:
     control:
-      subset: 10k
+      subset: 1m
       reference: chm13
       refgraph: "hprc-v1.1-mc"
       sample: HG002
@@ -258,6 +258,19 @@ experiments:
         # Always use no trimming after simulation for simulated reads
         - realness: sim
           trimmedness: ""
+
+  # Figure out where the high-MAPQ R10 reads went
+  find_high_mapq:
+    control:
+      subset: 10k
+      reference: chm13
+      refgraph: "hprc-v1.1-mc"
+      sample: HG002
+      realness: sim
+      trimmedness: ""
+      tech: r10
+    vary:
+      mapper: ["minimap2-map-ont", "minimap2-lr:hq", "minimap2-lr:hqae", "giraffe-k31.w50.W-r10-default-noflags"]
 
   # This experiment compares different ways of mapping Illumina reads
   illumina_test:
