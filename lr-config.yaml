@@ -212,8 +212,8 @@ experiments:
           mapper: "giraffe-k31.w50.W-hifi-default-noflags"
 
 
-  # Experiment to decide if new fragment filtering introduced any regressions
-  filter_regression:
+  # Experiment to decide if alignmentn deduplication introduced any regressions
+  dedupe_regression_r10:
     control:
       realness: sim
       subset: 1m
@@ -223,8 +223,18 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-lr-3779c0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
-      tech: ["r10", "hifi"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-29dcc4-noflags"]
+  dedupe_regression_hifi:
+    control:
+      realness: sim
+      subset: 1m
+      reference: chm13
+      refgraph: "hprc-v1.1-mc"
+      tech: hifi
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-29dcc4-noflags"]
 
   # Experiment to see if WFA distance limit is good
   test_wfa_banding:
