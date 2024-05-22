@@ -1144,7 +1144,7 @@ rule speed_from_log_giraffe:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "echo \"{{params.condition_name}}\t$(cat {{input.giraffe_log}} | grep \"reads per CPU-second\" | sed \'s/Achieved \([0-9]*\.[0-9]*\) reads per CPU-second.*/\\1/g\')\" >{{output.tsv}}"
+        "echo \"{params.condition_name}\t$(cat {input.giraffe_log} | grep \"reads per CPU-second\" | sed \'s/Achieved \([0-9]*\.[0-9]*\) reads per CPU-second.*/\\1/g\')\" >{output.tsv}"
 
 rule memory_from_log_giraffe:
     input:
@@ -1162,7 +1162,7 @@ rule memory_from_log_giraffe:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "echo \"{{params.condition_name}}\t$(cat {{input.giraffe_log}} | grep \"Memory footprint\" | sed \'s/Memory footprint: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{{output.tsv}}"
+        "echo \"{params.condition_name}\t$(cat {input.giraffe_log} | grep \"Memory footprint\" | sed \'s/Memory footprint: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
 
 
 rule speed_from_log_bam:
@@ -1205,7 +1205,7 @@ rule memory_from_log_bam:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "echo \"{{params.condition_name}}\t$(cat {{input.minimap2_log}} | grep \"Peak RSS\" | sed \'s/.*Peak RSS: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
+        "echo \"{params.condition_name}\t$(cat {input.minimap2_log} | grep \"Peak RSS\" | sed \'s/.*Peak RSS: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
 
 
 rule comparison_experiment_stat:
