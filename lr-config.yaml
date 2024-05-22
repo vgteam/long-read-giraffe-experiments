@@ -223,7 +223,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-29dcc4-noflags"]
+      mapper: ["giraffe-k31.w50.W-r10-220e41-noflags", "giraffe-k31.w50.W-r10-29dcc4-noflags", "giraffe-k31.w50.W-r10-d3326d-noflags"]
   dedupe_regression_hifi:
     control:
       realness: sim
@@ -234,7 +234,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-29dcc4-noflags"]
+      mapper: ["giraffe-k31.w50.W-hifi-220e41-noflags", "giraffe-k31.w50.W-hifi-29dcc4-noflags", "giraffe-k31.w50.W-hifi-d3326d-noflags"]
 
   # Experiment to see if WFA distance limit is good
   test_wfa_banding:
