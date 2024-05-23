@@ -41,8 +41,7 @@
 # "hifi", or "illumina".
 #
 # sample: The name of the sample to use reads from. Determines which read files
-# are used. With the data set we use, can be "HG002", or "HiFi" for the real
-# HiFi reads.
+# are used. With the data set we use, can be "HG002".
 #
 # trimmedness: Can be ".trimmed" (with leading ".") or "" (empty string).
 # Determines if the first 100 and last 10 bases of the reads should be dropped
@@ -85,33 +84,28 @@ experiments:
       subset: 1k
       reference: chm13
       refgraph: "hprc-v1.1-mc"
+      sample: HG002
     vary:
       mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2-lr:hqae", "minimap2-sr", "winnowmap"]
       tech: ["r10", "hifi", "illumina"]
-      sample: ["HG002", "HiFi"]
       trimmedness: ["", ".trimmed"]
       realness: ["sim", "real"]
     constrain:
       - 
-        # Always use the HiFi sample and no trimming for real hifi reads
+        # Always use the no trimming for real hifi reads
         - realness: real
           tech: hifi
-          sample: HiFi
           trimmedness: ""
-        # Always use the HG002 sample and trimming for real R10 reads
+        # Always use trimming for real R10 reads
         - realness: real
           tech: r10
-          sample: HG002
           trimmedness: ".trimmed"
-        # Always use the HG002 sample no trimming for real Illumina reads
+        # Always use no trimming for real Illumina reads
         - realness: real
           tech: illumina
-          sample: HG002
           trimmedness: ""
-        # Always use the HG002 sample and no trimming after simulation for
-        # simulated reads
+        # Always use no trimming after simulation for simulated reads
         - realness: sim
-          sample: HG002
           trimmedness: ""
       -
         # Only run the short read modes of Giraffe on the short reads. And
