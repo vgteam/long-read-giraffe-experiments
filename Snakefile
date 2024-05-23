@@ -1948,7 +1948,7 @@ rule runtime_from_benchmark_bam:
         f = open(input.bench)
         assert(f.readline().split()[1] == "h:m:s")
         runtime_list = f.readline().split()[1].split(":")
-        runtime = (int(runtime_list[0]) * 60) + (int(runtime_list[1]) / 60)
+        runtime = (int(runtime_list[0]) * 60) + int(runtime_list[1]) + (int(runtime_list[2]) / 60)
         f.close()
 
         shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
@@ -1972,7 +1972,7 @@ rule runtime_from_benchmark_gam:
         f = open(input.bench)
         assert(f.readline().split()[1] == "h:m:s")
         runtime_list = f.readline().split()[1].split(":")
-        runtime = (int(runtime_list[0]) * 60) + (int(runtime_list[1]) / 60)
+        runtime = (int(runtime_list[0]) * 60) + int(runtime_list[1]) + (int(runtime_list[2]) / 60)
         f.close()
 
         shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
