@@ -1473,7 +1473,10 @@ rule experiment_mapping_stats_sim_tsv:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "cat {input} >>{output.tsv}"
+        """
+        printf "condition\tcorrect\tmapq60\twrong_mapq60\n" >> {output.tsv}
+        cat {input} >>{output.tsv}
+        """
 
 #Get the speed, memory use, and softclips from real reads for each condition
 rule experiment_mapping_stats_real_tsv_from_stats:
@@ -1493,7 +1496,9 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "echo \"{params.condition_name}\t$(cat {input.speed_from_log})\t$(cat {input.memory_from_log})\t$(cat {input.runtime_from_benchmark})\t$(cat {input.memory_from_benchmark})\t$(cat {input.softclips})\" >>{output.tsv}"
+        """
+        echo "{params.condition_name}\t$(cat {input.speed_from_log} | cut -f 2)\t$(cat {input.memory_from_log} | cut -f 2)\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclips} | cut -f 2)" >>{output.tsv}
+        """
 
 #Get the speed, memory use, and softclips from real reads
 rule experiment_mapping_stats_real_tsv:
@@ -1507,7 +1512,25 @@ rule experiment_mapping_stats_real_tsv:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "cat {input} >>{output.tsv}"
+        """
+        printf "condition\tspeed_from_log(r/s)\tmemory_from_log(GB)\truntime_from_benchmark(min)\tmemory_from_benchmark(GB)\tsoftclips\n" >> {output.tsv} 
+        cat {input} >>{output.tsv}
+        """
+
+#Get mapping stats from real and sim reads
+rule experiment_mapping_stats_tsv:
+    input:
+        real="{root}/experiments/{expname}/results/mapping_stats_real.tsv",
+        sim="{root}/experiments/{expname}/results/mapping_stats_sim.tsv"
+    output:
+        tsv="{root}/experiments/{expname}/results/mapping_stats.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "join -t '\t' {input.sim} {input.real} >> {output.tsv}"
 
 rule stats_from_alignments:
     input:
