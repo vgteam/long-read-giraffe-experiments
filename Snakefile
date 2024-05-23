@@ -1443,6 +1443,70 @@ rule experiment_memory_from_benchmark_plot:
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
 
+#Get the accuracy from simulated reads for one condition
+rule experiment_mapping_stats_sim_tsv_from_stats:
+    input:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv"
+    params:
+        condition_name=condition_name
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "echo \"{params.condition_name}\t$(cat {input})\" >>{output.tsv}"
+
+#Get the accuracy from simulated reads for all conditions in the experiment
+rule experiment_mapping_stats_sim_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv", lambda condition: condition["realness"] == "sim")
+    output:
+        tsv="{root}/experiments/{expname}/results/mapping_stats_sim.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input} >>{output.tsv}"
+
+#Get the speed, memory use, and softclips from real reads for each condition
+rule experiment_mapping_stats_real_tsv_from_stats:
+    input:
+        speed_from_log="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+        memory_from_log="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
+        runtime_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv"
+        memory_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv"
+        softclips="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv"
+    params:
+        condition_name=condition_name
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "echo \"{params.condition_name}\t$(cat {input.speed_from_log})\t$(cat {input.memory_from_log})\t$(cat {input.runtime_from_benchmark})\t$(cat {input.memory_from_benchmark})\t$(cat {input.softclips})\" >>{output.tsv}"
+
+#Get the speed, memory use, and softclips from real reads
+rule experiment_mapping_stats_real_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv", lambda condition: condition["realness"] == "real")
+    output:
+        tsv="{root}/experiments/{expname}/results/mapping_stats_real.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input} >>{output.tsv}"
+
 rule stats_from_alignments:
     input:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
@@ -2262,17 +2326,16 @@ rule softclips_histogram:
     shell:
         "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Softclip Length, Mean=$(cat {input.mean})\" --y_label 'Ends' --x_label 'Softclip Length (bp)' --no_n --log_counts --save {output}"
 
-rule mapping_stats:
+rule mapping_accuracy:
     input:
-        compared_tsv="{root}/compared/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
+        compared_tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
     output:
-        "{root}/stats/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_stats.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv"
     threads: 1
     resources:
         mem_mb=2000,
         runtime=100,
         slurm_partition=choose_partition(100)
-    log: "{root}/stats/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_stats.log"
     run:
 
         correct_count = 0
@@ -2298,7 +2361,7 @@ rule parameter_search_mapping_stats:
         times = lambda w: param_search_tsvs(w, "time_used.mean"),
         memory = lambda w: param_search_tsvs(w, "memory_from_log"),
         softclips = lambda w : param_search_tsvs(w, "softclips.mean"),
-        mapping_stats = expand("{{root}}/stats/{{reference}}/{{refgraph}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
+        mapping_accuracy = expand("{{root}}/stats/{{reference}}/{{refgraph}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_accuracy.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
         outfile="{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
     log: "{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.param_search_mapping_stats.log"
@@ -2310,7 +2373,7 @@ rule parameter_search_mapping_stats:
     run:
         f = open(output.outfile, "w")
         f.write("#correct\tmapq60\twrong_mapq60\tsoftclips\tspeed(r/s/t)\tmemory(GB)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
-        for param_hash, stats_file, times_file, memory_file, softclips_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_stats, input.times, input.memory, input.softclips):
+        for param_hash, stats_file, times_file, memory_file, softclips_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_accuracy, input.times, input.memory, input.softclips):
 
             param_f = open(stats_file)
             l = param_f.readline().split()
