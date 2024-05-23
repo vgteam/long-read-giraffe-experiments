@@ -2297,6 +2297,7 @@ rule parameter_search_mapping_stats:
     input:
         times = lambda w: param_search_tsvs(w, "time_used.mean"),
         memory = lambda w: param_search_tsvs(w, "memory_from_log"),
+        softclips = lambda w : param_search_tsvs(w, "softclips.mean"),
         mapping_stats = expand("{{root}}/stats/{{reference}}/{{refgraph}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
         outfile="{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
@@ -2308,8 +2309,8 @@ rule parameter_search_mapping_stats:
         slurm_partition=choose_partition(100)
     run:
         f = open(output.outfile, "w")
-        f.write("#correct\tmapq60\twrong_mapq60\tspeed(r/s/t)\tmemory(GB)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
-        for param_hash, stats_file, times_file, memory_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_stats, input.times, input.memory):
+        f.write("#correct\tmapq60\twrong_mapq60\tsoftclips\tspeed(r/s/t)\tmemory(GB)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
+        for param_hash, stats_file, times_file, memory_file, softclips_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_stats, input.times, input.memory, input.softclips):
 
             param_f = open(stats_file)
             l = param_f.readline().split()
@@ -2317,6 +2318,11 @@ rule parameter_search_mapping_stats:
             mapq60_count = l[1]
             wrong_mapq60_count = l[2]
             param_f.close()
+
+            softclips_f = open(softclips_file)
+            l = softclips_f.readline().split()
+            softclips = l[0]
+            softclips_f.close()
 
             time_f = open(times_file)
             l = time_f.readline().split()
@@ -2329,7 +2335,7 @@ rule parameter_search_mapping_stats:
             memory_f.close()
 
             parameters = PARAM_SEARCH.hash_to_parameters[param_hash]
-            f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + speed + "\t" + memory + "\t" + '\t'.join([str(x) for x in parameters])) 
+            f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + softclips + "\t" + speed + "\t" + memory + "\t" + '\t'.join([str(x) for x in parameters])) 
         f.close()
 
 rule plot_correct_speed_vs_parameter:
