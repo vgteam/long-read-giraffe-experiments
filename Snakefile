@@ -1446,9 +1446,11 @@ rule experiment_memory_from_benchmark_plot:
 #Get the accuracy from simulated reads for one condition
 rule experiment_mapping_stats_sim_tsv_from_stats:
     input:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv"
+    wildcard_constraints:
+        realness="sim"
     params:
         condition_name=condition_name
     threads: 1
@@ -1476,10 +1478,10 @@ rule experiment_mapping_stats_sim_tsv:
 #Get the speed, memory use, and softclips from real reads for each condition
 rule experiment_mapping_stats_real_tsv_from_stats:
     input:
-        speed_from_log="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
-        memory_from_log="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
-        runtime_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv"
-        memory_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv"
+        speed_from_log="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv",
+        memory_from_log="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv",
+        runtime_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv",
+        memory_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv",
         softclips="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv"
     output:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv"
