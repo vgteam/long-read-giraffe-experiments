@@ -683,13 +683,15 @@ rule minimizer_index_graph:
         w="[0-9]+",
         reference="chm13|grch38",
         d9="d9\.|"
+    params:
+        weighting_option=lambda w: "--weighted" if w["weightedness"] == ".W" else ""
     threads: 16
     resources:
         mem_mb=80000,
         runtime=240,
         slurm_partition=choose_partition(240)
     shell:
-        "vg minimizer --progress -k {wildcards.k} -w {wildcards.w} -t {threads} -p -d {input.dist} -z {output.zipfile} -o {output.minfile} {input.gbz}"
+        "vg minimizer --progress -k {wildcards.k} -w {wildcards.w} {params.weighting_option} -t {threads} -p -d {input.dist} -z {output.zipfile} -o {output.minfile} {input.gbz}"
 
 rule alias_gam_k:
     input:

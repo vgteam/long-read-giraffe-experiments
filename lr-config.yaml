@@ -206,32 +206,19 @@ experiments:
           mapper: "giraffe-k31.w50.W-hifi-default-noflags"
 
 
-  # Experiment to decide if alignmentn deduplication introduced any regressions
-  dedupe_regression_r10:
+  # Experiment to decide if weighted indexes are good
+  test_weighting_r10:
     control:
       realness: sim
-      subset: 1m
+      subset: 10k
       reference: chm13
       refgraph: "hprc-v1.1-mc"
       tech: r10
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-220e41-noflags", "giraffe-k31.w50.W-r10-29dcc4-noflags", "giraffe-k31.w50.W-r10-d3326d-noflags"]
-  dedupe_regression_hifi:
-    control:
-      realness: sim
-      subset: 1m
-      reference: chm13
-      refgraph: "hprc-v1.1-mc"
-      tech: hifi
-      trimmedness: ""
-      sample: HG002
-    vary:
-      mapper: ["giraffe-k31.w50.W-hifi-220e41-noflags", "giraffe-k31.w50.W-hifi-29dcc4-noflags", "giraffe-k31.w50.W-hifi-d3326d-noflags"]
-
-  # Experiment to see if WFA distance limit is good
-  test_wfa_banding:
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50-r10-default-noflags"]
+  test_weighting_hifi:
     control:
       realness: sim
       subset: 10k
@@ -241,7 +228,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["minimap2", "giraffe-k31.w50.W-hifi-bf1a1d-noflags", "giraffe-k31.w50.W-hifi-6546d2-noflags"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50-hifi-default-noflags"]
 
   # Compare different nanopore data types
   compare_nanopore:
