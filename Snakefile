@@ -1172,8 +1172,6 @@ rule memory_from_log_giraffe_stat:
         giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
-    params:
-        condition_name=condition_name
     wildcard_constraints:
         realness="real",
         mapper="giraffe.*"
