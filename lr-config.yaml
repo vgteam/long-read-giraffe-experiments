@@ -210,7 +210,7 @@ experiments:
   test_weighting_r10:
     control:
       realness: sim
-      subset: 10k
+      subset: 1m
       reference: chm13
       refgraph: "hprc-v1.1-mc"
       tech: r10
@@ -221,7 +221,7 @@ experiments:
   test_weighting_hifi:
     control:
       realness: sim
-      subset: 10k
+      subset: 1m
       reference: chm13
       refgraph: "hprc-v1.1-mc"
       tech: hifi
