@@ -1146,7 +1146,9 @@ rule speed_from_log_giraffe:
     shell:
         "echo \"{params.condition_name}\t$(cat {input.giraffe_log} | grep \"reads per CPU-second\" | sed \'s/Achieved \([0-9]*\.[0-9]*\) reads per CPU-second.*/\\1/g\')\" >{output.tsv}"
 
-rule memory_from_log_giraffe:
+#Put the mapper name and memory into a tsv in experiments directory for the experiment
+#This makes it easier to find for different mappers that may or may not have a refgraph in the path
+rule memory_from_log_giraffe_experiment:
     input:
         giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
@@ -1164,6 +1166,24 @@ rule memory_from_log_giraffe:
     shell:
         "echo \"{params.condition_name}\t$(cat {input.giraffe_log} | grep \"Memory footprint\" | sed \'s/Memory footprint: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
 
+#Put just the memory use in the stats folder for parameter search
+rule memory_from_log_giraffe_stat:
+    input:
+        giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="giraffe.*"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"$(cat {input.giraffe_log} | grep \"Memory footprint\" | sed \'s/Memory footprint: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
 
 rule speed_from_log_bam:
     input:
@@ -2278,6 +2298,7 @@ rule mapping_stats:
 rule parameter_search_mapping_stats:
     input:
         times = lambda w: param_search_tsvs(w, "time_used.mean"),
+        memory = lambda w: param_search_tsvs(w, "memory_from_log"),
         mapping_stats = expand("{{root}}/stats/{{reference}}/{{refgraph}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
         outfile="{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
@@ -2289,8 +2310,8 @@ rule parameter_search_mapping_stats:
         slurm_partition=choose_partition(100)
     run:
         f = open(output.outfile, "w")
-        f.write("#correct\tmapq60\twrong_mapq60\tspeed(r/s/t)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
-        for param_hash, stats_file, times_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_stats, input.times):
+        f.write("#correct\tmapq60\twrong_mapq60\tspeed(r/s/t)\tmemory(GB)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
+        for param_hash, stats_file, times_file, memory_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_stats, input.times, input.memory):
 
             param_f = open(stats_file)
             l = param_f.readline().split()
@@ -2304,8 +2325,13 @@ rule parameter_search_mapping_stats:
             speed = str(1/float(l[0]))
             time_f.close()
 
+            memory_f = open(memory_file)
+            l = memory_f.readline().split()
+            memory=l[0]
+            memory_f.close()
+
             parameters = PARAM_SEARCH.hash_to_parameters[param_hash]
-            f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + speed + "\t" + '\t'.join([str(x) for x in parameters])) 
+            f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + speed + "\t" + memory + "\t" + '\t'.join([str(x) for x in parameters])) 
         f.close()
 
 rule plot_correct_speed_vs_parameter:
