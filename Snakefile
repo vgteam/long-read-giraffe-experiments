@@ -1531,6 +1531,7 @@ rule experiment_mapping_stats_tsv:
         slurm_partition=choose_partition(60)
     shell:
         "join -t '\t' {input.sim} {input.real} >> {output.tsv}"
+ruleorder: experiment_mapping_stats_tsv > experiment_stat_table
 
 rule stats_from_alignments:
     input:
@@ -1881,7 +1882,7 @@ rule softclips_by_name_giraffe:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="giraffe.*"
+        mapper="(giraffe.*|graphaligner)"
     threads: 5
     resources:
         mem_mb=2000,
