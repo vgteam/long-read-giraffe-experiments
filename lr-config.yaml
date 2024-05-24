@@ -230,6 +230,31 @@ experiments:
     vary:
       mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50-hifi-default-noflags"]
 
+
+  # Experiment to compare gap scale values
+  r10_gapscale:
+    control:
+      realness: sim
+      subset: 10k
+      reference: chm13
+      refgraph: "hprc-v1.1-mc"
+      tech: r10
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-gapscale0.01", "giraffe-k31.w50.W-r10-default-gapscale0.2"]
+  r10_maxgap:
+    control:
+      realness: sim
+      subset: 10k
+      reference: chm13
+      refgraph: "hprc-v1.1-mc"
+      tech: r10
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-maxgap1000", "giraffe-k31.w50.W-r10-default-maxgap10000", "giraffe-k31.w50.W-r10-default-maxgap100000"]
+
   # Compare different nanopore data types
   compare_nanopore:
     control:
