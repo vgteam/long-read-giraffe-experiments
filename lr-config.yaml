@@ -41,8 +41,7 @@
 # "hifi", or "illumina".
 #
 # sample: The name of the sample to use reads from. Determines which read files
-# are used. With the data set we use, can be "HG002", or "HiFi" for the real
-# HiFi reads.
+# are used. With the data set we use, can be "HG002".
 #
 # trimmedness: Can be ".trimmed" (with leading ".") or "" (empty string).
 # Determines if the first 100 and last 10 bases of the reads should be dropped
@@ -85,33 +84,28 @@ experiments:
       subset: 1k
       reference: chm13
       refgraph: "hprc-v1.1-mc"
+      sample: HG002
     vary:
       mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2-lr:hqae", "minimap2-sr", "winnowmap"]
       tech: ["r10", "hifi", "illumina"]
-      sample: ["HG002", "HiFi"]
       trimmedness: ["", ".trimmed"]
       realness: ["sim", "real"]
     constrain:
       - 
-        # Always use the HiFi sample and no trimming for real hifi reads
+        # Always use the no trimming for real hifi reads
         - realness: real
           tech: hifi
-          sample: HiFi
           trimmedness: ""
-        # Always use the HG002 sample and trimming for real R10 reads
+        # Always use trimming for real R10 reads
         - realness: real
           tech: r10
-          sample: HG002
           trimmedness: ".trimmed"
-        # Always use the HG002 sample no trimming for real Illumina reads
+        # Always use no trimming for real Illumina reads
         - realness: real
           tech: illumina
-          sample: HG002
           trimmedness: ""
-        # Always use the HG002 sample and no trimming after simulation for
-        # simulated reads
+        # Always use no trimming after simulation for simulated reads
         - realness: sim
-          sample: HG002
           trimmedness: ""
       -
         # Only run the short read modes of Giraffe on the short reads. And
@@ -141,6 +135,31 @@ experiments:
       sample: HG002
     vary:
       mapper: ["giraffe-k31.w50.W-r10-default-noflags", "winnowmap"]
+
+  r10_param_accuracy:
+    control:
+      realness: sim
+      subset: 1000000
+      reference: chm13
+      refgraph: "hprc-v1.1-mc"
+      tech: r10
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-4811547045219443241"]
+
+  hifi_param_accuracy:
+    control:
+      realness: sim
+      subset: 1000000
+      reference: chm13
+      refgraph: "hprc-v1.1-mc"
+      tech: hifi
+      trimmedness: ""
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-7092525087379468980"]
+
   #This is used to test different mappers on r10 reads
   #Add different vg versions with `-commit` instead of `-default`, and make sure the binary
   # is called `vg_commit`
@@ -187,8 +206,8 @@ experiments:
           mapper: "giraffe-k31.w50.W-hifi-default-noflags"
 
 
-  # Experiment to decide if new fragment filtering introduced any regressions
-  filter_regression:
+  # Experiment to decide if weighted indexes are good
+  test_weighting_r10:
     control:
       realness: sim
       subset: 1m
@@ -198,33 +217,30 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-lr-3779c0-noflags", "giraffe-k31.w50.W-lr-4cda9f-noflags"]
-      tech: ["r10", "hifi"]
-
-  # Experiment to see if WFA distance limit is good
-  test_wfa_banding:
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50-r10-default-noflags"]
+  test_weighting_hifi:
     control:
       realness: sim
-      subset: 10k
+      subset: 1m
       reference: chm13
       refgraph: "hprc-v1.1-mc"
       tech: hifi
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["minimap2", "giraffe-k31.w50.W-hifi-bf1a1d-noflags", "giraffe-k31.w50.W-hifi-6546d2-noflags"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50-hifi-default-noflags"]
 
   # Compare different nanopore data types
   compare_nanopore:
     control:
-      subset: 10k
+      subset: 1m
       reference: chm13
       refgraph: "hprc-v1.1-mc"
       sample: HG002
     vary:
       realness: ["sim", "real"]
       trimmedness: ["", ".trimmed"]
-      tech: ["r10", "q27"]
+      tech: ["r10", "r9"]
       mapper: ["minimap2-lr:hqae", "giraffe-k31.w50.W-r10-default-noflags"]
     constrain:
         # Always trimming for real reads
@@ -233,6 +249,32 @@ experiments:
         # Always use no trimming after simulation for simulated reads
         - realness: sim
           trimmedness: ""
+
+  # Figure out where the high-MAPQ R10 reads went
+  find_high_mapq:
+    control:
+      subset: 10k
+      reference: chm13
+      refgraph: "hprc-v1.1-mc"
+      sample: HG002
+      realness: sim
+      trimmedness: ""
+      tech: r10
+    vary:
+      mapper: ["minimap2-map-ont", "minimap2-lr:hq", "minimap2-lr:hqae", "giraffe-k31.w50.W-r10-default-noflags"]
+
+  # Figure out where the high-MAPQ R10 reads went
+  find_high_mapq_big:
+    control:
+      subset: 1m
+      reference: chm13
+      refgraph: "hprc-v1.1-mc"
+      sample: HG002
+      realness: sim
+      trimmedness: ""
+      tech: r10
+    vary:
+      mapper: ["minimap2-map-ont", "minimap2-lr:hq", "minimap2-lr:hqae", "giraffe-k31.w50.W-r10-default-noflags"]
 
   # This experiment compares different ways of mapping Illumina reads
   illumina_test:

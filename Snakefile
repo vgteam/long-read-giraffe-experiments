@@ -52,11 +52,9 @@ GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/
 #.
 #├── real
 #│   ├── hifi
-#│   │   └── HiFi
-#│   │       ├── HiFi_reads_10k.fq
-#│   │       ├── HiFi_reads_1k.fq
-#│   │       ├── HiFi_reads_1m.fq
-#│   │       └── HiFi_reads.fq.gz
+#│   │   └── HG002
+#│   │       ├── HiFi_DC_v1.2_HG002_combined_unshuffled.1k.fq
+#│   │       └── HiFi_DC_v1.2_HG002_combined_unshuffled.fq.gz
 #│   └── r10
 #│       └── HG002
 #│           ├── HG002_1_R1041_UL_Guppy_6.3.7_5mc_cg_sup_prom_pass.fastq.gz
@@ -694,19 +692,8 @@ def param_search_tsvs(wildcards, statname="time_used.mean", realness="real"):
         lambda w: param_search_tsv(w, "time_used.mean")
     """
 
-    # TODO: This is a hacky way to get around the fact that we have two different samples for real and simulated hifi reads
-    if wildcards["tech"] == "hifi":
-        if wildcards["sample"] == "HG002" and realness == "real":
-            sample_name = "HiFi"
-        elif wildcards["sample"] == "HiFi" and realness == "sim":
-            sample_name = "HG002"
-        else:
-            sample_name = wildcards["sample"]
-    else:
-        sample_name = wildcards["sample"]
     trimmedness = ".trimmed" if wildcards["tech"] in ("r9", "r10", "q27") and realness == "real" else wildcards["trimmedness"]
     values = dict(wildcards)
-    values["sample"] = sample_name
     values["trimmedness"] = trimmedness
     values["param_hash"] = PARAM_SEARCH.get_hashes()
     values["realness"] = realness
@@ -727,13 +714,15 @@ rule minimizer_index_graph:
         w="[0-9]+",
         reference="chm13|grch38",
         d9="d9\.|"
+    params:
+        weighting_option=lambda w: "--weighted" if w["weightedness"] == ".W" else ""
     threads: 16
     resources:
-        mem_mb=80000,
+        mem_mb=lambda w: 320000 if w["weightedness"] == ".W" else 80000,
         runtime=240,
         slurm_partition=choose_partition(240)
     shell:
-        "vg minimizer --progress -k {wildcards.k} -w {wildcards.w} -t {threads} -p -d {input.dist} -z {output.zipfile} -o {output.minfile} {input.gbz}"
+        "vg minimizer --progress -k {wildcards.k} -w {wildcards.w} {params.weighting_option} -t {threads} -p -d {input.dist} -z {output.zipfile} -o {output.minfile} {input.gbz}"
 
 rule alias_gam_k:
     input:
