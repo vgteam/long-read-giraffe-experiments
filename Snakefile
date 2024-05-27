@@ -986,7 +986,7 @@ rule minimap2_real_reads:
 
 rule bwa_sim_reads:
     input:
-        reference_fasta=reference_fasta
+        reference_fasta=reference_fasta,
         fastq=fastq
     output:
         sam="{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
@@ -1004,7 +1004,7 @@ rule bwa_sim_reads:
 
 rule bwa_real_reads:
     input:
-        reference_fasta=reference_fasta
+        reference_fasta=reference_fasta,
         fastq=fastq
     output:
         sam="{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
@@ -1232,6 +1232,29 @@ rule memory_from_log_giraffe_stat:
     shell:
         "echo \"$(cat {input.giraffe_log} | grep \"Memory footprint\" | sed \'s/Memory footprint: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
 
+rule speed_from_log_bwa:
+    input:
+        bwa_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="bwa"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        mapped_count=$(cat {input.bwa_log} | grep "Processed" | awk '{{sum+=$3}} END {{print sum}}')
+        total_time=$(cat {input.bwa_log} | grep "Processed" | sed 's/.*\([0-9]*\.[0-9]*\) CPU sec.*/\\1/g' | awk '{{sum+=$1}} END {{print sum}}')
+        echo "{params.condition_name}\t$(echo "$mapped_count / $total_time" | bc -l)" >{output.tsv}
+        """
+
+
 rule speed_from_log_bam:
     input:
         minimap2_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
@@ -1241,7 +1264,7 @@ rule speed_from_log_bam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(minimap2-.*|winnowmap|bwa)"
+        mapper="(minimap2-.*|winnowmap)"
     threads: 1
     resources:
         mem_mb=200,
@@ -1265,7 +1288,7 @@ rule memory_from_log_bam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(minimap2-.*|winnowmap|bwa)"
+        mapper="(minimap2-.*|winnowmap)"
     threads: 1
     resources:
         mem_mb=200,
