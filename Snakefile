@@ -997,7 +997,7 @@ rule minimap2_real_reads:
 
 rule bwa_sim_reads:
     input:
-        reference_fasta=reference_fasta
+        reference_fasta=reference_fasta,
         fastq=fastq
     output:
         sam="{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
@@ -1015,7 +1015,7 @@ rule bwa_sim_reads:
 
 rule bwa_real_reads:
     input:
-        reference_fasta=reference_fasta
+        reference_fasta=reference_fasta,
         fastq=fastq
     output:
         sam="{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
