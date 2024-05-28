@@ -1250,7 +1250,7 @@ rule speed_from_log_bwa:
     shell:
         """
         mapped_count=$(cat {input.bwa_log} | grep "Processed" | awk '{{sum+=$3}} END {{print sum}}')
-        total_time=$(cat {input.bwa_log} | grep "Processed" | sed 's/.*\([0-9]*\.[0-9]*\) CPU sec.*/\\1/g' | awk '{{sum+=$1}} END {{print sum}}')
+        total_time=$(cat {input.bwa_log} | grep "Processed" | sed 's/.*in \([0-9]*\.[0-9]*\) CPU sec.*/\\1/g' | awk '{{sum+=$1}} END {{print sum}}')
         echo "{params.condition_name}\t$(echo "$mapped_count / $total_time" | bc -l)" >{output.tsv}
         """
 
