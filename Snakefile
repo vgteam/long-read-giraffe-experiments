@@ -1321,7 +1321,7 @@ rule experiment_softclips_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Softclips' --y_label 'Mean Softclip (bp)' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Read End Softclips' --y_label 'Mean Softclip (bp/end)' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule softclipped_or_unmapped_from_softclipped_or_unmapped:
     input:
