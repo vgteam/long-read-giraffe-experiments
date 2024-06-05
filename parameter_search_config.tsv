@@ -1,6 +1,8 @@
-#name   type    min_val max_val default sampling_strategy
-max-chain-connection	int	50	600	400	uniform
-max-tail-length	int	50	400	100	uniform
-wfa-distance	int	10	50	10	uniform
-wfa-distance-per-base	float	0.05	0.2	0.1	uniform
-wfa-max-distance	int	100	300	200	uniform
+#name	type	min_val	max_val	default	sampling_strategy
+gap-scale	float	2.75	0.01	0.5	log
+max-lookback-bases-per-base	float	0.15	0.1	0.8	log
+hard-hit-cap	int	20000	10000	50000	log
+max-min	int	100	50	400	log
+num-bp-per-min	int	500	100	1000	log
+downsample-window-count	int	500	250	2000	log
+downsample-window-length	int	20	5	40	log

@@ -205,6 +205,18 @@ experiments:
         - refgraph: "primary"          
           mapper: "giraffe-k31.w50.W-hifi-default-noflags"
 
+  # Experiment to check HiFi softclipped-or-unmapped bases
+  hifi_test_small:
+    control:
+      subset: 10k
+      tech: hifi
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: sim
+      refgraph: hprc-v1.1-mc
+    vary:
+      mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "giraffe-k31.w50.W-hifi-default-noflags"]
 
   # Experiment to decide if weighted indexes are good
   test_weighting_r10:

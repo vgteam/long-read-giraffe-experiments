@@ -1323,6 +1323,34 @@ rule experiment_softclips_plot:
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Softclips' --y_label 'Mean Softclip (bp)' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
+rule softclipped_or_unmapped_from_softclipped_or_unmapped:
+    input:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
+    params:
+        condition_name=condition_name
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.tsv} >>{output.tsv}"
+
+rule experiment_softclipped_or_unmapped_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/softclipped_or_unmapped.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/softclipped_or_unmapped.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Softclipped or Unmapped Bases' --y_label 'Total (bp)' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
 rule chain_coverage_from_mean_best_chain_coverage:
     input:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.mean.tsv"
@@ -1523,6 +1551,32 @@ rule length:
     shell:
         "vg filter -t {threads} -T \"length\" {input.gam} >{output}"
 
+rule length_by_mapping:
+    input:
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
+    threads: 2
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "(vg filter --only-mapped {input.gam} -T length | grep -v '^#' | sed 's/^/mapped\t/'; vg filter --only-mapped --complement {input.gam} -T length | grep -v '^#' | sed 's/^/unmapped\t/') >{output}"
+
+rule unmapped_length:
+    input:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv",
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_length.tsv"
+    threads: 2
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input.tsv} | grep '^unmapped' | cut -f2 >{output}"
+
 rule length_by_correctness:
     input:
         gam="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
@@ -1536,13 +1590,13 @@ rule length_by_correctness:
     shell:
         "vg filter -t {threads} -T \"correctness;sequence\" {input.gam} | grep -v \"#\" | awk -v OFS='\t' '{{print $1, length($2)}}' > {output}"
 
-rule softclips_by_name_giraffe:
+rule softclips_by_name_gam:
     input:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="giraffe.*"
+        mapper="(giraffe.*|graphaligner)"
     threads: 5
     resources:
         mem_mb=2000,
@@ -1578,6 +1632,29 @@ rule softclips:
         slurm_partition=choose_partition(60)
     shell:
         r"sed 's/^.*\t\([0-9]*\)\t\([0-9]*\)$/\1\n\2/' {input} > {output}"
+
+rule softclipped_or_unmapped:
+    input:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.total.tsv",
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_length.total.tsv"
+    output:
+         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    run:
+        # Sum the one-column TSVs
+        total = 0
+        for file in input:
+            for line in open(file):
+                line = line.strip()
+                if line:
+                    total += float(line)
+        with open(output[0], "w") as f:
+            f.write(f"{total}\n")
+        
 
 rule memory_usage_gam:
     input:
