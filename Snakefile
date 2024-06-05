@@ -22,9 +22,6 @@ configfile: "lr-config.yaml"
 # hprc-v1.1-mc-chm13.d9.k31.w50.W.withzip.min
 # hprc-v1.1-mc-chm13.d9.k31.w50.W.zipcodes
 #
-# For old version of vg, use minimizers
-# hprc-v1.1-mc-chm13.d9.k31.w50.W.min
-#
 GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
 
 # Where are the reads to use?
@@ -325,15 +322,10 @@ def indexed_graph(wildcards):
     """
     base = graph_base(wildcards)
     indexes = dist_indexed_graph(wildcards)
-    if wildcards["vgversion"] == "upstream":
-        new_indexes = {
-            "minfile": base + "." + wildcards["minparams"] + ".min",
-        }
-    else:
-        new_indexes = {
-            "minfile": base + "." + wildcards["minparams"] + ".withzip.min",
-            "zipfile": base + "." + wildcards["minparams"] + ".zipcodes"
-        }
+    new_indexes = {
+        "minfile": base + "." + wildcards["minparams"] + ".withzip.min",
+        "zipfile": base + "." + wildcards["minparams"] + ".zipcodes"
+    }
     new_indexes.update(indexes)
     return new_indexes
 
@@ -827,10 +819,7 @@ rule giraffe_real_reads:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        if wildcards.vgversion == "upstream":
-            shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -f {input.fastq} " + flags + " >{output.gam} 2>{log}")
-        else:
-            shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam} 2>{log}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam} 2>{log}")
 
 rule giraffe_sim_reads:
     input:
@@ -871,31 +860,6 @@ rule giraffe_sim_reads_with_correctness:
         flags=get_vg_flags(wildcards.vgflag)
 
         shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam} 2>{log}")
-
-#Old version of vg without --set-refpos
-rule giraffe_sim_reads_upstream:
-    input:
-        unpack(indexed_graph),
-        gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
-    output:
-        gam="{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    log:"{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
-    wildcard_constraints:
-        realness="sim"
-        vgversion="upstream"
-        preset="default|fast"
-    threads: auto_mapping_threads
-    resources:
-        mem_mb=auto_mapping_memory,
-        runtime=600,
-        slurm_partition=choose_partition(600)
-    run:
-        vg_binary = get_vg_version(wildcards.vgversion)
-        flags=get_vg_flags(wildcards.vgflag)
-
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam} 2>{log}")
-ruleorder: giraffe_sim_reads_upstream > giraffe_sim_reads
-ruleorder: giraffe_sim_reads_upstream > giraffe_sim_reads_with_correctness
 
 rule winnowmap_sim_reads:
     input:
