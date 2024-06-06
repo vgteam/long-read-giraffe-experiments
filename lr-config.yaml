@@ -277,7 +277,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-3566568498433331512", "giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-gappy", "giraffe-k31.w50.W-r10-default-gappier", "minimap2-map-ont"]
+      mapper: ["giraffe-k31.w50.W-r10-default-5861012015196072787", "giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-easyfragments", "minimap2-map-ont"]
 
   # Compare different nanopore data types
   compare_nanopore:

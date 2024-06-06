@@ -635,10 +635,8 @@ def get_vg_flags(wildcard_flag):
             return "--max-tail-gap " + maxgap_number[6:]
         case gapscale_number if gapscale_number[0:8] == "gapscale":
             return "--gap-scale " + gapscale_number[8:]
-        case "gappy":
-            return "--gap-scale 0.05 --max-lookback-bases-per-base 0.3"
-        case "gappier":
-            return "--gap-scale 0.05 --max-lookback-bases-per-base 0.6 --hard-hit-cap 40000 --max-min 200 --num-bp-per-min 250 --downsample-window-count 1000 --downsample-window-length 10"
+        case "easyfragments":
+            return "--fragment-score-fraction 0 --fragment-gap-scale 1.449515477929178"    
         case "noflags":
             return ""
         case unknown:
