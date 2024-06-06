@@ -1288,7 +1288,7 @@ rule memory_from_log_bam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(minimap2-.*|winnowmap)"
+        mapper="(minimap2-.*|winnowmap|bwa)"
     threads: 1
     resources:
         mem_mb=200,
