@@ -635,8 +635,10 @@ def get_vg_flags(wildcard_flag):
             return "--max-tail-gap " + maxgap_number[6:]
         case gapscale_number if gapscale_number[0:8] == "gapscale":
             return "--gap-scale " + gapscale_number[8:]
-        case "easyfragments":
-            return "--fragment-score-fraction 0 --fragment-gap-scale 1.449515477929178"    
+        case "shortconnect":
+            return "--max-middle-dp-length 30000"
+        case "chainscore":
+            return "--sort-by-chain-score"
         case "noflags":
             return ""
         case unknown:

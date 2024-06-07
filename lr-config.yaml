@@ -218,33 +218,7 @@ experiments:
     vary:
       mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "giraffe-k31.w50.W-hifi-default-noflags"]
 
-  # Experiment to decide if weighted indexes are good
-  test_weighting_r10:
-    control:
-      realness: sim
-      subset: 1m
-      reference: chm13
-      refgraph: "hprc-v1.1-mc"
-      tech: r10
-      trimmedness: ""
-      sample: HG002
-    vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50-r10-default-noflags"]
-  test_weighting_hifi:
-    control:
-      realness: sim
-      subset: 1m
-      reference: chm13
-      refgraph: "hprc-v1.1-mc"
-      tech: hifi
-      trimmedness: ""
-      sample: HG002
-    vary:
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50-hifi-default-noflags"]
-
-
-  # Experiment to compare gap scale values
-  r10_gapscale:
+  r10_chain_config:
     control:
       realness: sim
       subset: 10k
@@ -254,30 +228,7 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-gapscale0.01", "giraffe-k31.w50.W-r10-default-gapscale0.2"]
-  r10_maxgap:
-    control:
-      realness: sim
-      subset: 10k
-      reference: chm13
-      refgraph: "hprc-v1.1-mc"
-      tech: r10
-      trimmedness: ""
-      sample: HG002
-    vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-maxgap1000", "giraffe-k31.w50.W-r10-default-maxgap10000", "giraffe-k31.w50.W-r10-default-maxgap100000"]
-
-  r10_param_set:
-    control:
-      realness: sim
-      subset: 10k
-      reference: chm13
-      refgraph: "hprc-v1.1-mc"
-      tech: r10
-      trimmedness: ""
-      sample: HG002
-    vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-5861012015196072787", "giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-easyfragments", "minimap2-map-ont"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-shortconnect", "giraffe-k31.w50.W-r10-default-chainscore", "minimap2-map-ont"]
 
   # Compare different nanopore data types
   compare_nanopore:
