@@ -74,7 +74,7 @@
 
 #graphs_dir: "/private/groups/patenlab/xhchang/graphs/lr_giraffe_graphs"
 real_slurm_extra: "--exclude=phoenix-[00-10,22-24]"
-exclusive_timing: false
+exclusive_timing: true
 
 experiments:
   # This experiment tests all the mappers, realnesses, technologies, and
@@ -218,17 +218,43 @@ experiments:
     vary:
       mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "giraffe-k31.w50.W-hifi-default-noflags"]
 
-  r10_chain_config:
+  r10_speed:
     control:
-      realness: sim
       subset: 10k
       reference: chm13
       refgraph: "hprc-v1.1-mc"
       tech: r10
-      trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-shortconnect", "giraffe-k31.w50.W-r10-default-chainscore", "minimap2-map-ont"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "minimap2-map-ont"]
+      realness: ["real", "sim"]
+      trimmedness: ["", ".trimmed"]
+    constrain:
+      # Always trimming for real reads
+      - realness: real
+        trimmedness: ".trimmed"
+      # Always use no trimming after simulation for simulated reads
+      - realness: sim
+        trimmedness: ""
+
+  r10_speed_big:
+    control:
+      subset: 1m
+      reference: chm13
+      refgraph: "hprc-v1.1-mc"
+      tech: r10
+      sample: HG002
+    vary:
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "minimap2-map-ont"]
+      realness: ["real", "sim"]
+      trimmedness: ["", ".trimmed"]
+    constrain:
+      # Always trimming for real reads
+      - realness: real
+        trimmedness: ".trimmed"
+      # Always use no trimming after simulation for simulated reads
+      - realness: sim
+        trimmedness: ""
 
   # Compare different nanopore data types
   compare_nanopore:

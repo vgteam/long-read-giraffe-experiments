@@ -599,16 +599,19 @@ def condition_name(wildcards):
 
     return ",".join(varied_values)
 
-def all_experiment(wildcard_values, pattern, filter_function=None, debug=False):
+def all_experiment(wildcard_values, pattern, filter_function=None, empty_ok=False, debug=False):
     """
     Produce all values of pattern substituted with the wildcards and the experiment conditions' values, from expname.
 
     If provided, restricts to conditions passing the filter function.
-    
+
+    Throws an error if nothing is produced and empty_ok is not set.
+
     Needs to be used like:
         lambda w: all_experiment(w, "your pattern")
     """
 
+    empty = True
     for condition in all_experiment_conditions(wildcard_values["expname"], filter_function=filter_function):
         merged = dict(wildcard_values)
         merged.update(condition)
@@ -616,6 +619,9 @@ def all_experiment(wildcard_values, pattern, filter_function=None, debug=False):
             print(f"Evaluate {pattern} in {merged} from {wildcard_values} and {condition}")
         filename = pattern.format(**merged)
         yield filename
+        empty = False
+    if empty and not empty_ok:
+        raise RuntimeError("Produced no values for " + pattern + " in experiment!")
 
 def has_stat_filter(stat_name):
     """
