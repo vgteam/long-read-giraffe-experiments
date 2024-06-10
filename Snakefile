@@ -555,7 +555,36 @@ def condition_name(wildcards):
     """
     Determine a human-readable condition name from expname and the experiment's variable values.
     """
-    
+ 
+    def fix_string(original):
+        #Since the names get pretty long, shorten them
+
+        #graphs
+        if original == "hprc-v1.1-mc":
+            return ""
+        elif "hprc-v1.1-mc-sampled-" in original:
+            return "sampled"
+        elif "giraffe" in original:
+            no_minparams = original
+            if "k29.w11.W" in original:
+                no_minparams= original.split("-k29.w11.W")[0]+original.split("-k29.w11.W")[1]
+            elif "k29.w11" in original:
+                no_minparams= original.split("-k29.w11")[0]+original.split("-k29.w11")[1]
+            elif "k31.w50.W-hifi" in original:
+                no_minparams= original.split("-k31.w50.W-hifi")[0]+original.split("-k31.w50.W-hifi")[1]
+            elif "k31.w50-hifi" in original:
+                no_minparams= original.split("-k31.w50-hifi")[0]+original.split("-k31.w50-hifi")[1]
+            elif "k31.w50.W-r10" in original:
+                no_minparams= original.split("-k31.w50.W-r10")[0]+original.split("-k31.w50.W-r10")[1]
+            elif "k31.w50-r10" in original:
+                no_minparams= original.split("-k31.w50-r10")[0]+original.split("-k31.w50-r10")[1]
+            no_flags = no_minparams
+            if "-noflags" in no_minparams:
+                no_flags = no_minparams.split("-noflags")[0]
+            return no_flags
+        else:
+            return original   
+
     # Get what changes in the experiment
     exp_dict = config.get("experiments", {}).get(wildcards["expname"], {})
     to_vary = exp_dict.get("vary", {})
@@ -565,7 +594,9 @@ def condition_name(wildcards):
     
     # Paste together all the varied variable values from the condition.
     varied = list(to_vary.keys())
-    varied_values = [condition[v] for v in varied]
+    varied_values = [fix_string(condition[v]) for v in varied if v != "realness" ]
+
+
     return ",".join(varied_values)
 
 def all_experiment(wildcard_values, pattern, filter_function=None, debug=False):
@@ -775,6 +806,7 @@ rule giraffe_real_reads:
     output:
         # Giraffe can dump out pre-annotated reads at annotation range -1.
         gam="{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    log:"{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     benchmark: "{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
@@ -789,7 +821,7 @@ rule giraffe_real_reads:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam} 2>{log}")
 
 rule giraffe_sim_reads:
     input:
@@ -797,6 +829,7 @@ rule giraffe_sim_reads:
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
         gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    log:"{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim"
     threads: auto_mapping_threads
@@ -808,7 +841,7 @@ rule giraffe_sim_reads:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam} 2>{log}")
 
 rule giraffe_sim_reads_with_correctness:
     input:
@@ -816,6 +849,7 @@ rule giraffe_sim_reads_with_correctness:
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
         gam="{root}/correctness/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    log:"{root}/correctness/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim"
     threads: auto_mapping_threads
@@ -827,7 +861,7 @@ rule giraffe_sim_reads_with_correctness:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " >{output.gam} 2>{log}")
 
 rule winnowmap_sim_reads:
     input:
@@ -838,6 +872,7 @@ rule winnowmap_sim_reads:
         mode=minimap_derivative_mode,
     output:
         sam="{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+    log:"{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim"
     wildcard_constraints:
@@ -850,7 +885,7 @@ rule winnowmap_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "winnowmap -t {threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam}"
+        "winnowmap -t {threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam} 2>{log}"
 
 rule winnowmap_real_reads:
     input:
@@ -861,6 +896,7 @@ rule winnowmap_real_reads:
         mode=minimap_derivative_mode,
     output:
         sam="{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+    log:"{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     benchmark: "{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
@@ -876,7 +912,7 @@ rule winnowmap_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "winnowmap -t {threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam}"
+        "winnowmap -t {threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam} 2>{log}"
 
 rule minimap2_index_reference:
     input:
@@ -891,12 +927,14 @@ rule minimap2_index_reference:
     shell:
          "minimap2 -t {threads} -x {wildcards.preset} -d {output.index} {input.reference_fasta}"
 
+
 rule minimap2_sim_reads:
     input:
         minimap2_index=minimap2_index,
         fastq=fastq
     output:
         sam="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+    log:"{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim"
     threads: auto_mapping_threads
@@ -905,7 +943,7 @@ rule minimap2_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minimap2 -t {threads} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam}"
+        "minimap2 -t {threads} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
 
 rule minimap2_real_reads:
     input:
@@ -914,6 +952,7 @@ rule minimap2_real_reads:
     output:
         sam="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
     benchmark: "{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    log: "{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="real"
     threads: auto_mapping_threads
@@ -924,7 +963,66 @@ rule minimap2_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "minimap2 -t {threads} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam}"
+        "minimap2 -t {threads} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
+
+
+#TODO this doesn't have an output file and bwa doesn't take the index as an input so idk how to include it
+#I just indexed it myself
+#rule bwa_index_reference:
+#    input:
+#        reference_fasta=reference_fasta
+#    output:index
+#        amb=REFS_DIR + "/{reference}-pansn.amb"
+#        ann=REFS_DIR + "/{reference}-pansn.ann"
+#        bwt=REFS_DIR + "/{reference}-pansn.bwt"
+#        pac=REFS_DIR + "/{reference}-pansn.pac"
+#        sa=REFS_DIR + "/{reference}-pansn.sa"
+#    threads: 2
+#    resources:
+#        mem_mb=16000,
+#        runtime=10,
+#        slurm_partition=choose_partition(10)
+#    shell:
+#         "bwa {input.reference_fasta}"
+#
+
+rule bwa_sim_reads:
+    input:
+        reference_fasta=reference_fasta,
+        fastq=fastq
+    output:
+        sam="{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+    log:"{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    wildcard_constraints:
+        realness="sim",
+        tech="illumina"
+    threads: auto_mapping_threads
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "bwa mem -t {threads} {input.reference_fasta} {input.fastq}>{output.sam} 2> {log}"
+
+rule bwa_real_reads:
+    input:
+        reference_fasta=reference_fasta,
+        fastq=fastq
+    output:
+        sam="{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+    benchmark: "{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    log: "{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    wildcard_constraints:
+        realness="real"
+    threads: auto_mapping_threads
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600),
+        slurm_extra=auto_mapping_slurm_extra,
+        full_cluster_nodes=auto_mapping_full_cluster_nodes
+    shell:
+        "bwa mem -t {threads} {input.reference_fasta} {input.fastq}>{output.sam} 2> {log}"
 
 # Minimap2 and Winnowmap include secondary alignments in the output by default, and Winnowmap doesn't quite have a way to limit them (minimap2 has -N)
 # Also they only speak SAM and we don't want to benchmark the BAM-ification time.
@@ -936,7 +1034,7 @@ rule drop_secondary_and_supplementary:
     output:
         bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
-        mapper="(minimap2-.*|winnowmap)"
+        mapper="(minimap2-.*|winnowmap|bwa)"
     threads: 16
     resources:
         mem_mb=30000,
@@ -987,7 +1085,7 @@ rule inject_bam:
     output:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
-        mapper="(minimap2.+|winnowmap)"
+        mapper="(minimap2.+|winnowmap|bwa)"
     threads: 64
     resources:
         mem_mb=300000,
@@ -1080,6 +1178,127 @@ rule wrong_from_comparison:
         slurm_partition=choose_partition(5)
     shell:
         "echo \"$(cat {input.compare} | grep -o '[0-9]* reads eligible' | cut -f1 -d' ') - $(cat {input.compare} | grep -o '[0-9]* reads correct' | cut -f1 -d' ')\" | bc -l >{output.tsv}"
+
+rule speed_from_log_giraffe:
+    input:
+        giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="giraffe.*"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"{params.condition_name}\t$(cat {input.giraffe_log} | grep \"reads per CPU-second\" | sed \'s/Achieved \([0-9]*\.[0-9]*\) reads per CPU-second.*/\\1/g\')\" >{output.tsv}"
+
+#Put the mapper name and memory into a tsv in experiments directory for the experiment
+#This makes it easier to find for different mappers that may or may not have a refgraph in the path
+rule memory_from_log_giraffe_experiment:
+    input:
+        giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="giraffe.*"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"{params.condition_name}\t$(cat {input.giraffe_log} | grep \"Memory footprint\" | sed \'s/Memory footprint: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
+
+#Put just the memory use in the stats folder for parameter search
+rule memory_from_log_giraffe_stat:
+    input:
+        giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
+    wildcard_constraints:
+        realness="real",
+        mapper="giraffe.*"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"$(cat {input.giraffe_log} | grep \"Memory footprint\" | sed \'s/Memory footprint: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
+
+rule speed_from_log_bwa:
+    input:
+        bwa_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="bwa"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        mapped_count=$(cat {input.bwa_log} | grep "Processed" | awk '{{sum+=$3}} END {{print sum}}')
+        total_time=$(cat {input.bwa_log} | grep "Processed" | sed 's/.*in \([0-9]*\.[0-9]*\) CPU sec.*/\\1/g' | awk '{{sum+=$1}} END {{print sum}}')
+        echo "{params.condition_name}\t$(echo "$mapped_count / $total_time" | bc -l)" >{output.tsv}
+        """
+
+
+rule speed_from_log_bam:
+    input:
+        minimap2_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="(minimap2-.*|winnowmap)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        mapped_count=$(cat {input.minimap2_log} | grep "mapped" | awk '{{sum+=$3}} END {{print sum}}')
+        total_time=$(cat {input.minimap2_log} | grep "\\[M::main\\] Real time" | sed 's/.*Real time: \([0-9]*\.[0-9]*\) sec.*/\\1/g')
+        startup_time=$(cat {input.minimap2_log} | grep "loaded/built the index" | sed 's/.M::main::\([0-9]*\.[0-9]*\).*/\\1 /g')
+        thread_count=$(cat {input.minimap2_log} | grep "CMD:" | sed 's/.*-t\s\([0-9]*\)\s.*/\\1/g')
+        echo "{params.condition_name}\t$(echo "($mapped_count / ($total_time - $startup_time)) / $thread_count" | bc -l)" >{output.tsv}
+        """
+
+rule memory_from_log_bam:
+    input:
+        minimap2_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="(minimap2-.*|winnowmap|bwa)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"{params.condition_name}\t$(cat {input.minimap2_log} | grep \"Peak RSS\" | sed \'s/.*Peak RSS: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
+
 
 rule comparison_experiment_stat:
     input:
@@ -1192,6 +1411,201 @@ rule experiment_pr_plot_from_compared:
         slurm_partition=choose_partition(30)
     shell:
         "Rscript plot-pr.R {input.tsv} {output}"
+
+rule experiment_speed_from_log_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"]))
+    output:
+        tsv="{root}/experiments/{expname}/results/speed_from_log.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input} >>{output.tsv}"
+
+rule experiment_speed_from_log_plot:
+    input:
+        tsv=rules.experiment_speed_from_log_tsv.output.tsv
+    output:
+        "{root}/experiments/{expname}/plots/speed_from_log.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Speed From Log' --y_label 'Speed (reads/second/thread)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+
+rule experiment_memory_from_log_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"]))
+    output:
+        tsv="{root}/experiments/{expname}/results/memory_from_log.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input} >>{output.tsv}"
+
+rule experiment_memory_from_log_plot:
+    input:
+        tsv=rules.experiment_memory_from_log_tsv.output.tsv
+    output:
+        "{root}/experiments/{expname}/plots/memory_from_log.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Memory From Log' --y_label 'Memory use (GB)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+
+rule experiment_runtime_from_benchmark_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv", lambda condition: condition["realness"] == "real")
+    output:
+        tsv="{root}/experiments/{expname}/results/runtime_from_benchmark.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input} >>{output.tsv}"
+
+rule experiment_runtime_from_benchmark_plot:
+    input:
+        tsv=rules.experiment_runtime_from_benchmark_tsv.output.tsv
+    output:
+        "{root}/experiments/{expname}/plots/runtime_from_benchmark.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Runtime From Benchmark' --y_label 'Runtime (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+
+rule experiment_memory_from_benchmark_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv", lambda condition: condition["realness"] == "real")
+    output:
+        tsv="{root}/experiments/{expname}/results/memory_from_benchmark.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input} >>{output.tsv}"
+
+
+rule experiment_memory_from_benchmark_plot:
+    input:
+        tsv=rules.experiment_memory_from_benchmark_tsv.output.tsv
+    output:
+        "{root}/experiments/{expname}/plots/memory_from_benchmark.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+
+#Get the accuracy from simulated reads for one condition
+rule experiment_mapping_stats_sim_tsv_from_stats:
+    input:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv"
+    wildcard_constraints:
+        realness="sim"
+    params:
+        condition_name=condition_name
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "echo \"{params.condition_name}\t$(cat {input})\" >>{output.tsv}"
+
+#Get the accuracy from simulated reads for all conditions in the experiment
+rule experiment_mapping_stats_sim_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv", lambda condition: condition["realness"] == "sim")
+    output:
+        tsv="{root}/experiments/{expname}/results/mapping_stats_sim.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        """
+        printf "condition\tcorrect\tmapq60\twrong_mapq60\n" >> {output.tsv}
+        cat {input} >>{output.tsv}
+        """
+
+#Get the speed, memory use, and softclips from real reads for each condition
+rule experiment_mapping_stats_real_tsv_from_stats:
+    input:
+        speed_from_log="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv",
+        memory_from_log="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv",
+        runtime_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv",
+        memory_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv",
+        softclips="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv"
+    params:
+        condition_name=condition_name
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        """
+        echo "{params.condition_name}\t$(cat {input.speed_from_log} | cut -f 2)\t$(cat {input.memory_from_log} | cut -f 2)\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclips} | cut -f 2)" >>{output.tsv}
+        """
+
+#Get the speed, memory use, and softclips from real reads
+rule experiment_mapping_stats_real_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv", lambda condition: condition["realness"] == "real")
+    output:
+        tsv="{root}/experiments/{expname}/results/mapping_stats_real.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        """
+        printf "condition\tspeed_from_log(r/s)\tmemory_from_log(GB)\truntime_from_benchmark(min)\tmemory_from_benchmark(GB)\tsoftclips\n" >> {output.tsv} 
+        cat {input} >>{output.tsv}
+        """
+
+#Get mapping stats from real and sim reads
+rule experiment_mapping_stats_tsv:
+    input:
+        real="{root}/experiments/{expname}/results/mapping_stats_real.tsv",
+        sim="{root}/experiments/{expname}/results/mapping_stats_sim.tsv"
+    output:
+        tsv="{root}/experiments/{expname}/results/mapping_stats.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "join -t '\t' {input.sim} {input.real} >> {output.tsv}"
+ruleorder: experiment_mapping_stats_tsv > experiment_stat_table
 
 rule stats_from_alignments:
     input:
@@ -1658,37 +2072,131 @@ rule softclipped_or_unmapped:
 
 rule memory_usage_gam:
     input:
-        benchmark="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+        bench="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     output:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_usage.tsv"
     wildcard_constraints:
         realness="real",
         mapper="(giraffe.+|graphaligner)"
-    threads: MAPPER_THREADS
+    threads: 1
     resources:
         mem_mb=1000,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
         # max_rss happens to be column 3, but try to check
-        "cat {input.benchmark} | cut -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
+        "cat {input.bench} | cut -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
 
 rule memory_usage_sam:
     input:
-        benchmark="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+        bench="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     output:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_usage.tsv"
     wildcard_constraints:
         realness="real",
-        mapper="(minimap2.+|winnowmap)"
-    threads: MAPPER_THREADS
+        mapper="(minimap2.+|winnowmap|bwa)"
+    threads: 1
     resources:
         mem_mb=1000,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
         # max_rss happens to be column 3, but try to check
-        "cat {input.benchmark} | cut -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
+        "cat {input.bench} | cut -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
+
+rule runtime_from_benchmark_bam:
+    input:
+        bench="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="(minimap2.+|winnowmap|bwa)"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        f = open(input.bench)
+        assert(f.readline().split()[1] == "h:m:s")
+        runtime_list = f.readline().split()[1].split(":")
+        runtime = (int(runtime_list[0]) * 60) + int(runtime_list[1]) + (int(runtime_list[2]) / 60)
+        f.close()
+
+        shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
+
+rule runtime_from_benchmark_gam:
+    input:
+        bench="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="(giraffe.*|graphaligner)"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        f = open(input.bench)
+        assert(f.readline().split()[1] == "h:m:s")
+        runtime_list = f.readline().split()[1].split(":")
+        runtime = (int(runtime_list[0]) * 60) + int(runtime_list[1]) + (int(runtime_list[2]) / 60)
+        f.close()
+
+        shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
+
+rule memory_from_benchmark_sam:
+    input:
+        bench="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="(minimap2.+|winnowmap|bwa)"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        f = open(input.bench)
+        assert(f.readline().split()[2] == "max_rss")
+        memory = float(f.readline().split()[2]) / 1000
+        f.close()
+
+        shell("echo \"{params.condition_name}\t{memory}\" >{output.tsv}")
+
+rule memory_from_benchmark_gam:
+    input:
+        bench="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="(giraffe.*|graphaligner)"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        f = open(input.bench)
+        assert(f.readline().split()[2] == "max_rss")
+        memory = float(f.readline().split()[2]) / 1000
+        f.close()
+
+        shell("echo \"{params.condition_name}\t{memory}\" >{output.tsv}")
 
 rule mean_stat:
     input:
@@ -1995,17 +2503,16 @@ rule softclips_histogram:
     shell:
         "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Softclip Length, Mean=$(cat {input.mean})\" --y_label 'Ends' --x_label 'Softclip Length (bp)' --no_n --log_counts --save {output}"
 
-rule mapping_stats:
+rule mapping_accuracy:
     input:
-        compared_tsv="{root}/compared/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
+        compared_tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
     output:
-        "{root}/stats/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_stats.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv"
     threads: 1
     resources:
         mem_mb=2000,
         runtime=100,
         slurm_partition=choose_partition(100)
-    log: "{root}/stats/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_stats.log"
     run:
 
         correct_count = 0
@@ -2029,7 +2536,9 @@ rule mapping_stats:
 rule parameter_search_mapping_stats:
     input:
         times = lambda w: param_search_tsvs(w, "time_used.mean"),
-        mapping_stats = expand("{{root}}/stats/{{reference}}/{{refgraph}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_stats.tsv",param_hash=PARAM_SEARCH.get_hashes())
+        memory = lambda w: param_search_tsvs(w, "memory_from_log"),
+        softclips = lambda w : param_search_tsvs(w, "softclips.mean"),
+        mapping_accuracy = expand("{{root}}/stats/{{reference}}/{{refgraph}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_accuracy.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
         outfile="{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
     log: "{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.param_search_mapping_stats.log"
@@ -2040,8 +2549,8 @@ rule parameter_search_mapping_stats:
         slurm_partition=choose_partition(100)
     run:
         f = open(output.outfile, "w")
-        f.write("#correct\tmapq60\twrong_mapq60\tspeed(r/s/t)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
-        for param_hash, stats_file, times_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_stats, input.times):
+        f.write("#correct\tmapq60\twrong_mapq60\tsoftclips\tspeed(r/s/t)\tmemory(GB)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
+        for param_hash, stats_file, times_file, memory_file, softclips_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_accuracy, input.times, input.memory, input.softclips):
 
             param_f = open(stats_file)
             l = param_f.readline().split()
@@ -2050,13 +2559,23 @@ rule parameter_search_mapping_stats:
             wrong_mapq60_count = l[2]
             param_f.close()
 
+            softclips_f = open(softclips_file)
+            l = softclips_f.readline().split()
+            softclips = l[0]
+            softclips_f.close()
+
             time_f = open(times_file)
             l = time_f.readline().split()
             speed = str(1/float(l[0]))
             time_f.close()
 
+            memory_f = open(memory_file)
+            l = memory_f.readline().split()
+            memory=l[0]
+            memory_f.close()
+
             parameters = PARAM_SEARCH.hash_to_parameters[param_hash]
-            f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + speed + "\t" + '\t'.join([str(x) for x in parameters])) 
+            f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + softclips + "\t" + speed + "\t" + memory + "\t" + '\t'.join([str(x) for x in parameters])) 
         f.close()
 
 rule plot_correct_speed_vs_parameter:
@@ -2074,7 +2593,7 @@ rule plot_correct_speed_vs_parameter:
         header = infile.readline().split()
         parameter_col = str(header.index(wildcards.parameter)+1) 
         infile.close()
-        shell("cat <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $4}}' | sed 's/^/RPS /g') <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $1}}' | sed 's/^/Correct /g') | ./scatter.py --title 'Speed vs Correctness vs " + wildcards.parameter + "' --x_label " + wildcards.parameter + "  --y_per_category --categories 'RPS' 'Correct' --y_label 'Reads per Second' 'Reads Correct' --legend_overlay 'best' --save {output.plot} /dev/stdin")
+        shell("cat <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $5}}' | sed 's/^/RPS /g') <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $1}}' | sed 's/^/Correct /g') | ./scatter.py --title 'Speed vs Correctness vs " + wildcards.parameter + "' --x_label " + wildcards.parameter + "  --y_per_category --categories 'RPS' 'Correct' --y_label 'Reads per Second' 'Reads Correct' --legend_overlay 'best' --save {output.plot} /dev/stdin")
 
 rule parameter_search_stat:
     input:
@@ -2218,4 +2737,3 @@ rule add_mapper_to_plot:
         slurm_partition=choose_partition(10)
     shell:
         "cp {input} {output}"
-
