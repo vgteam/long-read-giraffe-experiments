@@ -1978,11 +1978,11 @@ rule length_by_mapping:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
     threads: 2
     resources:
-        mem_mb=2000,
+        mem_mb=16000,
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "(vg filter --only-mapped {input.gam} -T length | grep -v '^#' | sed 's/^/mapped\t/'; vg filter --only-mapped --complement {input.gam} -T length | grep -v '^#' | sed 's/^/unmapped\t/') >{output}"
+        "vg filter --only-mapped {input.gam} -T length | grep -v '^#' | sed 's/^/mapped\t/' >{output} && vg filter --only-mapped --complement {input.gam} -T length | grep -v '^#' | sed 's/^/unmapped\t/' >>{output}"
 
 rule unmapped_length:
     input:
