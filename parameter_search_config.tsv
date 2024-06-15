@@ -2,11 +2,11 @@
 fragment-gap-scale	float	0.1	3	1.449515477929178	log
 fragment-score-fraction	float	0.0	0.005	0.0	uniform
 fragment-max-min-score	int	0	100	0	uniform
-gap-scale	float	0.01	1.0	0.06759721757973396	log
+gap-scale	float	0.05	1.0	0.06759721757973396	log
 max-lookback-bases-per-base	float	0.01	0.2	0.10501002120802233	log
 hard-hit-cap	int	5000	20000	13614	log
 max-min	int	100	50	79	log
-num-bp-per-min	int	100	500	152	log
+num-bp-per-min	int	10	500	152	log
 downsample-window-count	int	5	50	15	log
 downsample-window-length	int	50	500	227	log
 item-bonus	int	0	40	20	uniform

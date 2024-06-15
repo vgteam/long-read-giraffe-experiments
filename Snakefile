@@ -188,14 +188,14 @@ def auto_mapping_memory(wildcards):
     """
     thread_count = auto_mapping_threads(wildcards)
 
-    base_mb = 25000
+    base_mb = 50000
 
     if wildcards["tech"] == "illumina":
-        scale_mb = 50000
+        scale_mb = 25000
     elif wildcards["tech"] == "hifi":
-        scale_mb = 175000
+        scale_mb = 150000
     else:
-        scale_mb = 475000
+        scale_mb = 450000
 
     # Scale down memory with threads
     return scale_mb / MAPPER_THREADS * thread_count + base_mb
