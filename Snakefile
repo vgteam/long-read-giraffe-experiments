@@ -188,7 +188,7 @@ def auto_mapping_memory(wildcards):
     """
     thread_count = auto_mapping_threads(wildcards)
 
-    base_mb = 50000
+    base_mb = 50000 * 4
 
     if wildcards["tech"] == "illumina":
         scale_mb = 25000
