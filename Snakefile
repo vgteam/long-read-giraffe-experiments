@@ -662,20 +662,12 @@ def get_vg_flags(wildcard_flag):
             return "--explored-cap"
         case downsample_number if downsample_number[0:10] == "downsample":
             return "--downsample-min " + downsample_number[10:]
-        case "fragonly":
-            return "--fragment-max-lookback-bases 3000 --max-lookback-bases 0"
-        case minfrag_number if minfrag_number[0:7] == "minfrag":
-            return "--fragment-score-fraction 0  --fragment-min-score " + minfrag_number[7:]
-        case maxminfrag_number if maxminfrag_number[0:10] == "maxminfrag":
-            return "--fragment-max-min-score " + maxminfrag_number[10:]
-        case maxgap_number if minfrag_number[0:6] == "maxgap":
-            return "--max-tail-gap " + maxgap_number[6:]
-        case gapscale_number if gapscale_number[0:8] == "gapscale":
-            return "--gap-scale " + gapscale_number[8:]
-        case "shortconnect":
-            return "--max-middle-dp-length 30000"
-        case "chainscore":
-            return "--sort-by-chain-score"
+        case "candidate1":
+            return "--num-bp-per-min 120 --gap-scale 0.1"
+        case "candidate2":
+            return "--num-bp-per-min 120 --gap-scale 0.06"
+        case "candidate3":
+            return "--num-bp-per-min 100 --gap-scale 0.06"
         case "noflags":
             return ""
         case unknown:

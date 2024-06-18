@@ -245,7 +245,7 @@ experiments:
       tech: r10
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "minimap2-map-ont"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-candidate1", "giraffe-k31.w50.W-r10-default-candidate2", "giraffe-k31.w50.W-r10-default-candidate3", "minimap2-map-ont"]
       realness: ["real", "sim"]
       trimmedness: ["", ".trimmed"]
     constrain:
