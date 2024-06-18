@@ -74,7 +74,7 @@
 
 #graphs_dir: "/private/groups/patenlab/xhchang/graphs/lr_giraffe_graphs"
 real_slurm_extra: "--exclude=phoenix-[00-10,22-24]"
-exclusive_timing: false
+exclusive_timing: true
 
 experiments:
   # This experiment tests all the mappers, realnesses, technologies, and
@@ -333,24 +333,3 @@ experiments:
       sample: HG002
     vary:
       mapper: ["giraffe-k29.w11.W-sr-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2"]
-
-  #This is used to test different sampled graphs with hifi reads
-  # is called `vg_commit`
-  hifi_sampled_test:
-    control:
-      subset: 1m
-      tech: hifi
-      reference: chm13
-      trimmedness: ""
-      sample: HG002
-      mapper: giraffe-k31.w50-hifi-default-noflags
-    vary:
-      realness: ["sim", "real"]
-      mapper: ["giraffe-k31.w50-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-noflags"]
-      refgraph: ["hprc-v1.1-mc", "default.greedy.HG002.hifi","default.nongreedy.HG002.hifi", "full.greedy.HG002.hifi","full.nongreedy.HG002.hifi"]
-    constrain:
-        - refgraph: "hprc-v1.1-mc"
-          mapper: ["giraffe-k31.w50.W-hifi-default-noflags"]
-        - refgraph: ["default.greedy.HG002.hifi","default.nongreedy.HG002.hifi", "full.greedy.HG002.hifi","full.nongreedy.HG002.hifi"]
-          mapper: ["giraffe-k31.w50-hifi-default-noflags"]
-
