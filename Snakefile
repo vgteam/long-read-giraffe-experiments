@@ -4,6 +4,8 @@
 
 import parameter_search
 
+import functools
+
 # Set a default config file. This can be overridden with --configfile.
 # See the config file for how to define experiments.
 configfile: "lr-config.yaml"
@@ -556,48 +558,45 @@ def condition_name(wildcards):
     Determine a human-readable condition name from expname and the experiment's variable values.
     """
  
-    def fix_string(original):
-        #Since the names get pretty long, shorten them
-
-        #graphs
-        if original == "hprc-v1.1-mc":
-            return ""
-        elif "hprc-v1.1-mc-sampled-" in original:
-            return "sampled"
-        elif "giraffe" in original:
-            no_minparams = original
-            if "k29.w11.W" in original:
-                no_minparams= original.split("-k29.w11.W")[0]+original.split("-k29.w11.W")[1]
-            elif "k29.w11" in original:
-                no_minparams= original.split("-k29.w11")[0]+original.split("-k29.w11")[1]
-            elif "k31.w50.W-hifi" in original:
-                no_minparams= original.split("-k31.w50.W-hifi")[0]+original.split("-k31.w50.W-hifi")[1]
-            elif "k31.w50-hifi" in original:
-                no_minparams= original.split("-k31.w50-hifi")[0]+original.split("-k31.w50-hifi")[1]
-            elif "k31.w50.W-r10" in original:
-                no_minparams= original.split("-k31.w50.W-r10")[0]+original.split("-k31.w50.W-r10")[1]
-            elif "k31.w50-r10" in original:
-                no_minparams= original.split("-k31.w50-r10")[0]+original.split("-k31.w50-r10")[1]
-            no_flags = no_minparams
-            if "-noflags" in no_minparams:
-                no_flags = no_minparams.split("-noflags")[0]
-            return no_flags
-        else:
-            return original   
-
     # Get what changes in the experiment
     exp_dict = config.get("experiments", {}).get(wildcards["expname"], {})
     to_vary = exp_dict.get("vary", {})
 
     # Get the condition dict in use here
     condition = wildcards_to_condition(wildcards)
-    
-    # Paste together all the varied variable values from the condition.
-    varied = list(to_vary.keys())
-    varied_values = [fix_string(condition[v]) for v in varied if v != "realness" ]
 
+    name_parts = []
 
-    return ",".join(varied_values)
+    for varied_key in to_vary:
+        # Look at the value we have for this varied variable
+        condition_value = condition[varied_key]
+        # And the other possible values that are used
+        alternatives = set(to_vary.get(varied_key, []))
+
+        if varied_key == "mapper" and "giraffe" in condition_value:
+            # If we're working on a Giraffe mapper name, only compare against other Giraffe mapper names
+            alternatives = {a for a in alternatives if "giraffe" in a}
+
+        # Find all the name parts used in alternatives.
+        parts_in_alternatives = [set(alternative.split("-")) for alternative in alternatives]
+        # Find those used in all alternatives
+        universal_alternative_parts = functools.reduce(lambda a, b: a & b, parts_in_alternatives)
+
+        # Find all the name parts used in us
+        condition_value_parts = condition_value.split("-")
+       
+        # Drop parts that are universal among applicable alternatives, keeping
+        # only the parts that represent differences.
+        interesting_parts = [p for p in condition_value_parts if p not in universal_alternative_parts]
+        
+        if varied_key == "mapper" and "giraffe" in condition_value:
+            # Make sure to mark Giraffe conditions even when all of them have "giraffe" in them.
+            interesting_parts = ["giraffe"] + interesting_parts
+
+        # And add that to the name
+        name_parts.append("-".join(interesting_parts))
+
+    return ",".join(name_parts)
 
 def all_experiment(wildcard_values, pattern, filter_function=None, empty_ok=False, debug=False):
     """
