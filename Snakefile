@@ -661,12 +661,8 @@ def get_vg_flags(wildcard_flag):
             return "--explored-cap"
         case downsample_number if downsample_number[0:10] == "downsample":
             return "--downsample-min " + downsample_number[10:]
-        case "candidate1":
-            return "--num-bp-per-min 120 --gap-scale 0.1"
-        case "candidate2":
-            return "--num-bp-per-min 120 --gap-scale 0.06"
-        case "candidate3":
-            return "--num-bp-per-min 100 --gap-scale 0.06"
+        case minchain_number if minchain_number[0:8] == "minchain":
+            return "--max-min-chain-score " + minchain_number[8:]
         case "noflags":
             return ""
         case unknown:

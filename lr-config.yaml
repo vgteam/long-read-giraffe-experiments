@@ -74,7 +74,7 @@
 
 #graphs_dir: "/private/groups/patenlab/xhchang/graphs/lr_giraffe_graphs"
 real_slurm_extra: "--exclude=phoenix-[00-10,22-24]"
-exclusive_timing: false
+exclusive_timing: true
 
 experiments:
   # This experiment tests all the mappers, realnesses, technologies, and
@@ -228,7 +228,19 @@ experiments:
       realness: sim
       trimmedness: ""
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-hifi-default-noflags", "minimap2-lr:hq"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-r10-default-minchain100", "giraffe-k31.w50.W-r10-default-minchain0", "minimap2-lr:hq"]
+
+  hifi_on_r10_real:
+    control:
+      subset: 10k
+      reference: chm13
+      refgraph: "hprc-v1.1-mc"
+      tech: hifi
+      sample: HG002
+      realness: real
+      trimmedness: ""
+    vary:
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-r10-default-minchain100", "minimap2-lr:hq"]
 
   # Compare different nanopore data types
   compare_nanopore:
