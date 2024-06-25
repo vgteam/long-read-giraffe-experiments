@@ -228,19 +228,31 @@ experiments:
       realness: sim
       trimmedness: ""
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-r10-default-minchain100", "giraffe-k31.w50.W-r10-default-minchain0", "minimap2-lr:hq"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-r10-default-minchain100", "giraffe-k31.w50.W-hifi-default-portedflags", "minimap2-lr:hq"]
 
-  hifi_on_r10_real:
+  hifi_on_r10_big:
     control:
-      subset: 10k
+      subset: 1m
       reference: chm13
       refgraph: "hprc-v1.1-mc"
       tech: hifi
       sample: HG002
-      realness: real
+      realness: sim
       trimmedness: ""
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-r10-default-minchain100", "minimap2-lr:hq"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-r10-default-minchain100", "giraffe-k31.w50.W-hifi-default-portedflags", "minimap2-lr:hq"]
+
+  r10_minchain_big:
+    control:
+      subset: 1m
+      reference: chm13
+      refgraph: "hprc-v1.1-mc"
+      tech: r10
+      sample: HG002
+      realness: sim
+      trimmedness: ""
+    vary:
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-minchain100", "minimap2-map-ont"]
 
   # Compare different nanopore data types
   compare_nanopore:

@@ -663,6 +663,8 @@ def get_vg_flags(wildcard_flag):
             return "--downsample-min " + downsample_number[10:]
         case minchain_number if minchain_number[0:8] == "minchain":
             return "--max-min-chain-score " + minchain_number[8:]
+        case "portedflags":
+            return "--max-min 79 --num-bp-per-min 152 --downsample-window-count 15 --downsample-window-length 227 --fragment-score-fraction 0.0 --max-min-chain-score 100"
         case "noflags":
             return ""
         case unknown:
