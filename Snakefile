@@ -663,6 +663,8 @@ def get_vg_flags(wildcard_flag):
             return "--downsample-min " + downsample_number[10:]
         case "candidate":
             return "--min-chains 4"
+        case "candidate2":
+            return "--min-chains 4 --gap-scale 0.2"
         case "noflags":
             return ""
         case unknown:

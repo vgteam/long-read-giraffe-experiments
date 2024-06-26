@@ -228,7 +228,7 @@ experiments:
       trimmedness: ""
     vary:
       realness: ["sim", "real"]
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-candidate", "minimap2-lr:hq"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-candidate", "giraffe-k31.w50.W-hifi-default-candidate2", "minimap2-lr:hq"]
 
   # Compare different nanopore data types
   compare_nanopore:
