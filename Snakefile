@@ -661,10 +661,8 @@ def get_vg_flags(wildcard_flag):
             return "--explored-cap"
         case downsample_number if downsample_number[0:10] == "downsample":
             return "--downsample-min " + downsample_number[10:]
-        case minchain_number if minchain_number[0:8] == "minchain":
-            return "--max-min-chain-score " + minchain_number[8:]
-        case "portedflags":
-            return "--max-min 79 --num-bp-per-min 152 --downsample-window-count 15 --downsample-window-length 227 --fragment-score-fraction 0.0 --max-min-chain-score 100"
+        case "candidate":
+            return "--min-chains 4"
         case "noflags":
             return ""
         case unknown:
@@ -1658,6 +1656,35 @@ rule experiment_mapping_rate_plot:
         slurm_partition=choose_partition(5)
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Mapping Rate' --y_label 'Mapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule unmapped_from_stats:
+    input:
+        stats="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt",
+        mapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_rate.tsv"
+    params:
+        condition_name=condition_name
+    output:
+        unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "printf '{params.condition_name}\\t' >{output.unmapped} && echo $(( $(cat {input.stats} | grep 'Total alignments:' | cut -f2 -d':' | tr -d ' ') - $(cut -f2 {input.mapped}) )) >>{output.unmapped}"
+
+rule experiment_unmapped_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/unmapped.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/unmapped.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Unmapped Reads' --y_label 'Unmapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule mapping_speed_from_mean_time_used:
     input:
