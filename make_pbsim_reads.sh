@@ -269,7 +269,7 @@ cp "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" "${SAMPLE_WORK_D
 if [[ ! -z "${OUT_DIR_GROUP}" ]] ; then
     # Make output directory owned by and writable to this group, so Snakemake
     # can make subset files.
-    chown -R "${OUT_DIR_GROUP}" "${OUT_DIR}"
+    chgrp -R "${OUT_DIR_GROUP}" "${OUT_DIR}"
     chmod g+w "${OUT_DIR}"
 fi
 
