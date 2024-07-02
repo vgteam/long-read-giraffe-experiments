@@ -1893,6 +1893,36 @@ rule remove_names:
     shell:
         "cut -f2 {input} > {output}"
 
+rule mapq_giraffe:
+    input:
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapq.tsv"
+    wildcard_constraints:
+        mapper="giraffe.*"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t {threads} -T \"mapping_quality\" {input.gam} | grep -v \"#\" >{output}"
+
+rule mapq_other:
+    input:
+        bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapq.tsv"
+    wildcard_constraints:
+        mapper="(?!giraffe).+"
+    threads: 7
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        r"samtools view {input.bam} | cut -f5 > {output}"
+
 rule time_used:
     input:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
@@ -2526,6 +2556,20 @@ rule softclips_histogram:
         slurm_partition=choose_partition(10)
     shell:
         "python3 histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Softclip Length, Mean=$(cat {input.mean})\" --y_label 'Ends' --x_label 'Softclip Length (bp)' --no_n --log_counts --save {output}"
+
+rule mapq_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapq.tsv",
+    output:
+        "{root}/plots/{reference}/{refgraph}/{mapper}/mapq-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 histogram.py {input.tsv} --log_counts --bins 100 --title \"{wildcards.tech} {wildcards.realness} Mapping Quality)\" --y_label 'Items' --x_label 'MAPQ (Phred)' --no_n --save {output}"
+
 
 rule mapping_accuracy:
     input:
