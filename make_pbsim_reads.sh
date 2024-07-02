@@ -38,6 +38,11 @@ set -ex
 : "${PBSIM:=pbsim}"
 # Parameters to use with pbsim for simulating reads for each contig. Parameters are space-separated and internal spaces must be escaped.
 : "${PBSIM_PARAMS:=--depth 4 --accuracy-min 0.00 --length-min 10000 --difference-ratio 6:50:54}"
+# This needs to be the vg binary. Since this script may run for a long time and
+# on one node in a cluster with a shared filesystem, it needs to be a vg binary
+# that will not be replaced while the script is running, or vg may crash with a
+# bus error.
+: "${VG:=vg}"
 # Directory to save results in
 : "${OUT_DIR:=./reads/sim/${TECH_NAME}/${SAMPLE_NAME}}"
 # Number of MAFs to convert at once
@@ -83,7 +88,7 @@ if [[ -z "${GRAPH_GBZ_URL}" ]] ; then
 
     if [[ ! -e "${WORK_DIR}/${GRAPH_NAME}.gbz" ]] ; then
         # Make it one file
-        time vg gbwt -x "${WORK_DIR}/${GRAPH_NAME}.xg" "${WORK_DIR}/${GRAPH_NAME}.gbwt" --gbz-format -g "${WORK_DIR}/${GRAPH_NAME}.gbz.tmp"
+        time "${VG}" gbwt -x "${WORK_DIR}/${GRAPH_NAME}.xg" "${WORK_DIR}/${GRAPH_NAME}.gbwt" --gbz-format -g "${WORK_DIR}/${GRAPH_NAME}.gbz.tmp"
         mv "${WORK_DIR}/${GRAPH_NAME}.gbz.tmp" "${WORK_DIR}/${GRAPH_NAME}.gbz"
     fi
 
@@ -102,7 +107,7 @@ fi
 
 if [[ ! -e "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz" ]] ; then
     # Make it have our sample as the reference
-    vg gbwt -Z ${WORK_DIR}/${GRAPH_NAME}.gbz --set-tag "reference_samples=${SAMPLE_NAME}" --gbz-format -g "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz.tmp"
+    "${VG}" gbwt -Z ${WORK_DIR}/${GRAPH_NAME}.gbz --set-tag "reference_samples=${SAMPLE_NAME}" --gbz-format -g "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz.tmp"
     mv "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz.tmp" "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz"
 fi
 
@@ -111,7 +116,7 @@ if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME}.fa" ]] ; then
     # we so it from the one where the sample is haplotypes, we get different path
     # name strings and we can't inject without hacking them up. We leave the code
     # to hack them up anyway though, for reference later.
-    vg paths -x "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz" \
+    "${VG}" paths -x "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz" \
         --sample "${SAMPLE_NAME}" \
         --extract-fasta \
       > "${WORK_DIR}/${SAMPLE_NAME}.fa.tmp"
@@ -216,18 +221,18 @@ fi
 
 if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME}-reads/injected.gam" ]] ; then
     # Move reads into graph space
-    time vg inject -x "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz" "${WORK_DIR}/${SAMPLE_NAME}-reads/merged.bam" -t 16 >"${WORK_DIR}/${SAMPLE_NAME}-reads/injected.gam.tmp"
+    time "${VG}" inject -x "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz" "${WORK_DIR}/${SAMPLE_NAME}-reads/merged.bam" -t 16 >"${WORK_DIR}/${SAMPLE_NAME}-reads/injected.gam.tmp"
     mv "${WORK_DIR}/${SAMPLE_NAME}-reads/injected.gam.tmp" "${WORK_DIR}/${SAMPLE_NAME}-reads/injected.gam"
 fi
 
 if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" ]] ; then
     # Annotate reads with linear reference positions
-    time vg annotate -x "${WORK_DIR}/${GRAPH_NAME}.gbz" -a "${WORK_DIR}/${SAMPLE_NAME}-reads/injected.gam" --multi-position --search-limit=-1 -t 16 >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam.tmp"
+    time "${VG}" annotate -x "${WORK_DIR}/${GRAPH_NAME}.gbz" -a "${WORK_DIR}/${SAMPLE_NAME}-reads/injected.gam" --multi-position --search-limit=-1 -t 16 >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam.tmp"
     mv "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam.tmp" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam"
 fi
 
 # Work out howe many reads there are
-TOTAL_READS="$(vg stats -a "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | grep "^Total alignments:" | cut -f2 -d':' | tr -d ' ')"
+TOTAL_READS="$("${VG}" stats -a "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | grep "^Total alignments:" | cut -f2 -d':' | tr -d ' ')"
 
 if [[ "${TOTAL_READS}" -lt 1000500 ]] ; then
     echo "Only ${TOTAL_READS} reads were simulated. Cannot subset to 1000000 reads with buffer!"
@@ -242,9 +247,9 @@ for READ_COUNT in 100 1000 10000 100000 1000000 ; do
     FRACTION="$(echo "(${READ_COUNT} + 500)/${TOTAL_READS}" | bc -l | sed 's/^[0-9]*//g')"
     
     if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam" ]] ; then
-        vg filter -d "${SUBSAMPLE_SEED}${FRACTION}" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.gam"
-        vg gamsort --shuffle "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.gam" >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.shuffled.gam"
-        vg filter -t1 --max-reads "${READ_COUNT}" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.shuffled.gam" >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam.tmp"
+        "${VG}" filter -d "${SUBSAMPLE_SEED}${FRACTION}" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.gam"
+        "${VG}" gamsort --shuffle "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.gam" >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.shuffled.gam"
+        "${VG}" filter -t1 --max-reads "${READ_COUNT}" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.coarse.shuffled.gam" >"${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam.tmp"
         mv "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam.tmp" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam"
     fi
    
