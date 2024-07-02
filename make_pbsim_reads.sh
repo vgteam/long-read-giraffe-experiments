@@ -49,6 +49,8 @@ set -ex
 : "${OUT_DIR:=./reads/sim/${TECH_NAME}/${SAMPLE_NAME_OUT}}"
 # Number of MAFs to convert at once
 : "${MAX_JOBS:=10}"
+# Group to make output directory writable to
+: "${OUT_DIR_GROUP=""}"
 
 if [[ "${WORK_DIR}" == "" ]] ; then
     # Make a work directory
@@ -261,6 +263,13 @@ done
 # Output them
 mkdir -p "${OUT_DIR}"
 cp "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-"*".gam" "${OUT_DIR}/"
+
+if [[ ! -z "${OUT_DIR_GROUP}" ]] ; then
+    # Make output directory owned by and writable to this group, so Snakemake
+    # can make subset files.
+    chown -R "${OUT_DIR_GROUP}" "${OUT_DIR}"
+    chmod g+w "${OUT_DIR}"
+fi
 
 if [[ "${CLEAN_WORK_DIR}" == "1" ]] ; then
     # Clean up the work directory
