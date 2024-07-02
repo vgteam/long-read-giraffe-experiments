@@ -127,14 +127,17 @@ if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME}.fa" ]] ; then
     mv "${WORK_DIR}/${SAMPLE_NAME}.fa.tmp" "${WORK_DIR}/${SAMPLE_NAME}.fa"
 fi
 
-if [[ -d "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads" && "$(ls "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/"sim_*.maf | wc -l)" == "0" ]] ; then
+# Make a directory for our sample and tech so multiple jobs can share a reference.
+SAMPLE_WORK_DIR="${WORK_DIR}/${SAMPLE_NAME_OUT}-${TECH_NAME}-reads"
+
+if [[ -d "${SAMPLE_WORK_DIR}" && "$(ls "${SAMPLE_WORK_DIR}/"sim_*.maf | wc -l)" == "0" ]] ; then
     # Sim directory exists but has no MAFs. Shouldn't have any files at all.
-    rmdir "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads"
+    rmdir "${SAMPLE_WORK_DIR}"
 fi
 
-if [[ ! -d "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads" ]] ; then
-    rm -Rf "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads.tmp"
-    mkdir "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads.tmp"
+if [[ ! -d "${SAMPLE_WORK_DIR}" ]] ; then
+    rm -Rf "${SAMPLE_WORK_DIR}.tmp"
+    mkdir "${SAMPLE_WORK_DIR}.tmp"
     
     if [[ "${PBSIM_HMM}" != "/dev/null" ]] ; then
         if [[ "${SAMPLE_FASTQ}" != "/dev/null" ]] ; then
@@ -153,10 +156,10 @@ if [[ ! -d "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads" ]] ; then
     time "${PBSIM}" \
         ${PBSIM_PARAMS} \
        "${QUAL_SOURCE_ARGS[@]}" \
-       --prefix "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads.tmp/sim" \
+       --prefix "${SAMPLE_WORK_DIR}.tmp/sim" \
        "${WORK_DIR}/${SAMPLE_NAME}.fa"
     
-    mv "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads.tmp" "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads"
+    mv "${SAMPLE_WORK_DIR}.tmp" "${SAMPLE_WORK_DIR}"
 fi
 
 function do_job() {
@@ -189,9 +192,8 @@ function do_job() {
     fi
 }
 
-
 # Convert all the reads to BAM in the space of the sample as a primary reference
-for MAF_NAME in "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/"sim_*.maf ; do
+for MAF_NAME in "${SAMPLE_WORK_DIR}/"sim_*.maf ; do
     if [[ "${MAX_JOBS}" == "1" ]] ; then
         # Serial mode
         do_job
@@ -211,32 +213,32 @@ done
 # Wait on all jobs
 wait
 
-if [[ "$(ls "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads"/sim_*.tmp 2>/dev/null | wc -l)" != "0" ]] ; then
+if [[ "$(ls "${SAMPLE_WORK_DIR}"/sim_*.tmp 2>/dev/null | wc -l)" != "0" ]] ; then
     # Make sure all the per-file temp files got moved 
     echo "Loose temp files; failure detected."
     exit 1
 fi
 
-if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/merged.bam" ]] ; then
+if [[ ! -e "${SAMPLE_WORK_DIR}/merged.bam" ]] ; then
     # Combine all the BAM files
-    time samtools merge -n "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads"/sim_*.renamed.bam -o "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/merged.bam.tmp" --threads 14
-    mv "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/merged.bam.tmp" "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/merged.bam"
+    time samtools merge -n "${SAMPLE_WORK_DIR}"/sim_*.renamed.bam -o "${SAMPLE_WORK_DIR}/merged.bam.tmp" --threads 14
+    mv "${SAMPLE_WORK_DIR}/merged.bam.tmp" "${SAMPLE_WORK_DIR}/merged.bam"
 fi
 
-if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/injected.gam" ]] ; then
+if [[ ! -e "${SAMPLE_WORK_DIR}/injected.gam" ]] ; then
     # Move reads into graph space
-    time "${VG}" inject -x "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME_OUT}-as-ref.gbz" "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/merged.bam" -t 16 >"${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/injected.gam.tmp"
-    mv "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/injected.gam.tmp" "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/injected.gam"
+    time "${VG}" inject -x "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME_OUT}-as-ref.gbz" "${SAMPLE_WORK_DIR}/merged.bam" -t 16 >"${SAMPLE_WORK_DIR}/injected.gam.tmp"
+    mv "${SAMPLE_WORK_DIR}/injected.gam.tmp" "${SAMPLE_WORK_DIR}/injected.gam"
 fi
 
-if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" ]] ; then
+if [[ ! -e "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" ]] ; then
     # Annotate reads with linear reference positions
-    time "${VG}" annotate -x "${WORK_DIR}/${GRAPH_NAME}.gbz" -a "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/injected.gam" --multi-position --search-limit=-1 -t 16 >"${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam.tmp"
-    mv "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam.tmp" "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam"
+    time "${VG}" annotate -x "${WORK_DIR}/${GRAPH_NAME}.gbz" -a "${SAMPLE_WORK_DIR}/injected.gam" --multi-position --search-limit=-1 -t 16 >"${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam.tmp"
+    mv "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam.tmp" "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam"
 fi
 
 # Work out howe many reads there are
-TOTAL_READS="$("${VG}" stats -a "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" | grep "^Total alignments:" | cut -f2 -d':' | tr -d ' ')"
+TOTAL_READS="$("${VG}" stats -a "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" | grep "^Total alignments:" | cut -f2 -d':' | tr -d ' ')"
 
 if [[ "${TOTAL_READS}" -lt 1000500 ]] ; then
     echo "Only ${TOTAL_READS} reads were simulated. Cannot subset to 1000000 reads with buffer!"
@@ -250,11 +252,11 @@ for READ_COUNT in 100 1000 10000 100000 1000000 ; do
     # Get the fraction of reads to keep, overestimated, with no leading 0, to paste onto subsample seed.
     FRACTION="$(echo "(${READ_COUNT} + 500)/${TOTAL_READS}" | bc -l | sed 's/^[0-9]*//g')"
     
-    if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-${READ_COUNT}.gam" ]] ; then
-        "${VG}" filter -d "${SUBSAMPLE_SEED}${FRACTION}" "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" >"${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.coarse.gam"
-        "${VG}" gamsort --shuffle "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.coarse.gam" >"${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.coarse.shuffled.gam"
-        "${VG}" filter -t1 --max-reads "${READ_COUNT}" "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.coarse.shuffled.gam" >"${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-${READ_COUNT}.gam.tmp"
-        mv "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-${READ_COUNT}.gam.tmp" "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-${READ_COUNT}.gam"
+    if [[ ! -e "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-${READ_COUNT}.gam" ]] ; then
+        "${VG}" filter -d "${SUBSAMPLE_SEED}${FRACTION}" "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" >"${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.coarse.gam"
+        "${VG}" gamsort --shuffle "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.coarse.gam" >"${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.coarse.shuffled.gam"
+        "${VG}" filter -t1 --max-reads "${READ_COUNT}" "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.coarse.shuffled.gam" >"${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-${READ_COUNT}.gam.tmp"
+        mv "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-${READ_COUNT}.gam.tmp" "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-${READ_COUNT}.gam"
     fi
    
     ((SUBSAMPLE_SEED+=1))    
@@ -262,7 +264,7 @@ done
 
 # Output them
 mkdir -p "${OUT_DIR}"
-cp "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" "${WORK_DIR}/${SAMPLE_NAME_OUT}-reads/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-"*".gam" "${OUT_DIR}/"
+cp "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-"*".gam" "${OUT_DIR}/"
 
 if [[ ! -z "${OUT_DIR_GROUP}" ]] ; then
     # Make output directory owned by and writable to this group, so Snakemake
