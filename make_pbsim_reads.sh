@@ -117,7 +117,7 @@ fi
 
 if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME}.fa" ]] ; then
     # Extract sample assembly FASTA from graph where sample is the *reference*. If
-    # we so it from the one where the sample is haplotypes, we get different path
+    # we do it from the one where the sample is haplotypes, we get different path
     # name strings and we can't inject without hacking them up. We leave the code
     # to hack them up anyway though, for reference later.
     "${VG}" paths -x "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz" \
