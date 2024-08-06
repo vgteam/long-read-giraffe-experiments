@@ -103,7 +103,7 @@ function fetchBed() {
     local DEST_PATH="${2}"
     
     if [[ ! -e "${DEST_PATH}" ]] ; then
-        if [[ ${URL} =~ .*\.bb ]] ; then
+        if [[ ${URL} =~ .*\.bb || ${URL} =~ .*\.bigBed ]] ; then
             # Looks like a bigBed so fetch that and convert
             fetch "${URL}" "${DEST_PATH}.bb"
             bigBedToBed "${DEST_PATH}.bb" "${DEST_PATH}.tmp"
@@ -214,6 +214,7 @@ else
     # No need to tag anything
     TAG_BED=""
 fi
+
 
 if [[ -z "${GRAPH_GBZ_URL}" ]] ; then
 
