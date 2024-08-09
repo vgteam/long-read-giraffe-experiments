@@ -216,11 +216,11 @@ experiments:
       reference: chm13
       trimmedness: ""
       realness: sim
-      mapper: "giraffe-k31.w50.W-hifi-default-noflags"
       refgraph: hprc-v1.1-mc
     vary:
       sample: ["HG002", "CHM13"]
       category: ["centromeric", "not_centromeric"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "minimap2-lr:hq"]
 
   # Experiment to check HiFi MAPQ
   hifi_mapq:

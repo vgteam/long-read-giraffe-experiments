@@ -1208,7 +1208,7 @@ rule accuracy_from_comparison:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "cat {input.compare} | grep -o '[0-9%.]* accuracy' | cut -f1 -d' ' >{output.tsv}"
+        "cat {input.compare} | grep -o '[0-9%.]* accuracy' | cut -f1 -d' ' | tr -d '%' >{output.tsv}"
 
 rule eligible_from_comparison:
     input:
@@ -1431,6 +1431,19 @@ rule experiment_wrongness_plot:
         slurm_partition=choose_partition(5)
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Wrongness' --y_label 'Wrong Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule experiment_accuracy_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/accuracy.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/accuracy.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Accuracy' --y_label 'Percentage Correct of Eligible' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule experiment_overall_fraction_wrong_plot:
     input:
