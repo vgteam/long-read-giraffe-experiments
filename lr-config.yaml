@@ -208,18 +208,18 @@ experiments:
           mapper: "giraffe-k31.w50.W-hifi-default-noflags"
 
 
-  # Experiment to check HiFi centromere performance
+  # Experiment to check HiFi centromere performance across samples
   hifi_centromere:
     control:
-      subset: 1000
+      subset: 10k
       tech: hifi
       reference: chm13
       trimmedness: ""
-      sample: HG002
       realness: sim
       mapper: "giraffe-k31.w50.W-hifi-default-noflags"
       refgraph: hprc-v1.1-mc
     vary:
+      sample: ["HG002", "CHM13"]
       category: ["centromeric", "not_centromeric"]
 
   # Experiment to check HiFi MAPQ
