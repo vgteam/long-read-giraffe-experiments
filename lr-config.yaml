@@ -68,9 +68,11 @@
 #
 # The preset is one of Giraffe's available mapping parameter preset names.
 #
-# ALL of these variables need to be covered in each experiment, in either the
-# "control" section (to hold them constant) or the "vary" section (to run them
-# through a list of values).
+# category: Optional variable. Can be "", "centromeric", or "not_centromeric".
+#
+# ALL of these variables (except the optional ones) need to be covered in each
+# experiment, in either the "control" section (to hold them constant) or the
+# "vary" section (to run them through a list of values).
 
 #graphs_dir: "/private/groups/patenlab/xhchang/graphs/lr_giraffe_graphs"
 real_slurm_extra: "--exclude=phoenix-[00-10,22-24]"
@@ -204,6 +206,21 @@ experiments:
           mapper: "giraffe-k31.w50-hifi-default-noflags"
         - refgraph: "primary"          
           mapper: "giraffe-k31.w50.W-hifi-default-noflags"
+
+
+  # Experiment to check HiFi centromere performance
+  hifi_centromere:
+    control:
+      subset: 1000
+      tech: hifi
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: sim
+      mapper: "giraffe-k31.w50.W-hifi-default-noflags"
+      refgraph: hprc-v1.1-mc
+    vary:
+      category: ["centromeric", "not_centromeric"]
 
   # Experiment to check HiFi MAPQ
   hifi_mapq:

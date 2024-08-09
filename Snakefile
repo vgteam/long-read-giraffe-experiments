@@ -47,6 +47,10 @@ GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/
 # it must already have abbreviated versions ("1k" or "1m" instead of the full
 # number) of the GAM files, and the corresponding extracted ".fq" files.
 #
+# There can also be a "{sample}-sim-{tech}.{category}.txt" file with the names
+# of reads in a gategory (like "centromeric") for analysis of different subsets
+# of reads.
+#
 # Simulated reads should be made with the "make_pbsim_reads.sh" script in this
 # repository.
 #
@@ -67,6 +71,7 @@ GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/
 #└── sim
 #    ├── hifi
 #    │   └── HG002
+#    │       ├── HG002-sim-hifi.centromeric.txt
 #    │       ├── HG002-sim-hifi-1000.gam
 #    │       ├── HG002-sim-hifi-10000.gam
 #    │       ├── HG002-sim-hifi-1000000.gam
@@ -78,6 +83,7 @@ GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/
 #    │       └── HG002-sim-hifi-1m.gam
 #    └── r10
 #        └── HG002
+#            ├── HG002-sim-r10.centromeric.txt
 #            ├── HG002-sim-r10-1000.gam
 #            ├── HG002-sim-r10-10000.gam
 #            ├── HG002-sim-r10-1000000.gam
@@ -144,6 +150,9 @@ wildcard_constraints:
     sample=".+(?<!\\.trimmed)",
     basename=".+(?<!\\.trimmed)",
     subset="[0-9]+[km]?",
+    category="((not_)?(centromeric))?",
+    # We use this for an optional separating dot, so we can leave it out if we also leave the field empty
+    dot="\\.?",
     tech="[a-zA-Z0-9]+",
     statname="[a-zA-Z0-9_]+(?<!compared)(.mean|.total)?",
     statnamex="[a-zA-Z0-9_]+(?<!compared)(.mean|.total)?",
@@ -440,7 +449,6 @@ def all_experiment_conditions(expname, filter_function=None, debug=False):
         # For each combination of independent variables on top of the base condition
 
         # We need to see if this is a combination we want to do
-        
         if matches_all_constraint_passes(condition, constraint_passes):
             if not filter_function or filter_function(condition):
                 total_conditions += 1
@@ -484,7 +492,6 @@ def augmented_with_all(base_dict, keys_and_values):
             for with_first in augmented_with_each(with_rest, first_key, first_values):
                 # And augment with this key
                 yield with_first
-
 
 def matches_constraint_value(query, value):
     """
@@ -614,6 +621,14 @@ def all_experiment(wildcard_values, pattern, filter_function=None, empty_ok=Fals
     for condition in all_experiment_conditions(wildcard_values["expname"], filter_function=filter_function):
         merged = dict(wildcard_values)
         merged.update(condition)
+
+        # TODO: Hackily fill in the optional {dot} which should be set if {category} is set.
+        # There's no way in a Snakemake expandion to tack on a leader sequence.
+        if "category" in merged and len(merged["category"]) > 0:
+            merged["dot"] = "."
+        else:
+            merged["dot"] = ""
+
         if debug:
             print(f"Evaluate {pattern} in {merged} from {wildcard_values} and {condition}")
         filename = pattern.format(**merged)
@@ -1105,6 +1120,40 @@ rule compare_alignments:
     shell:
         "vg gamcompare --threads 16 --range 200 {input.gam} {input.truth_gam} --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
 
+rule compare_alignments_category:
+    input:
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
+        truth_gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
+        category_list=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}.{category}.txt"),
+    output:
+        gam="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.{category}.gam",
+        tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.{category}.compared.tsv",
+        compare="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.{category}.compare.txt"
+    threads: 24
+    resources:
+        mem_mb=200000,
+        runtime=800,
+        slurm_partition=choose_partition(800)
+    shell:
+        "vg gamcompare --threads 16 --range 200 <(vg filter --threads 4 --exact-name -N {input.category_list} {input.gam}) <(vg filter --threads 4 --exact-name -N {input.category_list} {input.truth_gam}) --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
+
+rule compare_alignments_not_category:
+    input:
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
+        truth_gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
+        category_list=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}.{category}.txt"),
+    output:
+        gam="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.not_{category}.gam",
+        tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.not_{category}.compared.tsv",
+        compare="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.not_{category}.compare.txt"
+    threads: 24
+    resources:
+        mem_mb=200000,
+        runtime=800,
+        slurm_partition=choose_partition(800)
+    shell:
+        "vg gamcompare --threads 16 --range 200 <(vg filter --complement --threads 4 --exact-name -N {input.category_list} {input.gam}) <(vg filter --complement --threads 4 --exact-name -N {input.category_list} {input.truth_gam}) --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
+
 rule annotate_alignments:
     input:
         gbz=gbz,
@@ -1137,9 +1186,9 @@ rule de_annotate_sim_alignments:
 
 rule correct_from_comparison:
     input:
-        compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+        compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.compare.txt"
     output:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.correct.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.correct.tsv"
     threads: 1
     resources:
         mem_mb=1000,
@@ -1150,9 +1199,9 @@ rule correct_from_comparison:
 
 rule accuracy_from_comparison:
     input:
-        compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+        compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.compare.txt"
     output:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.accuracy.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.accuracy.tsv"
     threads: 1
     resources:
         mem_mb=1000,
@@ -1161,18 +1210,49 @@ rule accuracy_from_comparison:
     shell:
         "cat {input.compare} | grep -o '[0-9%.]* accuracy' | cut -f1 -d' ' >{output.tsv}"
 
-rule wrong_from_comparison:
+rule eligible_from_comparison:
     input:
-        compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+        compare="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.compare.txt"
     output:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.wrong.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.eligible.tsv"
     threads: 1
     resources:
         mem_mb=1000,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "echo \"$(cat {input.compare} | grep -o '[0-9]* reads eligible' | cut -f1 -d' ') - $(cat {input.compare} | grep -o '[0-9]* reads correct' | cut -f1 -d' ')\" | bc -l >{output.tsv}"
+        "cat {input.compare} | grep -o '[0-9]* reads eligible' | cut -f1 -d' ' >{output.tsv}"
+
+rule wrong_from_correct_and_eligible:
+    input:
+        correct="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.correct.tsv",
+        eligible="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.eligible.tsv"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.wrong.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"$(cat {input.eligible}) - $(cat {input.correct})\" | bc -l >{output.tsv}"
+
+
+rule overall_fraction:
+    input:
+        number="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{state}.tsv",
+        all_comparison="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.compared.tsv",
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.overall_fraction_{state}.tsv"
+    wildcard_constraints:
+        state="(correct|eligible|wrong)"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"$(cat {input.number}) / ($(wc -l {input.all_comparison} | cut -f1 -d' ') - 1)\" | bc -l >{output.tsv}"
 
 rule speed_from_log_giraffe:
     input:
@@ -1297,13 +1377,13 @@ rule memory_from_log_bam:
 
 rule comparison_experiment_stat:
     input:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{comparisonstat}.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{comparisonstat}.tsv"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{comparisonstat}.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{comparisonstat}.tsv"
     wildcard_constraints:
-        comparisonstat="(wrong|accuracy|correct)"
+        comparisonstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -1315,7 +1395,7 @@ rule comparison_experiment_stat:
 
 rule experiment_stat_table:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv", filter_function=has_stat_filter(w["statname"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{statname}.tsv", filter_function=has_stat_filter(w["statname"]))
     output:
         table="{root}/experiments/{expname}/results/{statname}.tsv"
     threads: 1
@@ -1352,6 +1432,45 @@ rule experiment_wrongness_plot:
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Wrongness' --y_label 'Wrong Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
+rule experiment_overall_fraction_wrong_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/overall_fraction_wrong.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/overall_fraction_wrong.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Overall Fraction Wrong' --y_label 'Fraction Eligible and Wrong' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule experiment_overall_fraction_correct_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/overall_fraction_correct.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/overall_fraction_correct.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Overall Fraction Correct' --y_label 'Fraction Eligible and Correct' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule experiment_overall_fraction_eligible_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/overall_fraction_eligible.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/overall_fraction_eligible.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Overall Fraction Eligible' --y_label 'Fraction Eligible' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
 rule compared_named_from_compared:
     input:
         tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
@@ -1370,7 +1489,7 @@ rule compared_named_from_compared:
 
 rule experiment_compared_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv", lambda condition: condition["realness"] == "sim")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.compared.tsv", lambda condition: condition["realness"] == "sim")
     output:
         tsv="{root}/experiments/{expname}/results/compared.tsv"
     threads: 1
@@ -1533,7 +1652,7 @@ rule experiment_mapping_stats_sim_tsv_from_stats:
 #Get the accuracy from simulated reads for all conditions in the experiment
 rule experiment_mapping_stats_sim_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv", lambda condition: condition["realness"] == "sim")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.mapping_accuracy.tsv", lambda condition: condition["realness"] == "sim")
     output:
         tsv="{root}/experiments/{expname}/results/mapping_stats_sim.tsv"
     threads: 1
