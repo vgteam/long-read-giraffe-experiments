@@ -218,6 +218,18 @@ experiments:
     vary:
       mapper: ["minimap2-map-hifi", "minimap2-lr:hq", "giraffe-k31.w50.W-hifi-default-noflags"]
 
+  hifi_chm13_comparison:
+    control:
+      subset: 10k
+      tech: hifi
+      reference: chm13
+      realness: sim
+      trimmedness: ""
+      refgraph: "hprc-v1.1-mc"
+    vary:
+      sample: ["HG002", "CHM13"]
+      mapper: ["minimap2-map-hifi", "giraffe-k31.w50.W-hifi-default-noflags"]
+
   # Experiment to check HiFi softclipped-or-unmapped bases
   hifi_test_small:
     control:

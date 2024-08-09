@@ -27,6 +27,8 @@ set -ex
 : "${SAMPLE_FASTQ:=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads/real/hifi/HiFi_reads_100k.fq}"
 # HMM model to use instead of a FASTQ, or "/dev/null"
 : "${PBSIM_HMM:=/dev/null}"
+# Already-simulated base annotated GAM to apply tagging to, instead of simulating
+: "${PREMADE_ANNOTATED_GAM:=""}"
 # BED or bigBed URL or file to use to annotate reads with overlapped regions.
 : "${REGION_TAG_BED_URL:=""}"
 # Name of a contig (e.g. chrY) to pull from a different region tag BED 
@@ -107,11 +109,13 @@ function fetchBed() {
             # Looks like a bigBed so fetch that and convert
             fetch "${URL}" "${DEST_PATH}.bb"
             bigBedToBed "${DEST_PATH}.bb" "${DEST_PATH}.tmp"
-            mv "${DEST_PATH}.tmp" "${DEST_PATH}"
         else
             # Looks like a normal BED
-            fetch "${URL}" "${DEST_PATH}"
+            fetch "${URL}" "${DEST_PATH}.tmp"
         fi
+        # Remove any track headers
+        sed -i '/^track name=/d' "${DEST_PATH}.tmp"
+        mv "${DEST_PATH}.tmp" "${DEST_PATH}"
     fi
 }
 
@@ -254,115 +258,129 @@ fi
 # Make a directory for our sample and tech so multiple jobs can share a reference.
 SAMPLE_WORK_DIR="${WORK_DIR}/${SAMPLE_NAME_OUT}-${TECH_NAME}-reads"
 
-if [[ -d "${SAMPLE_WORK_DIR}" && "$(ls "${SAMPLE_WORK_DIR}/"sim_*.maf | wc -l)" == "0" ]] ; then
-    # Sim directory exists but has no MAFs. Shouldn't have any files at all.
-    rmdir "${SAMPLE_WORK_DIR}"
-fi
-
-if [[ ! -d "${SAMPLE_WORK_DIR}" ]] ; then
-    rm -Rf "${SAMPLE_WORK_DIR}.tmp"
-    mkdir "${SAMPLE_WORK_DIR}.tmp"
+if [[ -z "${PREMADE_ANNOTATED_GAM}" ]] ; then
+    # We need to actually do the simulation and make and annotate the GAM
     
-    if [[ "${PBSIM_HMM}" != "/dev/null" ]] ; then
-        if [[ "${SAMPLE_FASTQ}" != "/dev/null" ]] ; then
-            echo "Can't use both a PBSIM_HMM and a SAMPLE_FASTQ"
-            exit 1
+    if [[ -d "${SAMPLE_WORK_DIR}" && "$(ls "${SAMPLE_WORK_DIR}/"sim_*.maf | wc -l)" == "0" ]] ; then
+        # Sim directory exists but has no MAFs. Shouldn't have any files at all, since we need to make MAFs.
+        rmdir "${SAMPLE_WORK_DIR}"
+    fi
+
+    if [[ ! -d "${SAMPLE_WORK_DIR}" ]] ; then
+        rm -Rf "${SAMPLE_WORK_DIR}.tmp"
+        mkdir "${SAMPLE_WORK_DIR}.tmp"
+        
+        if [[ "${PBSIM_HMM}" != "/dev/null" ]] ; then
+            if [[ "${SAMPLE_FASTQ}" != "/dev/null" ]] ; then
+                echo "Can't use both a PBSIM_HMM and a SAMPLE_FASTQ"
+                exit 1
+            fi
+            # Using an HMM to make qualities.
+            QUAL_SOURCE_ARGS=(--hmm_model "${SAMPLE_FASTQ}")
+        else
+            # Using a FASTQ to make qualities.
+            # No read may be over 1 megabase or pbsim2 will crash.
+            QUAL_SOURCE_ARGS=(--sample-fastq "${SAMPLE_FASTQ}")
         fi
-        # Using an HMM to make qualities.
-        QUAL_SOURCE_ARGS=(--hmm_model "${SAMPLE_FASTQ}")
-    else
-        # Using a FASTQ to make qualities.
-        # No read may be over 1 megabase or pbsim2 will crash.
-        QUAL_SOURCE_ARGS=(--sample-fastq "${SAMPLE_FASTQ}")
+        
+        # Simulate reads
+        time "${PBSIM}" \
+            ${PBSIM_PARAMS} \
+           "${QUAL_SOURCE_ARGS[@]}" \
+           --prefix "${SAMPLE_WORK_DIR}.tmp/sim" \
+           "${WORK_DIR}/${SAMPLE_NAME}.fa"
+        
+        mv "${SAMPLE_WORK_DIR}.tmp" "${SAMPLE_WORK_DIR}"
     fi
-    
-    # Simulate reads
-    time "${PBSIM}" \
-        ${PBSIM_PARAMS} \
-       "${QUAL_SOURCE_ARGS[@]}" \
-       --prefix "${SAMPLE_WORK_DIR}.tmp/sim" \
-       "${WORK_DIR}/${SAMPLE_NAME}.fa"
-    
-    mv "${SAMPLE_WORK_DIR}.tmp" "${SAMPLE_WORK_DIR}"
-fi
 
-function do_job() {
-    # Run this file in a job
-    set -e
-    
-    SAM_NAME="${MAF_NAME%.maf}.sam"
-    FASTQ_NAME="${MAF_NAME%.maf}.fastq"
-    REF_NAME="${MAF_NAME%.maf}.ref"
-    RENAMED_BAM_NAME="${MAF_NAME%.maf}.renamed.bam"
-    # Get the contig name in the format it would be as a reference sense path.
-    # It may already be a reference sense path.
-    # Can't run under pipefail because some of these may not match.
-    CONTIG_NAME="$(cat "${REF_NAME}" | head -n1 | sed 's/^>//' | sed 's/ .*//' | sed 's/#\([0-9]*\)$/[\1]/')"
-    # Haplotype paths can end in a 0 offset/fragment but reference paths don't include that in the name.
-    CONTIG_NAME="${CONTIG_NAME%\[0\]}"
-    if [[ ! -e "${RENAMED_BAM_NAME}" ]] ; then
-        echo "Making ${RENAMED_BAM_NAME}..."
-        if [[ ! -e "${SAM_NAME}" ]] ; then
-            echo "Making SAM ${SAM_NAME}..."
-            /usr/bin/time -v bioconvert maf2sam --force "${MAF_NAME}" "${SAM_NAME}.tmp" 
-            mv "${SAM_NAME}.tmp" "${SAM_NAME}"
+    function do_job() {
+        # Run this file in a job
+        local MAF_NAME="${1}"
+        local SAM_NAME="${MAF_NAME%.maf}.sam"
+        local FASTQ_NAME="${MAF_NAME%.maf}.fastq"
+        local REF_NAME="${MAF_NAME%.maf}.ref"
+        local RENAMED_BAM_NAME="${MAF_NAME%.maf}.renamed.bam"
+        # Get the contig name in the format it would be as a reference sense path.
+        # It may already be a reference sense path.
+        # Can't run under pipefail because some of these may not match.
+        local CONTIG_NAME="$(cat "${REF_NAME}" | head -n1 | sed 's/^>//' | sed 's/ .*//' | sed 's/#\([0-9]*\)$/[\1]/')"
+        # Haplotype paths can end in a 0 offset/fragment but reference paths don't include that in the name.
+        local CONTIG_NAME="${CONTIG_NAME%\[0\]}"
+        if [[ ! -e "${RENAMED_BAM_NAME}" ]] ; then
+            echo "Making ${RENAMED_BAM_NAME}..."
+            if [[ ! -e "${SAM_NAME}" ]] ; then
+                echo "Making SAM ${SAM_NAME}..."
+                /usr/bin/time -v bioconvert maf2sam --force "${MAF_NAME}" "${SAM_NAME}.tmp" 
+                mv "${SAM_NAME}.tmp" "${SAM_NAME}"
+            fi
+            set -o pipefail
+            python3 "$(dirname -- "${BASH_SOURCE[0]}")/reinsert_qualities.py" -s "${SAM_NAME}" -f "${FASTQ_NAME}" | sed "s/ref/${CONTIG_NAME}/g" | samtools view -b - > "${RENAMED_BAM_NAME}.tmp"
+            set +o pipefail
+            mv "${RENAMED_BAM_NAME}.tmp" "${RENAMED_BAM_NAME}"
+        else
+            echo "Already have ${RENAMED_BAM_NAME}..."
         fi
-        set -o pipefail
-        python3 "$(dirname -- "${BASH_SOURCE[0]}")/reinsert_qualities.py" -s "${SAM_NAME}" -f "${FASTQ_NAME}" | sed "s/ref/${CONTIG_NAME}/g" | samtools view -b - > "${RENAMED_BAM_NAME}.tmp"
-        set +o pipefail
-        mv "${RENAMED_BAM_NAME}.tmp" "${RENAMED_BAM_NAME}"
-    else
-        echo "Already have ${RENAMED_BAM_NAME}..."
+    }
+
+    # Convert all the reads to BAM in the space of the sample as a primary reference
+    for MAF_NAME in "${SAMPLE_WORK_DIR}/"sim_*.maf ; do
+        if [[ "${MAX_JOBS}" == "1" ]] ; then
+            # Serial mode
+            do_job "${MAF_NAME}"
+        else
+            # Parallel mode
+            while [[ "$(jobs -p | wc -l)" -ge "${MAX_JOBS}" ]] ; do
+                # Don't do too much in parallel
+                # Fake wait on any job without wait -n
+                sleep 0.5
+            done
+            (
+                do_job "${MAF_NAME}"
+            ) &
+            ((RUNNING_JOBS += 1))
+        fi
+    done
+    # Wait on all jobs
+    wait
+
+    if [[ "$(ls "${SAMPLE_WORK_DIR}"/sim_*.tmp 2>/dev/null | wc -l)" != "0" ]] ; then
+        # Make sure all the per-file temp files got moved 
+        echo "Loose temp files; failure detected."
+        exit 1
     fi
-}
 
-# Convert all the reads to BAM in the space of the sample as a primary reference
-for MAF_NAME in "${SAMPLE_WORK_DIR}/"sim_*.maf ; do
-    if [[ "${MAX_JOBS}" == "1" ]] ; then
-        # Serial mode
-        do_job
-    else
-        # Parallel mode
-        while [[ "$(jobs -p | wc -l)" -ge "${MAX_JOBS}" ]] ; do
-            # Don't do too much in parallel
-            # Fake wait on any job without wait -n
-            sleep 0.5
-        done
-        (
-            do_job
-        ) &
-        ((RUNNING_JOBS += 1))
+    if [[ ! -e "${SAMPLE_WORK_DIR}/merged.bam" ]] ; then
+        # Combine all the BAM files
+        time samtools merge -n "${SAMPLE_WORK_DIR}"/sim_*.renamed.bam -o "${SAMPLE_WORK_DIR}/merged.bam.tmp" --threads 14
+        mv "${SAMPLE_WORK_DIR}/merged.bam.tmp" "${SAMPLE_WORK_DIR}/merged.bam"
     fi
-done
-# Wait on all jobs
-wait
 
-if [[ "$(ls "${SAMPLE_WORK_DIR}"/sim_*.tmp 2>/dev/null | wc -l)" != "0" ]] ; then
-    # Make sure all the per-file temp files got moved 
-    echo "Loose temp files; failure detected."
-    exit 1
-fi
+    if [[ ! -e "${SAMPLE_WORK_DIR}/injected.gam" ]] ; then
+        # Move reads into graph space
+        time "${VG}" inject -x "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME_OUT}-as-ref.gbz" "${SAMPLE_WORK_DIR}/merged.bam" -t 16 >"${SAMPLE_WORK_DIR}/injected.gam.tmp"
+        mv "${SAMPLE_WORK_DIR}/injected.gam.tmp" "${SAMPLE_WORK_DIR}/injected.gam"
+    fi
 
-if [[ ! -e "${SAMPLE_WORK_DIR}/merged.bam" ]] ; then
-    # Combine all the BAM files
-    time samtools merge -n "${SAMPLE_WORK_DIR}"/sim_*.renamed.bam -o "${SAMPLE_WORK_DIR}/merged.bam.tmp" --threads 14
-    mv "${SAMPLE_WORK_DIR}/merged.bam.tmp" "${SAMPLE_WORK_DIR}/merged.bam"
-fi
+    if [[ ! -e "${SAMPLE_WORK_DIR}/annotated.gam" ]] ; then
+        # Annotate reads with linear reference positions
+        time "${VG}" annotate -x "${WORK_DIR}/${GRAPH_NAME}.gbz" -a "${SAMPLE_WORK_DIR}/injected.gam" --multi-position --search-limit=-1 -t 16 >"${SAMPLE_WORK_DIR}/annotated.gam.tmp"
+        mv "${SAMPLE_WORK_DIR}/annotated.gam.tmp" "${SAMPLE_WORK_DIR}/annotated.gam"
+    fi
 
-if [[ ! -e "${SAMPLE_WORK_DIR}/injected.gam" ]] ; then
-    # Move reads into graph space
-    time "${VG}" inject -x "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME_OUT}-as-ref.gbz" "${SAMPLE_WORK_DIR}/merged.bam" -t 16 >"${SAMPLE_WORK_DIR}/injected.gam.tmp"
-    mv "${SAMPLE_WORK_DIR}/injected.gam.tmp" "${SAMPLE_WORK_DIR}/injected.gam"
-fi
+else
+    # We have a premade annotated GAM and we want to use that
 
-if [[ ! -e "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" ]] ; then
-    # Annotate reads with linear reference positions
-    time "${VG}" annotate -x "${WORK_DIR}/${GRAPH_NAME}.gbz" -a "${SAMPLE_WORK_DIR}/injected.gam" --multi-position --search-limit=-1 -t 16 >"${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam.tmp"
-    mv "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam.tmp" "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam"
+    # Just make the directory for it
+    mkdir -p "${SAMPLE_WORK_DIR}"
+
+    if [[ ! -e "${SAMPLE_WORK_DIR}/annotated.gam" ]] ; then
+        cp "${PREMADE_ANNOTATED_GAM}" "${SAMPLE_WORK_DIR}/annotated.gam.tmp"
+        mv "${SAMPLE_WORK_DIR}/annotated.gam.tmp" "${SAMPLE_WORK_DIR}/annotated.gam"
+    fi
 fi
 
 # Work out howe many reads there are
-TOTAL_READS="$("${VG}" stats -a "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" | grep "^Total alignments:" | cut -f2 -d':' | tr -d ' ')"
+TOTAL_READS="$("${VG}" stats -a "${SAMPLE_WORK_DIR}/annotated.gam" | grep "^Total alignments:" | cut -f2 -d':' | tr -d ' ')"
 
 if [[ "${TOTAL_READS}" -lt 1000500 ]] ; then
     echo "Only ${TOTAL_READS} reads were simulated. Cannot subset to 1000000 reads with buffer!"
@@ -372,14 +390,15 @@ echo "Simulated ${TOTAL_READS} reads overall"
 
 if [[ ! -z "${TAG_BED}" ]] ; then
     # Tag reads with the tag BED
-    if [[ ! -e "" ]] ; then
-        time "${VG}" annotate -t 16 -a "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" -x "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz" --bed-name "${TAG_BED}" >"${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.tagged.gam.tmp"
-        mv "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.tagged.gam.tmp" "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.tagged.gam"
-        GAM_TO_SUBSET="${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.tagged.gam"
+    if [[ ! -e "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" ]] ; then
+        time "${VG}" annotate -t 16 -a "${SAMPLE_WORK_DIR}/annotated.gam" -x "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz" --bed-name "${TAG_BED}" >"${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam.tmp"
+        mv "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam.tmp" "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam"
     fi
 else
     # Pass through reads without tagging
-    GAM_TO_SUBSET="${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam"
+    if [[ ! -e "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" ]] ; then
+        ln "${SAMPLE_WORK_DIR}/annotated.gam" "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam"
+    fi
 fi
 
 SUBSAMPLE_SEED=1
@@ -389,7 +408,7 @@ for READ_COUNT in 100 1000 10000 100000 1000000 ; do
     FRACTION="$(echo "(${READ_COUNT} + 500)/${TOTAL_READS}" | bc -l | sed 's/^[0-9]*//g')"
     
     if [[ ! -e "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-${READ_COUNT}.gam" ]] ; then
-        "${VG}" filter -d "${SUBSAMPLE_SEED}${FRACTION}" "${GAM_TO_SUBSET}" >"${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.coarse.gam"
+        "${VG}" filter -d "${SUBSAMPLE_SEED}${FRACTION}" "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.gam" >"${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.coarse.gam"
         "${VG}" gamsort --shuffle "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.coarse.gam" >"${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.coarse.shuffled.gam"
         "${VG}" filter -t1 --max-reads "${READ_COUNT}" "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}.coarse.shuffled.gam" >"${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-${READ_COUNT}.gam.tmp"
         mv "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-${READ_COUNT}.gam.tmp" "${SAMPLE_WORK_DIR}/${SAMPLE_NAME_OUT}-sim-${TECH_NAME}-${READ_COUNT}.gam"
