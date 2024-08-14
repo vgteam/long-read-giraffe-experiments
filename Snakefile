@@ -628,6 +628,9 @@ def all_experiment(wildcard_values, pattern, filter_function=None, empty_ok=Fals
             merged["dot"] = "."
         else:
             merged["dot"] = ""
+        if "category" not in merged:
+            # Category might appear in templates but in experiments it is meant to be optional.
+            merged["category"] = ""
 
         if debug:
             print(f"Evaluate {pattern} in {merged} from {wildcard_values} and {condition}")
