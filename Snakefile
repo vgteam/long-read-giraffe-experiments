@@ -676,16 +676,13 @@ def get_vg_flags(wildcard_flag):
             return "--explored-cap"
         case downsample_number if downsample_number[0:10] == "downsample":
             return "--downsample-min " + downsample_number[10:]
-        case "candidate":
-            return "--min-chains 4"
-        case "candidate2":
-            return "--min-chains 4 --gap-scale 0.2"
+        case "mqWindow":
+            return "--mapq-score-scale 1 --mapq-score-window 150"
         case "noflags":
             return ""
         case unknown:
             #otherwise this is a hash and we get the flags from ParameterSearch
             return PARAM_SEARCH.hash_to_parameter_string(wildcard_flag)
-        #raise ValueError(f"Unknown flag set: \"{unknown}\"")
 
 def get_vg_version(wildcard_vgversion):
     if wildcard_vgversion == "default":
