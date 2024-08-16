@@ -713,6 +713,21 @@ def param_search_tsvs(wildcards, statname="time_used.mean", realness="real"):
     
     return expand("{root}/stats/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv", **values)
 
+rule distance_index_graph:
+    input:
+        gbz="{graphs_dir}/{refgraph}-{reference}.{d9}gbz"
+    output:
+        distfile="{graphs_dir}/{refgraph}-{reference}.{d9}dist"
+    wildcard_constraints:
+        reference="chm13|grch38",
+        d9="d9\.|"
+    threads: 16
+    resources:
+        mem_mb=120000,
+        runtime=240,
+        slurm_partition=choose_partition(240)
+    shell:
+        "vg index -t 16 -j {output.distfile} {input.gbz}"
 
 rule minimizer_index_graph:
     input:
