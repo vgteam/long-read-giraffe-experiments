@@ -124,43 +124,6 @@ experiments:
           tech: ["r10", "hifi"]
         - mapper: "minimap2-sr"
           tech: "illumina"
-  # This experiment compares mapping accuracy between Giraffe and Winnowmap on
-  # simulated R10 reads.
-  r10_accuracy_small:
-    control:
-      realness: sim
-      subset: 1k
-      reference: chm13
-      refgraph: "hprc-v1.1-mc"
-      tech: r10
-      trimmedness: ""
-      sample: HG002
-    vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "winnowmap"]
-
-  r10_param_accuracy:
-    control:
-      realness: sim
-      subset: 1000000
-      reference: chm13
-      refgraph: "hprc-v1.1-mc"
-      tech: r10
-      trimmedness: ""
-      sample: HG002
-    vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-4811547045219443241"]
-
-  hifi_param_accuracy:
-    control:
-      realness: sim
-      subset: 1000000
-      reference: chm13
-      refgraph: "hprc-v1.1-mc"
-      tech: hifi
-      trimmedness: ""
-      sample: HG002
-    vary:
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-mqWindow"]
 
   #This is used to test different mappers on r10 reads
   #Add different vg versions with `-commit` instead of `-default`, and make sure the binary
@@ -207,70 +170,17 @@ experiments:
         - refgraph: "primary"          
           mapper: "giraffe-k31.w50.W-hifi-default-noflags"
 
-
-  # Experiment to check HiFi centromere performance across samples
-  hifi_centromere:
+  hifi_speed:
     control:
       subset: 10k
       tech: hifi
       reference: chm13
       trimmedness: ""
-      realness: sim
+      sample: HG002
+      realness: real
       refgraph: hprc-v1.1-mc
     vary:
-      sample: ["HG002", "CHM13"]
-      category: ["centromeric", "not_centromeric"]
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "minimap2-lr:hq"]
-
-  # Experiment to check HiFi MAPQ
-  hifi_mapq:
-    control:
-      subset: 1m
-      tech: hifi
-      reference: chm13
-      realness: sim
-      trimmedness: ""
-      sample: HG002
-      refgraph: "hprc-v1.1-mc"
-    vary:
-      mapper: ["minimap2-map-hifi", "minimap2-lr:hq", "giraffe-k31.w50.W-hifi-default-noflags"]
-
-  hifi_chm13_comparison:
-    control:
-      subset: 10k
-      tech: hifi
-      reference: chm13
-      realness: sim
-      trimmedness: ""
-      refgraph: "hprc-v1.1-mc"
-    vary:
-      sample: ["HG002", "CHM13"]
-      mapper: ["minimap2-map-hifi", "giraffe-k31.w50.W-hifi-default-noflags"]
-
-  # Experiment to check HiFi softclipped-or-unmapped bases
-  hifi_test_small:
-    control:
-      subset: 10k
-      tech: hifi
-      reference: chm13
-      trimmedness: ""
-      sample: HG002
-      realness: sim
-      refgraph: hprc-v1.1-mc
-    vary:
-      mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "giraffe-k31.w50.W-hifi-default-noflags"]
-
-  hifi_eval:
-    control:
-      subset: 10k
-      reference: chm13
-      refgraph: "hprc-v1.1-mc"
-      tech: hifi
-      sample: HG002
-      trimmedness: ""
-    vary:
-      realness: ["sim", "real"]
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-candidate", "giraffe-k31.w50.W-hifi-default-candidate2", "minimap2-lr:hq"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-370f8f-noflags"]
 
   # Compare different nanopore data types
   compare_nanopore:
@@ -291,32 +201,6 @@ experiments:
         # Always use no trimming after simulation for simulated reads
         - realness: sim
           trimmedness: ""
-
-  # Figure out where the high-MAPQ R10 reads went
-  find_high_mapq:
-    control:
-      subset: 10k
-      reference: chm13
-      refgraph: "hprc-v1.1-mc"
-      sample: HG002
-      realness: sim
-      trimmedness: ""
-      tech: r10
-    vary:
-      mapper: ["minimap2-map-ont", "minimap2-lr:hq", "minimap2-lr:hqae", "giraffe-k31.w50.W-r10-default-noflags"]
-
-  # Figure out where the high-MAPQ R10 reads went
-  find_high_mapq_big:
-    control:
-      subset: 1m
-      reference: chm13
-      refgraph: "hprc-v1.1-mc"
-      sample: HG002
-      realness: sim
-      trimmedness: ""
-      tech: r10
-    vary:
-      mapper: ["minimap2-map-ont", "minimap2-lr:hq", "minimap2-lr:hqae", "giraffe-k31.w50.W-r10-default-noflags"]
 
   # This experiment compares different ways of mapping Illumina reads
   illumina_test:
