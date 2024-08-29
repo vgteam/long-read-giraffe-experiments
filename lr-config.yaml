@@ -182,6 +182,55 @@ experiments:
     vary:
       mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-370f8f-noflags"]
 
+  hifi_sim_present:
+    control:
+      subset: 1m
+      tech: hifi
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: sim
+      refgraph: hprc-v1.1-mc
+    vary:
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "minimap2-lr:hq", "winnowmap", "graphaligner"]
+
+  r10_sim_present:
+    control:
+      subset: 1m
+      tech: r10
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: sim
+      refgraph: hprc-v1.1-mc
+    vary:
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "minimap2-map-ont", "winnowmap", "graphaligner"]
+
+  hifi_real_present:
+    control:
+      subset: 1m
+      tech: hifi
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: real
+      refgraph: hprc-v1.1-mc
+    vary:
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "minimap2-lr:hq"]
+
+  r10_real_present:
+    control:
+      subset: 1m
+      tech: r10
+      reference: chm13
+      trimmedness: ".trimmed"
+      sample: HG002
+      realness: real
+      refgraph: hprc-v1.1-mc
+    vary:
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "minimap2-map-ont"]
+
+
   # Compare different nanopore data types
   compare_nanopore:
     control:
