@@ -1355,6 +1355,25 @@ rule speed_from_log_bam:
         thread_count=$(cat {input.minimap2_log} | grep "CMD:" | sed 's/.*-t\s\([0-9]*\)\s.*/\\1/g')
         echo "{params.condition_name}\t$(echo "($mapped_count / ($total_time - $startup_time)) / $thread_count" | bc -l)" >{output.tsv}
         """
+#We need a speed_from_log.tsv file but graphaligner doesn't have a log so just make a dummy file
+rule speed_from_log_graphaligner:
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="graphaligner"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        echo "{params.condition_name}\tNA" >{output.tsv}
+        """
+
 
 rule memory_from_log_bam:
     input:
@@ -1373,6 +1392,24 @@ rule memory_from_log_bam:
         slurm_partition=choose_partition(5)
     shell:
         "echo \"{params.condition_name}\t$(cat {input.minimap2_log} | grep \"Peak RSS\" | sed \'s/.*Peak RSS: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
+
+#We need memory_from_log for all mappers but graphaligner doesn't have a log so make a dummy file
+rule memory_from_log_graphaligner:
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="graphaligner"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"{params.condition_name}\tNA\" >{output.tsv}"
+
 
 
 rule comparison_experiment_stat:
@@ -1686,9 +1723,13 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         memory_from_log="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv",
         runtime_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv",
         memory_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv",
-        softclips="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv"
+        softclips="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv",
+        softclipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
+
     output:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv"
+    wildcard_constraints:
+        realness="real"
     params:
         condition_name=condition_name
     threads: 1
@@ -1698,7 +1739,7 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         slurm_partition=choose_partition(60)
     shell:
         """
-        echo "{params.condition_name}\t$(cat {input.speed_from_log} | cut -f 2)\t$(cat {input.memory_from_log} | cut -f 2)\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclips} | cut -f 2)" >>{output.tsv}
+        echo "{params.condition_name}\t$(cat {input.speed_from_log} | cut -f 2)\t$(cat {input.memory_from_log} | cut -f 2)\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclips} | cut -f 2)\t$(cat {input.softclipped_or_unmapped} | cut -f 2)" >>{output.tsv}
         """
 
 #Get the speed, memory use, and softclips from real reads
@@ -1707,6 +1748,8 @@ rule experiment_mapping_stats_real_tsv:
         lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv", lambda condition: condition["realness"] == "real")
     output:
         tsv="{root}/experiments/{expname}/results/mapping_stats_real.tsv"
+    wildcard_constraints:
+        realness="real"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2401,7 +2444,8 @@ rule mean_stat:
         for line in open(input[0]):
             line = line.strip()
             if line:
-                total += float(line)
+                if line != "null":
+                    total += float(line)
                 count += 1
         with open(output[0], "w") as f:
             f.write(f"{total/count}\n")
@@ -2736,8 +2780,10 @@ rule mapping_accuracy:
 rule parameter_search_mapping_stats:
     input:
         times = lambda w: param_search_tsvs(w, "time_used.mean"),
+        speed_log = lambda w: param_search_tsvs(w, "speed_from_log"),
         memory = lambda w: param_search_tsvs(w, "memory_from_log"),
         softclips = lambda w : param_search_tsvs(w, "softclips.mean"),
+        unmapped = lambda w : param_search_tsvs(w, "softclipped_or_unmapped"),
         mapping_accuracy = expand("{{root}}/stats/{{reference}}/{{refgraph}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_accuracy.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
         outfile="{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
@@ -2749,8 +2795,9 @@ rule parameter_search_mapping_stats:
         slurm_partition=choose_partition(100)
     run:
         f = open(output.outfile, "w")
-        f.write("#correct\tmapq60\twrong_mapq60\tsoftclips\tspeed(r/s/t)\tmemory(GB)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
-        for param_hash, stats_file, times_file, memory_file, softclips_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_accuracy, input.times, input.memory, input.softclips):
+        f.write("#correct\tmapq60\twrong_mapq60\tsoftclips\tsoftclipped_or_unmapped\tspeed(r/s/t)\tspeed_from_log\tmemory(GB)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
+        for param_hash, stats_file, times_file, speed_file, memory_file, softclips_file, unmapped_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_accuracy, input.times, input.speed_log, input.memory, input.softclips, input.unmapped):
+
 
             param_f = open(stats_file)
             l = param_f.readline().split()
@@ -2764,10 +2811,20 @@ rule parameter_search_mapping_stats:
             softclips = l[0]
             softclips_f.close()
 
+            unmapped_f = open(unmapped_file)
+            l = unmapped_f.readline().split()
+            unmapped = l[0]
+            unmapped_f.close()
+
             time_f = open(times_file)
             l = time_f.readline().split()
             speed = str(1/float(l[0]))
             time_f.close()
+
+            speed_f = open(speed_file)
+            l = speed_f.readline().split()
+            log_speed=l[0]
+            speed_f.close()
 
             memory_f = open(memory_file)
             l = memory_f.readline().split()
@@ -2775,7 +2832,7 @@ rule parameter_search_mapping_stats:
             memory_f.close()
 
             parameters = PARAM_SEARCH.hash_to_parameters[param_hash]
-            f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + softclips + "\t" + speed + "\t" + memory + "\t" + '\t'.join([str(x) for x in parameters])) 
+            f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + softclips + "\t" + unmapped + "\t" + speed + "\t" + log_speed + "\t" + memory + "\t" + '\t'.join([str(x) for x in parameters])) 
         f.close()
 
 rule plot_correct_speed_vs_parameter:
@@ -2793,7 +2850,8 @@ rule plot_correct_speed_vs_parameter:
         header = infile.readline().split()
         parameter_col = str(header.index(wildcards.parameter)+1) 
         infile.close()
-        shell("cat <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $5}}' | sed 's/^/RPS /g') <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $1}}' | sed 's/^/Correct /g') | ./scatter.py --title 'Speed vs Correctness vs " + wildcards.parameter + "' --x_label " + wildcards.parameter + "  --y_per_category --categories 'RPS' 'Correct' --y_label 'Reads per Second' 'Reads Correct' --legend_overlay 'best' --save {output.plot} /dev/stdin")
+        shell("cat <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $6}}' | sed 's/^/RPS /g') <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $1}}' | sed 's/^/Correct /g') | ./scatter.py --title 'Speed vs Correctness vs " + wildcards.parameter + "' --x_label " + wildcards.parameter + "  --y_per_category --categories 'RPS' 'Correct' --y_label 'Reads per Second' 'Reads Correct' --legend_overlay 'best' --save {output.plot} /dev/stdin")
+
 
 rule parameter_search_stat:
     input:
