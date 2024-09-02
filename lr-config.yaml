@@ -192,7 +192,7 @@ experiments:
       realness: sim
       refgraph: hprc-v1.1-mc
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "minimap2-lr:hq", "winnowmap", "graphaligner"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "minimap2-lr:hq", "winnowmap"]
 
   r10_sim_present:
     control:
@@ -204,7 +204,7 @@ experiments:
       realness: sim
       refgraph: hprc-v1.1-mc
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "minimap2-map-ont", "winnowmap", "graphaligner"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "minimap2-map-ont", "winnowmap"]
 
   hifi_real_present:
     control:

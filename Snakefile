@@ -1365,10 +1365,9 @@ rule speed_from_log_bam:
     shell:
         """
         mapped_count=$(cat {input.minimap2_log} | grep "mapped" | awk '{{sum+=$3}} END {{print sum}}')
-        total_time=$(cat {input.minimap2_log} | grep "\\[M::main\\] Real time" | sed 's/.*Real time: \([0-9]*\.[0-9]*\) sec.*/\\1/g')
-        startup_time=$(cat {input.minimap2_log} | grep "loaded/built the index" | sed 's/.M::main::\([0-9]*\.[0-9]*\).*/\\1 /g')
-        thread_count=$(cat {input.minimap2_log} | grep "CMD:" | sed 's/.*-t\s\([0-9]*\)\s.*/\\1/g')
-        echo "{params.condition_name}\t$(echo "($mapped_count / ($total_time - $startup_time)) / $thread_count" | bc -l)" >{output.tsv}
+        total_cpu_time=$(cat {input.minimap2_log} | grep "\\[M::main\\] Real time" | sed 's/.*CPU: \([0-9]*\.[0-9]*\) sec.*/\\1/g')
+        startup_cpu_time_expr=$(cat {input.minimap2_log} | grep "loaded/built the index" | sed 's/.M::main::\([0-9]*\.[0-9]*\*[0-9]*\.[0-9]*\).*/\\1 /g')
+        echo "{params.condition_name}\t$(echo "$mapped_count / ($total_cpu_time - $startup_cpu_time_expr)" | bc -l)" >{output.tsv}
         """
 
 rule memory_from_log_bam:
