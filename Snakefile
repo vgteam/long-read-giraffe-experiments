@@ -1079,8 +1079,8 @@ rule graphaligner_sim_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
-        runtime=600,
-        slurm_partition=choose_partition(600)
+        runtime=1200,
+        slurm_partition=choose_partition(1200)
     shell:
         "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
 
@@ -1096,8 +1096,8 @@ rule graphaligner_real_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
-        runtime=600,
-        slurm_partition=choose_partition(600),
+        runtime=1200,
+        slurm_partition=choose_partition(1200),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
@@ -2176,7 +2176,7 @@ rule length_by_mapping:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg filter --only-mapped {input.gam} -T length | grep -v '^#' | sed 's/^/mapped\t/' >{output} && vg filter --only-mapped --complement {input.gam} -T length | grep -v '^#' | sed 's/^/unmapped\t/' >>{output}"
+        "vg filter --only-mapped {input.gam} -T length | {{ grep -v '^#' || test $? = 1; }} | sed 's/^/mapped\t/' >{output} && vg filter --only-mapped --complement {input.gam} -T length | {{ grep -v '^#' || test $? = 1; }} | sed 's/^/unmapped\t/' >>{output}"
 
 rule unmapped_length:
     input:
@@ -2189,7 +2189,7 @@ rule unmapped_length:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "cat {input.tsv} | grep '^unmapped' | cut -f2 >{output}"
+        "cat {input.tsv} | {{ grep '^unmapped' || test $? = 1; }} | cut -f2 >{output}"
 
 rule length_by_correctness:
     input:
