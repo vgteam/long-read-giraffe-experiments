@@ -348,7 +348,7 @@ def truth_vcf_url(wildcards):
     return {
         "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1.vcf.gz",
         "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark.vcf.gz"
-    }[wildcards["reference"]
+    }[wildcards["reference"]]
 
 def truth_vcf_index_url(wildcards):
     """
@@ -363,7 +363,7 @@ def truth_bed_url(wildcards):
     return {
         "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
         "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed"
-    }[wildcards["reference"]
+    }[wildcards["reference"]]
 
 def graph_base(wildcards):
     """
@@ -1310,7 +1310,7 @@ rule alias_bam_graph:
     resources:
         mem_mb=1000,
         runtime=5,
-        slurm_partition=choose_partiton(5)
+        slurm_partition=choose_partition(5)
     shell:
         "ln {input.bam} {output.bam}"
 
@@ -1326,7 +1326,7 @@ rule call_variants:
         wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.json",
         wdl_output_directory=directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.wdlrun"),
         vcf="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.vcf.gz",
-        vcf_index="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.vcf.gz.tbi"
+        vcf_index="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.vcf.gz.tbi",
         evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.vcfeval_results.tar.gz"
     params:
         truth_vcf_url=truth_vcf_url,
@@ -1337,7 +1337,7 @@ rule call_variants:
     resources:
         mem_mb=30000,
         runtime=1440,
-        slurm_partition=choose_partiton(1440)
+        slurm_partition=choose_partition(1440)
     # Symlink inputs and use a fresh temp work directory so we have a nice place for a jobstore
     shadow: "minimal"
     run:
