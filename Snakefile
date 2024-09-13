@@ -948,7 +948,7 @@ rule paths_index_reference:
     input:
         reference_dict=reference_dict
     output:
-        index=REFS_DIR + "/{reference}-pansn.paths.txt"
+        index=REFS_DIR + "/{reference}-pansn.fa.paths.txt"
     threads: 1
     resources:
         mem_mb=1000,
@@ -959,9 +959,9 @@ rule paths_index_reference:
 
 rule callable_paths_index_reference:
     input:
-        paths=REFS_DIR + "/{reference}-pansn.paths.txt"
+        paths=REFS_DIR + "/{reference}-pansn.fa.paths.txt"
     output:
-        paths=REFS_DIR + "/{reference}-pansn.paths.callable.txt"
+        paths=REFS_DIR + "/{reference}-pansn.fa.paths.callable.txt"
     params:
         uncallable_contig_regex=uncallable_contig_regex
     threads: 1
@@ -1318,14 +1318,15 @@ rule sort_bam:
     input:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     output:
-        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam"
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
+        bai="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai"
     threads: 16
     resources:
         mem_mb=16000,
         runtime=90,
         slurm_partition=choose_partition(90)
     shell:
-        "samtools sort --threads {threads} {input.bam} -O BAM > {output.bam}"
+        "samtools sort --threads {threads} {input.bam} -O BAM > {output.bam} && samtools index -b {output.bam} {output.bai}"
 
 rule call_variants:
     input:
