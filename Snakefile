@@ -942,7 +942,7 @@ rule dict_index_reference:
         slurm_partition=choose_partition(30)
     shell:
         # TODO: Needs picard.jar sitting in this directory
-        "java -jar ./picard.jar CreateSequenceDictionary R={input.reference} O={output.index}"
+        "java -jar ./picard.jar CreateSequenceDictionary R={input.reference_fasta} O={output.index}"
 
 rule paths_index_reference:
     input:
@@ -1313,6 +1313,19 @@ rule alias_bam_graph:
         slurm_partition=choose_partition(5)
     shell:
         "ln {input.bam} {output.bam}"
+
+rule sort_bam:
+    input:
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    output:
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam"
+    threads: 16
+    resources:
+        mem_mb=16000,
+        runtime=90,
+        slurm_partition=choose_partition(90)
+    shell:
+        "samtools sort --threads {threads} {input.bam} -O BAM > {output.bam}"
 
 rule call_variants:
     input:
