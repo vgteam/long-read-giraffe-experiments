@@ -2082,11 +2082,14 @@ rule time_used:
     shell:
         "vg filter -t {threads} -T \"time_used\" {input.gam} | grep -v \"#\" >{output}"
 
-rule stage_time:
+rule stage_time_sim:
     input:
+        # Simulated reads will have provenance tracked and stage time recorded
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.tsv"
+    wildcard_constraints:
+        realness="sim"
     threads: 5
     resources:
         mem_mb=2000,
