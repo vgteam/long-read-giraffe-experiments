@@ -149,7 +149,7 @@ wildcard_constraints:
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
     basename=".+(?<!\\.trimmed)",
-    subset="[0-9]+[km]?",
+    subset="([0-9]+[km]?|full)",
     category="((not_)?(centromeric))?",
     # We use this for an optional separating dot, so we can leave it out if we also leave the field empty
     dot="\\.?",
@@ -225,10 +225,11 @@ def choose_partition(minutes):
 
 def subset_to_number(subset):
     """
-    Take a subset like 1m and turn it into a number.
+    Take a subset like 1m or full and turn it into a number.
     """
-
-    if subset.endswith("m"):
+    if subset == "full":
+        return float("inf")
+    elif subset.endswith("m"):
         multiplier = 1000000
         subset = subset[:-1]
     elif subset.endswith("k"):
@@ -275,6 +276,94 @@ def reference_fasta(wildcards):
     Find the linear reference FASTA from a reference.
     """
     return os.path.join(REFS_DIR, wildcards["reference"] + "-pansn.fa")
+
+def reference_dict(wildcards):
+    """
+    Find the linear reference FASTA dictionary from a reference.
+    """
+    return reference_fasta(wildcards) + ".dict"
+
+def reference_path_list_callable(wildcards):
+    """
+    Find the path list file for a linear reference that we can actually call on.
+   
+    We "can't" call on chrY for CHM13 because the one we use in the graphs
+    isn't the same as the one in CHM13v2.0 where the calling happens.
+    """
+    return reference_fasta(wildcards) + ".paths.callable.txt"
+
+def reference_prefix(wildcards):
+    """
+    Find the PanSN prefix we need to remove to convert form PanSN names to
+    non-PanSN names, from reference.
+    """
+    return {
+        "chm13": "CHM13#0#",
+        "grch38": "GRCh38#0#"
+    }[wildcards["reference"]]
+
+def calling_reference_fasta(wildcards):
+    """
+    Find the linear reference FASTA with non-PanSN names from a reference (for
+    interpreting VCFs).
+
+    For CHM13, we always use CHM13v2.0 as the calling reference since that's
+    the one we can get a truth on.
+    """
+    match wildcards["reference"]:
+        case "chm13":
+            return os.path.join(REFS_DIR, "chm13v2.0.fa")
+        case reference:
+            return os.path.join(REFS_DIR, reference + ".fa")
+
+def calling_reference_fasta_index(wildcards):
+    """
+    Find the index for the linear calling (non-PanSN) reference, from reference.
+    """
+    return calling_reference_fasta(wildcards) + ".fai"
+
+def calling_reference_restrict_bed(wildcards):
+    """
+    Find the BED for the linear calling (non-PanSN) reference region we think we can call on, from reference.
+    """
+    return calling_reference_fasta(wildcards) + ".callable.from." + wildcards["reference"] + ".bed"
+
+def uncallable_contig_regex(wildcards):
+    """
+    Get a grep regex matching a substring in all uncallable contigs in the calling or PanSN reference, from reference.
+    """
+    match wildcards["reference"]:
+        case "chm13":
+            # TODO: We don't want to try and call on Y on CHM13 because it's
+            # not the same Y as CHM13v2.0, where the truth set is and where we
+            # will do the calling.
+            return "chr[YM]"
+        case _:
+            return "chrM"
+
+def truth_vcf_url(wildcards):
+    """
+    Find the URL for the variant calling truth VCF, from reference.
+    """
+    return {
+        "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1.vcf.gz",
+        "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark.vcf.gz"
+    }[wildcards["reference"]
+
+def truth_vcf_index_url(wildcards):
+    """
+    Find the URL for the variant calling truth VCF index, from reference.
+    """
+    return truth_vcf_url(wildcards) + ".tbi"
+
+def truth_bed_url(wildcards):
+    """
+    Find the URL for the variant calling truth high confidence BED, from reference.
+    """
+    return {
+        "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
+        "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed"
+    }[wildcards["reference"]
 
 def graph_base(wildcards):
     """
@@ -799,7 +888,8 @@ rule subset_base_fastq_gz:
     output:
         fastq="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.{subset}.fq"
     wildcard_constraints:
-        realness="real"
+        realness="real",
+        subset="[0-9]+[km]?"
     params:
         lines=lambda w: str(subset_to_number(w["subset"]) * 4)
     threads: 8
@@ -810,6 +900,22 @@ rule subset_base_fastq_gz:
     shell:
         # We need to account for bgzip getting upset that we close the pipe before it is done writing.
         "(bgzip -d <{input.base_fastq} || true) | head -n {params.lines} >{output.fastq}"
+
+rule subset_alias_base_fastq_gz:
+    input:
+        base_fastq=base_fastq
+    output:
+        fastq="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.{subset}.fq"
+    wildcard_constraints:
+        realness="real",
+        subset="full"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "ln {input.base_fastq} {output.fastq}"
 
 rule extract_fastq_from_gam:
     input:
@@ -823,6 +929,62 @@ rule extract_fastq_from_gam:
         slurm_partition=choose_partition(60)
     shell:
         "vg view --fastq-out --threads {threads} {input.gam} >{output.fastq}"
+
+rule dict_index_reference:
+    input:
+        reference_fasta=reference_fasta
+    output:
+        index=REFS_DIR + "/{reference}-pansn.fa.dict"
+    threads: 1
+    resources:
+        mem_mb=8000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        # TODO: Needs picard.jar sitting in this directory
+        "java -jar ./picard.jar CreateSequenceDictionary R={input.reference} O={output.index}"
+
+rule paths_index_reference:
+    input:
+        reference_dict=reference_dict
+    output:
+        index=REFS_DIR + "/{reference}-pansn.paths.txt"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "cat {input.reference_dict} | grep '^@SQ' | sed 's/^@SQ.*[[:blank:]]SN:\\([^[:blank:]]*\\).*/\\1/g' > {output.index}"
+
+rule callable_paths_index_reference:
+    input:
+        paths=REFS_DIR + "/{reference}-pansn.paths.txt"
+    output:
+        paths=REFS_DIR + "/{reference}-pansn.paths.callable.txt"
+    params:
+        uncallable_contig_regex=uncallable_contig_regex
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell: "cat {input.paths} | grep -v '{params.uncallable_contig_regex}' > {output.paths}"
+
+rule callable_bed_index_calling_reference:
+    input:
+        # First two columns of FAI are name and length
+        fai=REFS_DIR + "/{calling_reference}.fa.fai"
+    output:
+        bed=REFS_DIR + "/{calling_reference}.fa.callable.from.{reference}.bed"
+    params:
+        uncallable_contig_regex=uncallable_contig_regex
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell: "cat {input.fai} | cut -f1,2 | grep -v '{params.uncallable_contig_regex}' | sed 's/\\t/\\t0\\t/g' > {output.bed}"
 
 rule giraffe_real_reads:
     input:
@@ -1118,6 +1280,99 @@ rule inject_bam:
         slurm_partition=choose_partition(600)
     shell:
         "vg inject --threads {threads} -x {input.gbz} {input.bam} >{output.gam}"
+
+rule surject_gam:
+    input:
+        gbz=gbz,
+        reference_dict=reference_dict,
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output:
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    wildcard_constraints:
+        mapper="(giraffe.*|graphaligner)"
+    threads: 64
+    resources:
+        mem_mb=100000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "vg surject -F {input.reference_dict} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {input.gam} > {output.bam}"
+
+rule alias_bam_graph:
+    # For BAM-generating mappers we can view their BAMs as if they mapped to any reference graph for a reference
+    input:
+        bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    output:
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    wildcard_constraints:
+        mapper="(minimap2.+|winnowmap|bwa)"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partiton(5)
+    shell:
+        "ln {input.bam} {output.bam}"
+
+rule call_variants:
+    input:
+        sorted_bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
+        sorted_bam_index="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai",
+        reference_path_list_callable=reference_path_list_callable,
+        calling_reference_fasta=calling_reference_fasta,
+        calling_reference_fasta_index=calling_reference_fasta_index,
+        calling_reference_restrict_bed=calling_reference_restrict_bed,
+    output:
+        wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.json",
+        wdl_output_directory=directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.wdlrun"),
+        vcf="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.vcf.gz",
+        vcf_index="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.vcf.gz.tbi"
+        evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.vcfeval_results.tar.gz"
+    params:
+        truth_vcf_url=truth_vcf_url,
+        truth_vcf_index_url=truth_vcf_index_url,
+        truth_bed_url=truth_bed_url,
+        reference_prefix=reference_prefix,
+    threads: 1
+    resources:
+        mem_mb=30000,
+        runtime=1440,
+        slurm_partition=choose_partiton(1440)
+    # Symlink inputs and use a fresh temp work directory so we have a nice place for a jobstore
+    shadow: "minimal"
+    run:
+        import json
+        wf_url = "https://raw.githubusercontent.com/vgteam/vg_wdl/lr-giraffe/workflows/deepvariant.wdl"
+        wf_inputs = {
+            "DeepVariant.MERGED_BAM_FILE": input.sorted_bam,
+            "DeepVariant.MERGED_BAM_FILE_INDEX": input.sorted_bam_index,
+            "DeepVariant.SAMPLE_NAME": wildcards.sample,
+            "DeepVariant.PATH_LIST_FILE": input.reference_path_list_callable,
+            "DeepVariant.REFERENCE_PREFIX": params.reference_prefix,
+            "DeepVariant.REFERENCE_PREFIX_ON_BAM": True,
+            "DeepVariant.REFERENCE_FILE": input.calling_reference_fasta,
+            # TODO: Should we left-align for GraphAligner?
+            "DeepVariant.LEFTALIGN_BAM": wildcards.mapper.startswith("giraffe") or wildcards.tech == "illumina",
+            "DeepVariant.REALIGN_INDELS": wildcards.tech == "illumina",
+            "DeepVariant.DV_MODEL_TYPE": {"hifi": "PACBIO", "r10": "ONT_R104", "illumina": "WGS"}[wildcards.tech],
+            "DeepVariant.MIN_MAPQ": None,
+            # TODO: Should we use legacy AC like in the paper?
+            "DeepVariant.DV_KEEP_LEGACY_AC": False,
+            "DeepVariant.TRUTH_VCF": params.truth_vcf_url,
+            "DeepVariant.TRUTH_VCF_INDEX": params.truth_vcf_index_url,
+            "DeepVariant.EVALUATION_REGIONS_BED": params.truth_bed_url,
+            "DeepVariant.RESTRICT_REGIONS_BED": input.calling_reference_restrict_bed,
+            "DeepVariant.CALL_MEM": 100
+        }
+        # Since we have a shadow directory we can use non-output paths in it safely
+        json.dump(wf_inputs, open("input.json", "w"))
+        # TODO: Should we make the WDL output directory in the shadow directory and not use it as a real output, to save space?
+        shell("toil-wdl-runner " + wf_url + " input.json --jobStore ./tree --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False")
+        wdl_result=json.load(open(output.wdl_output_file))
+        shell("cp " + wdl_result["DeepVariant.output_vcf"] + " {output.vcf}")
+        shell("cp " + wdl_result["DeepVariant.output_vcf_index"] + " {output.vcf_index}")
+        shell("cp " + wdl_result["DeepVariant.output_vcfeval_evaluation_archive"] + " {output.evaluation_archive}")
+        
 
 rule compare_alignments:
     input:

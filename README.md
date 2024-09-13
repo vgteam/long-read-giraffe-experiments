@@ -41,6 +41,18 @@ The general flow for using this repository is:
 
     And you can use the `--dry-run` flag to see all the rules that will be executed and the files that will be created.
 
+## Dependencies
+
+To run all the rules, you will need to have installations of:
+
+* vg
+* minimap2
+* winnowmap
+* GraphAligner
+* samtools
+* Java
+* Picard (as `picard.jar` in the current directory)
+
 ## Available Experiment Outputs:
 
 In these file name templates, `{root}` is your base output directory, `{expname}` is the name of the experiment defined in the config file, and `{ext}` is the image format you want the plot in, such as `png`.
