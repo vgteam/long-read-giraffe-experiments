@@ -151,6 +151,8 @@ wildcard_constraints:
     basename=".+(?<!\\.trimmed)",
     subset="([0-9]+[km]?|full)",
     category="((not_)?(centromeric))?",
+    # We can restrict calling to a small region for testing
+    region="(|chr21)",
     # We use this for an optional separating dot, so we can leave it out if we also leave the field empty
     dot="\\.?",
     tech="[a-zA-Z0-9]+",
@@ -285,12 +287,12 @@ def reference_dict(wildcards):
 
 def reference_path_list_callable(wildcards):
     """
-    Find the path list file for a linear reference that we can actually call on.
+    Find the path list file for a linear reference that we can actually call on, from reference and region.
    
     We "can't" call on chrY for CHM13 because the one we use in the graphs
     isn't the same as the one in CHM13v2.0 where the calling happens.
     """
-    return reference_fasta(wildcards) + ".paths.callable.txt"
+    return reference_fasta(wildcards) + ".paths" + wildcards.get("region", "") + ".callable.txt"
 
 def reference_prefix(wildcards):
     """
@@ -948,20 +950,20 @@ rule paths_index_reference:
     input:
         reference_dict=reference_dict
     output:
-        index=REFS_DIR + "/{reference}-pansn.fa.paths.txt"
+        index=REFS_DIR + "/{reference}-pansn.fa.paths{region}.txt"
     threads: 1
     resources:
         mem_mb=1000,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "cat {input.reference_dict} | grep '^@SQ' | sed 's/^@SQ.*[[:blank:]]SN:\\([^[:blank:]]*\\).*/\\1/g' > {output.index}"
+        "cat {input.reference_dict} | grep '^@SQ' | sed 's/^@SQ.*[[:blank:]]SN:\\([^[:blank:]]*\\).*/\\1/g' | grep '{wildcards.region}$' > {output.index}"
 
 rule callable_paths_index_reference:
     input:
-        paths=REFS_DIR + "/{reference}-pansn.fa.paths.txt"
+        paths=REFS_DIR + "/{reference}-pansn.fa.paths{region}.txt"
     output:
-        paths=REFS_DIR + "/{reference}-pansn.fa.paths.callable.txt"
+        paths=REFS_DIR + "/{reference}-pansn.fa.paths{region}.callable.txt"
     params:
         uncallable_contig_regex=uncallable_contig_regex
     threads: 1
@@ -1337,11 +1339,11 @@ rule call_variants:
         calling_reference_fasta_index=calling_reference_fasta_index,
         calling_reference_restrict_bed=calling_reference_restrict_bed,
     output:
-        wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.json",
-        wdl_output_directory=directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.wdlrun"),
-        vcf="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.vcf.gz",
-        vcf_index="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.vcf.gz.tbi",
-        evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.vcfeval_results.tar.gz"
+        wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.json",
+        wdl_output_directory=directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.wdlrun"),
+        vcf="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.vcf.gz",
+        vcf_index="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.vcf.gz.tbi",
+        evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.vcfeval_results.tar.gz"
     params:
         truth_vcf_url=truth_vcf_url,
         truth_vcf_index_url=truth_vcf_index_url,
