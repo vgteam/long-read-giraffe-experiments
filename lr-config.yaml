@@ -231,6 +231,25 @@ experiments:
       mapper: ["giraffe-k31.w50.W-r10-default-noflags", "graphaligner", "minimap2-map-ont"]
 
 
+  hifi_big_table:
+    control:
+      tech: hifi
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      refgraph: hprc-v1.1-mc
+    vary:
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "graphaligner", "minimap2-lr:hq"]
+      subset: ["full", "1m"]
+      realness: ["real", "sim"]
+    constrain:
+      - realness: real
+        subset: full
+      - realness: sim
+        subset: 1m
+
+
+
   # Compare different nanopore data types
   compare_nanopore:
     control:

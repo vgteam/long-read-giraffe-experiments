@@ -145,6 +145,10 @@ REAL_SLURM_EXTRA = config.get("real_slurm_extra", None) or ""
 # If False, they will just use one thread per core.
 EXCLUSIVE_TIMING = config.get("exclusive_timing", True)
 
+# Figure out what columns to put in a table comparing all the conditions in an experiment.
+# TODO: Make this be per-experiment and let multiple tables be defined
+IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["speed_from_log", "softclipped_or_unmapped", "accuracy", "indel_f1", "snp_f1"])
+
 wildcard_constraints:
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
@@ -752,6 +756,11 @@ def has_stat_filter(stat_name):
             if condition["realness"] != "sim":
                 return False
 
+        if stat_name.startswith("indel_") or stat_name.startswith("snp_"):
+            # These are calling stats, and we shoudl only do calling for real reads.
+            if condition["realness"] != "real":
+                return False
+
         if stat_name.startswith("time_used") or stat_name in ("mapping_speed", "chain_coverage"):
             # This is a Giraffe time used stat or mean thereof. We need to be a
             # Giraffe condition.
@@ -1343,7 +1352,7 @@ rule call_variants:
         wdl_output_directory=directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.wdlrun"),
         vcf="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.vcf.gz",
         vcf_index="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.vcf.gz.tbi",
-        evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.vcfeval_results.tar.gz"
+        happy_evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.happy_results.tar.gz"
     params:
         truth_vcf_url=truth_vcf_url,
         truth_vcf_index_url=truth_vcf_index_url,
@@ -1374,7 +1383,7 @@ rule call_variants:
             "DeepVariant.MIN_MAPQ": None,
             # TODO: Should we use legacy AC like in the paper?
             "DeepVariant.DV_KEEP_LEGACY_AC": False,
-            "DeepVariant.DV_NORM_READS": if wildcards.tech == "hifi" then True else False,
+            "DeepVariant.DV_NORM_READS": wildcards.tech == "hifi",
             "DeepVariant.TRUTH_VCF": params.truth_vcf_url,
             "DeepVariant.TRUTH_VCF_INDEX": params.truth_vcf_index_url,
             "DeepVariant.EVALUATION_REGIONS_BED": params.truth_bed_url,
@@ -1388,8 +1397,38 @@ rule call_variants:
         wdl_result=json.load(open(output.wdl_output_file))
         shell("cp " + wdl_result["DeepVariant.output_vcf"] + " {output.vcf}")
         shell("cp " + wdl_result["DeepVariant.output_vcf_index"] + " {output.vcf_index}")
-        shell("cp " + wdl_result["DeepVariant.output_vcfeval_evaluation_archive"] + " {output.evaluation_archive}")
+        shell("cp " + wdl_result["DeepVariant.output_happy_evaluation_archive"] + " {output.happy_evaluation_archive}")
         
+rule extract_happy_summary:
+    input:
+        happy_evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.happy_results.tar.gz"
+    output:
+        happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.eval.summary.csv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "tar -xOf {input.happy_evaluation_archive} happy_results/eval.summary.csv >{output.happy_evaluation_summary}"
+
+rule stat_from_happy_summary:
+    input:
+        happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.eval.summary.csv"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.{vartype}_{colname}.tsv"
+    wildcard_constraints:
+        vartype="(snp|indel)",
+        colname="(f1|precision|recall|fn|fp)"
+    params:
+        colnum=lambda w: {"f1": 14, "precision": 12, "recall": 11, "fn": 5, "fp": 7}[w["colname"]]
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        shell("cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].toUpper() + ",PASS' | cut -f{params.colnum} -d',' >{output.tsv}")
 
 rule compare_alignments:
     input:
@@ -1661,15 +1700,16 @@ rule memory_from_log_bam:
         "echo \"{params.condition_name}\t$(cat {input.minimap2_log} | grep \"Peak RSS\" | sed \'s/.*Peak RSS: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
 
 
-rule comparison_experiment_stat:
+# Some experiment stats can come straight from stats for the individual conditions
+rule condition_experiment_stat:
     input:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{comparisonstat}.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{conditionstat}.tsv"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{comparisonstat}.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{conditionstat}.tsv"
     wildcard_constraints:
-        comparisonstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy)"
+        conditionstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp))"
     threads: 1
     resources:
         mem_mb=1000,
@@ -1677,7 +1717,6 @@ rule comparison_experiment_stat:
         slurm_partition=choose_partition(5)
     shell:
         "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.tsv} >>{output.tsv}"
-
 
 rule experiment_stat_table:
     input:
@@ -1691,6 +1730,28 @@ rule experiment_stat_table:
         slurm_partition=choose_partition(10)
     shell:
         "cat {input} >{output.table}"
+
+rule experiment_important_stats_table:
+    input:
+        lambda w: expand("{{root}}/experiments/{{expname}}/results/{stat}.tsv", stat=IMPORTANT_STATS_TABLE_COLUMNS)
+    output:
+        table="{root}/experiments/{expname}/tables/important_stats.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    run:
+        with open(output.table, "w") as fp:
+            # Write a header
+            fp.write("\t".join(["#condition"] + IMPORTANT_STATS_TABLE_COLUMNS) + "\n")
+
+        # Join all the parts
+        command_parts = ["cat ", input[0]]
+        for input_file in input[1:]:
+            command_parts.append("| join -a 1 -a 2 -e 'N/A' -o auto - " + input_file)
+        command_parts.append(" >> {output.table}")
+        shell("".join(command_parts))
 
 rule experiment_correctness_plot:
     input:
