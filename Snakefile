@@ -1374,6 +1374,7 @@ rule call_variants:
             "DeepVariant.MIN_MAPQ": None,
             # TODO: Should we use legacy AC like in the paper?
             "DeepVariant.DV_KEEP_LEGACY_AC": False,
+            "DeepVariant.DV_NORM_READS": if wildcards.tech == "hifi" then True else False,
             "DeepVariant.TRUTH_VCF": params.truth_vcf_url,
             "DeepVariant.TRUTH_VCF_INDEX": params.truth_vcf_index_url,
             "DeepVariant.EVALUATION_REGIONS_BED": params.truth_bed_url,
