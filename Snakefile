@@ -1339,7 +1339,7 @@ rule sort_bam:
         runtime=90,
         slurm_partition=choose_partition(90)
     run:
-        with tempfile.TemporaryDirectory() as sort_scrtatch:
+        with tempfile.TemporaryDirectory() as sort_scratch:
             shell("samtools sort -T " + os.path.join(sort_scratch, "scratch") + " --threads {threads} {input.bam} -O BAM > {output.bam} && samtools index -b {output.bam} {output.bai}")
 
 rule call_variants:
