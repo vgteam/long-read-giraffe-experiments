@@ -1255,7 +1255,7 @@ rule graphaligner_sim_reads:
         runtime=1200,
         slurm_partition=choose_partition(1200)
     shell:
-        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
+        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.1 -a {output.gam}"
 
 rule graphaligner_real_reads:
     input:
@@ -1274,7 +1274,7 @@ rule graphaligner_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
+        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.1 -a {output.gam}"
 
 rule inject_bam:
     input:

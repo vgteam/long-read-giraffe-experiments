@@ -239,7 +239,10 @@ experiments:
       sample: HG002
       refgraph: hprc-v1.1-mc
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "graphaligner", "minimap2-lr:hq"]
+      mapper:
+        - giraffe-k31.w50.W-hifi-default-noflags
+        # - graphaligner
+        - minimap2-lr:hq
       subset: ["full", "1m"]
       realness: ["real", "sim"]
     constrain:
