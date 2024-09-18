@@ -1351,8 +1351,13 @@ rule call_variants:
         calling_reference_fasta_index=calling_reference_fasta_index,
         calling_reference_restrict_bed=calling_reference_restrict_bed,
     output:
+        wdl_input_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.input.json",
         wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.json",
+        # TODO: make this temp so we can delete it?
         wdl_output_directory=directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.wdlrun"),
+        # Treat the job store as an output so it can live on the right filesystem.
+        # Mark it temp so it will be deleted because no rules actually use it.
+        job_store=temp(directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.jobstore")),
         vcf="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.vcf.gz",
         vcf_index="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.vcf.gz.tbi",
         happy_evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.happy_results.tar.gz"
@@ -1366,8 +1371,6 @@ rule call_variants:
         mem_mb=30000,
         runtime=1440,
         slurm_partition=choose_partition(1440)
-    # Symlink inputs and use a fresh temp work directory so we have a nice place for a jobstore
-    shadow: "minimal"
     run:
         import json
         wf_url = "https://raw.githubusercontent.com/vgteam/vg_wdl/lr-giraffe/workflows/deepvariant.wdl"
@@ -1393,10 +1396,8 @@ rule call_variants:
             "DeepVariant.RESTRICT_REGIONS_BED": input.calling_reference_restrict_bed,
             "DeepVariant.CALL_MEM": 100
         }
-        # Since we have a shadow directory we can use non-output paths in it safely
-        json.dump(wf_inputs, open("input.json", "w"))
-        # TODO: Should we make the WDL output directory in the shadow directory and not use it as a real output, to save space?
-        shell("toil-wdl-runner " + wf_url + " input.json --jobStore ./tree --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False")
+        json.dump(wf_inputs, open(output["wdl_input_file"], "w"))
+        shell("toil-wdl-runner " + wf_url + " {output.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False")
         wdl_result=json.load(open(output.wdl_output_file))
         shell("cp " + wdl_result["DeepVariant.output_vcf"] + " {output.vcf}")
         shell("cp " + wdl_result["DeepVariant.output_vcf_index"] + " {output.vcf_index}")
