@@ -5,6 +5,8 @@
 import parameter_search
 
 import functools
+import tempfile
+import os
 
 # Set a default config file. This can be overridden with --configfile.
 # See the config file for how to define experiments.
@@ -1336,8 +1338,9 @@ rule sort_bam:
         mem_mb=16000,
         runtime=90,
         slurm_partition=choose_partition(90)
-    shell:
-        "samtools sort --threads {threads} {input.bam} -O BAM > {output.bam} && samtools index -b {output.bam} {output.bai}"
+    run:
+        with tempfile.TemporaryDirectory() as sort_scrtatch:
+            shell("samtools sort -T " + os.path.join(sort_scratch, "scratch") + " --threads {threads} {input.bam} -O BAM > {output.bam} && samtools index -b {output.bam} {output.bai}")
 
 rule call_variants:
     input:
