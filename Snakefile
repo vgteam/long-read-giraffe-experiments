@@ -196,7 +196,10 @@ def auto_mapping_full_cluster_nodes(wildcards):
 
     TODO: Is this really used by Slurm?
     """
-    if EXCLUSIVE_TIMING:
+    number = subset_to_number(wildcards["subset"])
+    if number > 10000000:
+        return 0
+    elif EXCLUSIVE_TIMING:
         return 1
     else:
         return 0
@@ -789,6 +792,8 @@ def get_vg_flags(wildcard_flag):
             return "--downsample-window-length 400"
         case "mqWindow":
             return "--mapq-score-scale 1 --mapq-score-window 150"
+        case "dp500000":
+            return "--max-dp-cells 500000"
         case "noflags":
             return ""
         case unknown:
@@ -1263,7 +1268,7 @@ rule graphaligner_sim_reads:
         runtime=1200,
         slurm_partition=choose_partition(1200)
     shell:
-        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.1 -a {output.gam}"
+        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam}"
 
 rule graphaligner_real_reads:
     input:
@@ -1282,7 +1287,7 @@ rule graphaligner_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.1 -a {output.gam}"
+        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam}"
 
 rule inject_bam:
     input:
