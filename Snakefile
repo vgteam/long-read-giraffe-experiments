@@ -5,6 +5,8 @@
 import parameter_search
 
 import functools
+import tempfile
+import os
 
 # Set a default config file. This can be overridden with --configfile.
 # See the config file for how to define experiments.
@@ -145,12 +147,18 @@ REAL_SLURM_EXTRA = config.get("real_slurm_extra", None) or ""
 # If False, they will just use one thread per core.
 EXCLUSIVE_TIMING = config.get("exclusive_timing", True)
 
+# Figure out what columns to put in a table comparing all the conditions in an experiment.
+# TODO: Make this be per-experiment and let multiple tables be defined
+IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["speed_from_log", "softclipped_or_unmapped", "accuracy", "indel_f1", "snp_f1"])
+
 wildcard_constraints:
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
     basename=".+(?<!\\.trimmed)",
-    subset="[0-9]+[km]?",
+    subset="([0-9]+[km]?|full)",
     category="((not_)?(centromeric))?|",
+    # We can restrict calling to a small region for testing
+    region="(|chr21)",
     # We use this for an optional separating dot, so we can leave it out if we also leave the field empty
     dot="\\.?",
     tech="[a-zA-Z0-9]+",
@@ -225,10 +233,11 @@ def choose_partition(minutes):
 
 def subset_to_number(subset):
     """
-    Take a subset like 1m and turn it into a number.
+    Take a subset like 1m or full and turn it into a number.
     """
-
-    if subset.endswith("m"):
+    if subset == "full":
+        return float("inf")
+    elif subset.endswith("m"):
         multiplier = 1000000
         subset = subset[:-1]
     elif subset.endswith("k"):
@@ -275,6 +284,94 @@ def reference_fasta(wildcards):
     Find the linear reference FASTA from a reference.
     """
     return os.path.join(REFS_DIR, wildcards["reference"] + "-pansn.fa")
+
+def reference_dict(wildcards):
+    """
+    Find the linear reference FASTA dictionary from a reference.
+    """
+    return reference_fasta(wildcards) + ".dict"
+
+def reference_path_list_callable(wildcards):
+    """
+    Find the path list file for a linear reference that we can actually call on, from reference and region.
+   
+    We "can't" call on chrY for CHM13 because the one we use in the graphs
+    isn't the same as the one in CHM13v2.0 where the calling happens.
+    """
+    return reference_fasta(wildcards) + ".paths" + wildcards.get("region", "") + ".callable.txt"
+
+def reference_prefix(wildcards):
+    """
+    Find the PanSN prefix we need to remove to convert form PanSN names to
+    non-PanSN names, from reference.
+    """
+    return {
+        "chm13": "CHM13#0#",
+        "grch38": "GRCh38#0#"
+    }[wildcards["reference"]]
+
+def calling_reference_fasta(wildcards):
+    """
+    Find the linear reference FASTA with non-PanSN names from a reference (for
+    interpreting VCFs).
+
+    For CHM13, we always use CHM13v2.0 as the calling reference since that's
+    the one we can get a truth on.
+    """
+    match wildcards["reference"]:
+        case "chm13":
+            return os.path.join(REFS_DIR, "chm13v2.0.fa")
+        case reference:
+            return os.path.join(REFS_DIR, reference + ".fa")
+
+def calling_reference_fasta_index(wildcards):
+    """
+    Find the index for the linear calling (non-PanSN) reference, from reference.
+    """
+    return calling_reference_fasta(wildcards) + ".fai"
+
+def calling_reference_restrict_bed(wildcards):
+    """
+    Find the BED for the linear calling (non-PanSN) reference region we think we can call on, from reference.
+    """
+    return calling_reference_fasta(wildcards) + ".callable.from." + wildcards["reference"] + ".bed"
+
+def uncallable_contig_regex(wildcards):
+    """
+    Get a grep regex matching a substring in all uncallable contigs in the calling or PanSN reference, from reference.
+    """
+    match wildcards["reference"]:
+        case "chm13":
+            # TODO: We don't want to try and call on Y on CHM13 because it's
+            # not the same Y as CHM13v2.0, where the truth set is and where we
+            # will do the calling.
+            return "chr[YM]"
+        case _:
+            return "chrM"
+
+def truth_vcf_url(wildcards):
+    """
+    Find the URL for the variant calling truth VCF, from reference.
+    """
+    return {
+        "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1.vcf.gz",
+        "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark.vcf.gz"
+    }[wildcards["reference"]]
+
+def truth_vcf_index_url(wildcards):
+    """
+    Find the URL for the variant calling truth VCF index, from reference.
+    """
+    return truth_vcf_url(wildcards) + ".tbi"
+
+def truth_bed_url(wildcards):
+    """
+    Find the URL for the variant calling truth high confidence BED, from reference.
+    """
+    return {
+        "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
+        "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed"
+    }[wildcards["reference"]]
 
 def graph_base(wildcards):
     """
@@ -630,6 +727,8 @@ def all_experiment(wildcard_values, pattern, filter_function=None, empty_ok=Fals
             merged["dot"] = "."
         else:
             merged["dot"] = ""
+        if "category" not in merged:
+            # Category might appear in templates but in experiments it is meant to be optional.
             merged["category"] = ""
 
         if debug:
@@ -661,6 +760,11 @@ def has_stat_filter(stat_name):
             if condition["realness"] != "sim":
                 return False
 
+        if stat_name.startswith("indel_") or stat_name.startswith("snp_"):
+            # These are calling stats, and we shoudl only do calling for real reads.
+            if condition["realness"] != "real":
+                return False
+
         if stat_name.startswith("time_used") or stat_name in ("mapping_speed", "chain_coverage"):
             # This is a Giraffe time used stat or mean thereof. We need to be a
             # Giraffe condition.
@@ -679,20 +783,17 @@ def get_vg_flags(wildcard_flag):
             return "--explored-cap"
         case downsample_number if downsample_number[0:10] == "downsample":
             return "--downsample-min " + downsample_number[10:]
-        case "candidate":
-            return "--min-chains 4"
-        case "candidate2":
-            return "--min-chains 4 --gap-scale 0.2"
         case "mapqscale":
             return "--mapq-score-scale 0.01"
         case "moreseeds":
             return "--downsample-window-length 400"
+        case "mqWindow":
+            return "--mapq-score-scale 1 --mapq-score-window 150"
         case "noflags":
             return ""
         case unknown:
             #otherwise this is a hash and we get the flags from ParameterSearch
             return PARAM_SEARCH.hash_to_parameter_string(wildcard_flag)
-        #raise ValueError(f"Unknown flag set: \"{unknown}\"")
 
 def get_vg_version(wildcard_vgversion):
     if wildcard_vgversion == "default":
@@ -720,6 +821,21 @@ def param_search_tsvs(wildcards, statname="time_used.mean", realness="real"):
     
     return expand("{root}/stats/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv", **values)
 
+rule distance_index_graph:
+    input:
+        gbz="{graphs_dir}/{refgraph}-{reference}.{d9}gbz"
+    output:
+        distfile="{graphs_dir}/{refgraph}-{reference}.{d9}dist"
+    wildcard_constraints:
+        reference="chm13|grch38",
+        d9="d9\.|"
+    threads: 16
+    resources:
+        mem_mb=120000,
+        runtime=240,
+        slurm_partition=choose_partition(240)
+    shell:
+        "vg index -t 16 -j {output.distfile} {input.gbz}"
 
 rule minimizer_index_graph:
     input:
@@ -791,7 +907,8 @@ rule subset_base_fastq_gz:
     output:
         fastq="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.{subset}.fq"
     wildcard_constraints:
-        realness="real"
+        realness="real",
+        subset="[0-9]+[km]?"
     params:
         lines=lambda w: str(subset_to_number(w["subset"]) * 4)
     threads: 8
@@ -802,6 +919,22 @@ rule subset_base_fastq_gz:
     shell:
         # We need to account for bgzip getting upset that we close the pipe before it is done writing.
         "(bgzip -d <{input.base_fastq} || true) | head -n {params.lines} >{output.fastq}"
+
+rule subset_alias_base_fastq_gz:
+    input:
+        base_fastq=base_fastq
+    output:
+        fastq="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.{subset}.fq"
+    wildcard_constraints:
+        realness="real",
+        subset="full"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "ln {input.base_fastq} {output.fastq}"
 
 rule extract_fastq_from_gam:
     input:
@@ -815,6 +948,62 @@ rule extract_fastq_from_gam:
         slurm_partition=choose_partition(60)
     shell:
         "vg view --fastq-out --threads {threads} {input.gam} >{output.fastq}"
+
+rule dict_index_reference:
+    input:
+        reference_fasta=reference_fasta
+    output:
+        index=REFS_DIR + "/{reference}-pansn.fa.dict"
+    threads: 1
+    resources:
+        mem_mb=8000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        # TODO: Needs picard.jar sitting in this directory
+        "java -jar ./picard.jar CreateSequenceDictionary R={input.reference_fasta} O={output.index}"
+
+rule paths_index_reference:
+    input:
+        reference_dict=reference_dict
+    output:
+        index=REFS_DIR + "/{reference}-pansn.fa.paths{region}.txt"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "cat {input.reference_dict} | grep '^@SQ' | sed 's/^@SQ.*[[:blank:]]SN:\\([^[:blank:]]*\\).*/\\1/g' | grep '{wildcards.region}$' > {output.index}"
+
+rule callable_paths_index_reference:
+    input:
+        paths=REFS_DIR + "/{reference}-pansn.fa.paths{region}.txt"
+    output:
+        paths=REFS_DIR + "/{reference}-pansn.fa.paths{region}.callable.txt"
+    params:
+        uncallable_contig_regex=uncallable_contig_regex
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell: "cat {input.paths} | grep -v '{params.uncallable_contig_regex}' > {output.paths}"
+
+rule callable_bed_index_calling_reference:
+    input:
+        # First two columns of FAI are name and length
+        fai=REFS_DIR + "/{calling_reference}.fa.fai"
+    output:
+        bed=REFS_DIR + "/{calling_reference}.fa.callable.from.{reference}.bed"
+    params:
+        uncallable_contig_regex=uncallable_contig_regex
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell: "cat {input.fai} | cut -f1,2 | grep -v '{params.uncallable_contig_regex}' | sed 's/\\t/\\t0\\t/g' > {output.bed}"
 
 rule giraffe_real_reads:
     input:
@@ -838,7 +1027,7 @@ rule giraffe_real_reads:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam} 2>{log}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam} 2>{log}")
 
 rule giraffe_sim_reads:
     input:
@@ -1071,10 +1260,10 @@ rule graphaligner_sim_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
-        runtime=600,
-        slurm_partition=choose_partition(600)
+        runtime=1200,
+        slurm_partition=choose_partition(1200)
     shell:
-        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
+        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.1 -a {output.gam}"
 
 rule graphaligner_real_reads:
     input:
@@ -1088,12 +1277,12 @@ rule graphaligner_real_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
-        runtime=600,
-        slurm_partition=choose_partition(600),
+        runtime=1200,
+        slurm_partition=choose_partition(1200),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg -a {output.gam}"
+        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.1 -a {output.gam}"
 
 rule inject_bam:
     input:
@@ -1110,6 +1299,146 @@ rule inject_bam:
         slurm_partition=choose_partition(600)
     shell:
         "vg inject --threads {threads} -x {input.gbz} {input.bam} >{output.gam}"
+
+rule surject_gam:
+    input:
+        gbz=gbz,
+        reference_dict=reference_dict,
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output:
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    wildcard_constraints:
+        mapper="(giraffe.*|graphaligner)"
+    threads: 64
+    resources:
+        mem_mb=100000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "vg surject -F {input.reference_dict} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {input.gam} > {output.bam}"
+
+rule alias_bam_graph:
+    # For BAM-generating mappers we can view their BAMs as if they mapped to any reference graph for a reference
+    input:
+        bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    output:
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    wildcard_constraints:
+        mapper="(minimap2.+|winnowmap|bwa)"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "ln {input.bam} {output.bam}"
+
+rule sort_bam:
+    input:
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    output:
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
+        bai="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai"
+    threads: 16
+    resources:
+        mem_mb=16000,
+        runtime=90,
+        slurm_partition=choose_partition(90)
+    run:
+        with tempfile.TemporaryDirectory() as sort_scratch:
+            shell("samtools sort -T " + os.path.join(sort_scratch, "scratch") + " --threads {threads} {input.bam} -O BAM > {output.bam} && samtools index -b {output.bam} {output.bai}")
+
+rule call_variants:
+    input:
+        sorted_bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
+        sorted_bam_index="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai",
+        reference_path_list_callable=reference_path_list_callable,
+        calling_reference_fasta=calling_reference_fasta,
+        calling_reference_fasta_index=calling_reference_fasta_index,
+        calling_reference_restrict_bed=calling_reference_restrict_bed,
+    output:
+        wdl_input_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.input.json",
+        wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.json",
+        # TODO: make this temp so we can delete it?
+        wdl_output_directory=directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.wdlrun"),
+        # Treat the job store as an output so it can live on the right filesystem.
+        # Mark it temp so it will be deleted because no rules actually use it.
+        job_store=temp(directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.jobstore")),
+        vcf="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.vcf.gz",
+        vcf_index="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.vcf.gz.tbi",
+        happy_evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.happy_results.tar.gz"
+    params:
+        truth_vcf_url=truth_vcf_url,
+        truth_vcf_index_url=truth_vcf_index_url,
+        truth_bed_url=truth_bed_url,
+        reference_prefix=reference_prefix,
+    threads: 1
+    resources:
+        mem_mb=30000,
+        runtime=1440,
+        slurm_partition=choose_partition(1440)
+    run:
+        import json
+        wf_url = "https://raw.githubusercontent.com/vgteam/vg_wdl/lr-giraffe/workflows/deepvariant.wdl"
+        wf_inputs = {
+            "DeepVariant.MERGED_BAM_FILE": input.sorted_bam,
+            "DeepVariant.MERGED_BAM_FILE_INDEX": input.sorted_bam_index,
+            "DeepVariant.SAMPLE_NAME": wildcards.sample,
+            "DeepVariant.PATH_LIST_FILE": input.reference_path_list_callable,
+            "DeepVariant.REFERENCE_PREFIX": params.reference_prefix,
+            "DeepVariant.REFERENCE_PREFIX_ON_BAM": True,
+            "DeepVariant.REFERENCE_FILE": input.calling_reference_fasta,
+            # TODO: Should we left-align for GraphAligner?
+            "DeepVariant.LEFTALIGN_BAM": wildcards.mapper.startswith("giraffe") or wildcards.tech == "illumina",
+            "DeepVariant.REALIGN_INDELS": wildcards.tech == "illumina",
+            "DeepVariant.DV_MODEL_TYPE": {"hifi": "PACBIO", "r10": "ONT_R104", "illumina": "WGS"}[wildcards.tech],
+            "DeepVariant.MIN_MAPQ": None,
+            # TODO: Should we use legacy AC like in the paper?
+            "DeepVariant.DV_KEEP_LEGACY_AC": False,
+            "DeepVariant.DV_NORM_READS": wildcards.tech == "hifi",
+            "DeepVariant.TRUTH_VCF": params.truth_vcf_url,
+            "DeepVariant.TRUTH_VCF_INDEX": params.truth_vcf_index_url,
+            "DeepVariant.EVALUATION_REGIONS_BED": params.truth_bed_url,
+            "DeepVariant.RESTRICT_REGIONS_BED": input.calling_reference_restrict_bed,
+            "DeepVariant.CALL_MEM": 100
+        }
+        json.dump(wf_inputs, open(output["wdl_input_file"], "w"))
+        shell("toil-wdl-runner " + wf_url + " {output.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False")
+        wdl_result=json.load(open(output.wdl_output_file))
+        shell("cp " + wdl_result["DeepVariant.output_vcf"] + " {output.vcf}")
+        shell("cp " + wdl_result["DeepVariant.output_vcf_index"] + " {output.vcf_index}")
+        shell("cp " + wdl_result["DeepVariant.output_happy_evaluation_archive"] + " {output.happy_evaluation_archive}")
+        
+rule extract_happy_summary:
+    input:
+        happy_evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.happy_results.tar.gz"
+    output:
+        happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.eval.summary.csv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "tar -xOf {input.happy_evaluation_archive} happy_results/eval.summary.csv >{output.happy_evaluation_summary}"
+
+rule stat_from_happy_summary:
+    input:
+        happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.eval.summary.csv"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.{vartype}_{colname}.tsv"
+    wildcard_constraints:
+        vartype="(snp|indel)",
+        colname="(f1|precision|recall|fn|fp)"
+    params:
+        colnum=lambda w: {"f1": 14, "precision": 12, "recall": 11, "fn": 5, "fp": 7}[w["colname"]]
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        shell("cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].toUpper() + ",PASS' | cut -f{params.colnum} -d',' >{output.tsv}")
 
 rule compare_alignments:
     input:
@@ -1372,10 +1701,9 @@ rule speed_from_log_bam:
     shell:
         """
         mapped_count=$(cat {input.minimap2_log} | grep "mapped" | awk '{{sum+=$3}} END {{print sum}}')
-        total_time=$(cat {input.minimap2_log} | grep "\\[M::main\\] Real time" | sed 's/.*Real time: \([0-9]*\.[0-9]*\) sec.*/\\1/g')
-        startup_time=$(cat {input.minimap2_log} | grep "loaded/built the index" | sed 's/.M::main::\([0-9]*\.[0-9]*\).*/\\1 /g')
-        thread_count=$(cat {input.minimap2_log} | grep "CMD:" | sed 's/.*-t\s\([0-9]*\)\s.*/\\1/g')
-        echo "{params.condition_name}\t$(echo "($mapped_count / ($total_time - $startup_time)) / $thread_count" | bc -l)" >{output.tsv}
+        total_cpu_time=$(cat {input.minimap2_log} | grep "\\[M::main\\] Real time" | sed 's/.*CPU: \([0-9]*\.[0-9]*\) sec.*/\\1/g')
+        startup_cpu_time_expr=$(cat {input.minimap2_log} | grep "loaded/built the index" | sed 's/.M::main::\([0-9]*\.[0-9]*\*[0-9]*\.[0-9]*\).*/\\1 /g')
+        echo "{params.condition_name}\t$(echo "$mapped_count / ($total_cpu_time - $startup_cpu_time_expr)" | bc -l)" >{output.tsv}
         """
 #We need a speed_from_log.tsv file but graphaligner doesn't have a log so just make a dummy file
 rule speed_from_log_graphaligner:
@@ -1434,15 +1762,16 @@ rule memory_from_log_graphaligner:
 
 
 
-rule comparison_experiment_stat:
+# Some experiment stats can come straight from stats for the individual conditions
+rule condition_experiment_stat:
     input:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{comparisonstat}.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{conditionstat}.tsv"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{comparisonstat}.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{conditionstat}.tsv"
     wildcard_constraints:
-        comparisonstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy)"
+        conditionstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp))"
     threads: 1
     resources:
         mem_mb=1000,
@@ -1450,7 +1779,6 @@ rule comparison_experiment_stat:
         slurm_partition=choose_partition(5)
     shell:
         "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.tsv} >>{output.tsv}"
-
 
 rule experiment_stat_table:
     input:
@@ -1464,6 +1792,28 @@ rule experiment_stat_table:
         slurm_partition=choose_partition(10)
     shell:
         "cat {input} >{output.table}"
+
+rule experiment_important_stats_table:
+    input:
+        lambda w: expand("{{root}}/experiments/{{expname}}/results/{stat}.tsv", stat=IMPORTANT_STATS_TABLE_COLUMNS)
+    output:
+        table="{root}/experiments/{expname}/tables/important_stats.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    run:
+        with open(output.table, "w") as fp:
+            # Write a header
+            fp.write("\t".join(["#condition"] + IMPORTANT_STATS_TABLE_COLUMNS) + "\n")
+
+        # Join all the parts
+        command_parts = ["cat ", input[0]]
+        for input_file in input[1:]:
+            command_parts.append("| join -a 1 -a 2 -e 'N/A' -o auto - " + input_file)
+        command_parts.append(" >> {output.table}")
+        shell("".join(command_parts))
 
 rule experiment_correctness_plot:
     input:
@@ -2133,11 +2483,14 @@ rule time_used:
     shell:
         "vg filter -t {threads} -T \"time_used\" {input.gam} | grep -v \"#\" >{output}"
 
-rule stage_time:
+rule stage_time_sim:
     input:
+        # Simulated reads will have provenance tracked and stage time recorded
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.tsv"
+    wildcard_constraints:
+        realness="sim"
     threads: 5
     resources:
         mem_mb=2000,
@@ -2227,7 +2580,7 @@ rule length_by_mapping:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg filter --only-mapped {input.gam} -T length | grep -v '^#' | sed 's/^/mapped\t/' >{output} && vg filter --only-mapped --complement {input.gam} -T length | grep -v '^#' | sed 's/^/unmapped\t/' >>{output}"
+        "vg filter --only-mapped {input.gam} -T length | {{ grep -v '^#' || test $? = 1; }} | sed 's/^/mapped\t/' >{output} && vg filter --only-mapped --complement {input.gam} -T length | {{ grep -v '^#' || test $? = 1; }} | sed 's/^/unmapped\t/' >>{output}"
 
 rule unmapped_length:
     input:
@@ -2240,7 +2593,7 @@ rule unmapped_length:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "cat {input.tsv} | grep '^unmapped' | cut -f2 >{output}"
+        "cat {input.tsv} | {{ grep '^unmapped' || test $? = 1; }} | cut -f2 >{output}"
 
 rule length_by_correctness:
     input:
