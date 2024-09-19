@@ -150,7 +150,7 @@ wildcard_constraints:
     sample=".+(?<!\\.trimmed)",
     basename=".+(?<!\\.trimmed)",
     subset="[0-9]+[km]?",
-    category="((not_)?(centromeric))?",
+    category="((not_)?(centromeric))?|",
     # We use this for an optional separating dot, so we can leave it out if we also leave the field empty
     dot="\\.?",
     tech="[a-zA-Z0-9]+",
@@ -281,6 +281,8 @@ def graph_base(wildcards):
     Find the base name for a collection of graph files from reference.
     """
     if wildcards["refgraph"] == "hprc-v1.1-mc":
+        return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"])
+    elif wildcards["refgraph"] == "hprc-v1.1-mc-d9":
         return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9")
     else:
         return os.path.join(GRAPHS_DIR, wildcards["refgraph"] + "-" + wildcards["reference"])
@@ -628,6 +630,7 @@ def all_experiment(wildcard_values, pattern, filter_function=None, empty_ok=Fals
             merged["dot"] = "."
         else:
             merged["dot"] = ""
+            merged["category"] = ""
 
         if debug:
             print(f"Evaluate {pattern} in {merged} from {wildcard_values} and {condition}")
@@ -680,6 +683,10 @@ def get_vg_flags(wildcard_flag):
             return "--min-chains 4"
         case "candidate2":
             return "--min-chains 4 --gap-scale 0.2"
+        case "mapqscale":
+            return "--mapq-score-scale 0.01"
+        case "moreseeds":
+            return "--downsample-window-length 400"
         case "noflags":
             return ""
         case unknown:
@@ -1254,6 +1261,21 @@ rule overall_fraction:
     shell:
         "echo \"$(cat {input.number}) / ($(wc -l {input.all_comparison} | cut -f1 -d' ') - 1)\" | bc -l >{output.tsv}"
 
+rule speed_from_log_giraffe_stats:
+    input:
+        giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+    wildcard_constraints:
+        realness="real",
+        mapper="giraffe.*"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"$(cat {input.giraffe_log} | grep \"reads per CPU-second\" | sed \'s/Achieved \([0-9]*\.[0-9]*\) reads per CPU-second.*/\\1/g\')\" >{output.tsv}"
 rule speed_from_log_giraffe:
     input:
         giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
