@@ -1443,7 +1443,7 @@ rule stat_from_happy_summary:
         runtime=5,
         slurm_partition=choose_partition(5)
     run:
-        shell("cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].toUpper() + ",PASS' | cut -f{params.colnum} -d',' >{output.tsv}")
+        shell("cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].upper() + ",PASS' | cut -f{params.colnum} -d',' >{output.tsv}")
 
 rule compare_alignments:
     input:
