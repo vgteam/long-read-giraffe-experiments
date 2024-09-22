@@ -589,11 +589,12 @@ def augmented_with_all(base_dict, keys_and_values):
         first_values = keys_and_values[first_key]
         rest = dict(keys_and_values)
         del rest[first_key]
-        for with_rest in augmented_with_all(base_dict, rest):
-            # Augment with the rest
-            for with_first in augmented_with_each(with_rest, first_key, first_values):
-                # And augment with this key
-                yield with_first
+
+        for with_first in augmented_with_each(base_dict, first_key, first_values):
+            # Augment with this key
+            for with_rest in augmented_with_all(with_first, rest):
+                # And augment with the rest
+                yield with_rest
 
 def matches_constraint_value(query, value):
     """
