@@ -677,6 +677,11 @@ def condition_name(wildcards):
     name_parts = []
 
     for varied_key in to_vary:
+
+        #Don't include realness
+        if varied_key == "realness":
+            continue
+
         # Look at the value we have for this varied variable
         condition_value = condition[varied_key]
         # And the other possible values that are used
