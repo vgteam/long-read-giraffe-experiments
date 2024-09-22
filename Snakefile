@@ -569,7 +569,7 @@ def augmented_with_each(base_dict, new_key, possible_values):
     Yield copies of base_dict with each value from possible_values under new_key.
     """
 
-    for value in possible_values:
+    for value in sorted(possible_values):
         clone = dict(base_dict)
         clone[new_key] = value
         yield clone
@@ -1443,7 +1443,7 @@ rule stat_from_happy_summary:
         runtime=5,
         slurm_partition=choose_partition(5)
     run:
-        shell("cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].toUpper() + ",PASS' | cut -f{params.colnum} -d',' >{output.tsv}")
+        shell("cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].upper() + ",PASS' | cut -f{params.colnum} -d',' >{output.tsv}")
 
 rule compare_alignments:
     input:
