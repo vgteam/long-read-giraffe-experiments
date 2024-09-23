@@ -170,6 +170,19 @@ experiments:
         - refgraph: "primary"          
           mapper: "giraffe-k31.w50.W-hifi-default-noflags"
 
+  hifi_sim_regtest:
+    control:
+      subset: 10k
+      tech: hifi
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: sim
+      refgraph: hprc-v1.1-mc
+    vary:
+      mapper: ["giraffe-k31.w50.W-hifi-bd8ded-noflags", "giraffe-k31.w50.W-hifi-beec23-noflags"]
+
+
   hifi_speed:
     control:
       subset: 10k
