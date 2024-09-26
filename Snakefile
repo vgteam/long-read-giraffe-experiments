@@ -383,7 +383,10 @@ def graph_base(wildcards):
     if wildcards["refgraph"] == "hprc-v1.1-mc":
         return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"])
     elif wildcards["refgraph"] == "hprc-v1.1-mc-d9":
-        return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9")
+        if wildcards.get("mapper", "") == "graphaligner":
+            return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9.unchopped")
+        else:
+            return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9")
     else:
         return os.path.join(GRAPHS_DIR, wildcards["refgraph"] + "-" + wildcards["reference"])
 
@@ -392,6 +395,12 @@ def gbz(wildcards):
     Find a graph GBZ file from reference.
     """
     return graph_base(wildcards) + ".gbz"
+
+def hg(wildcards):
+    """
+    Find a graph hg file from reference.
+    """
+    return graph_base(wildcards) + ".hg"
 
 def gfa(wildcards):
     """
@@ -798,8 +807,6 @@ def get_vg_flags(wildcard_flag):
             return "--downsample-window-length 400"
         case "mqWindow":
             return "--mapq-score-scale 1 --mapq-score-window 150"
-        case "dp500000":
-            return "--max-dp-cells 500000"
         case "noflags":
             return ""
         case unknown:
@@ -1265,35 +1272,41 @@ rule graphaligner_sim_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gam="{root}/aligned/{reference}/{refgraph}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
-        realness="sim"
+        realness="sim",
+        mapper="graphaligner"
     threads: auto_mapping_threads
+    params:
+        mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
     resources:
         mem_mb=300000,
         runtime=1200,
         slurm_partition=choose_partition(1200)
     shell:
-        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam}"
+        "GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam}"
 
 rule graphaligner_real_reads:
     input:
         gfa=gfa,
         fastq=fastq
     output:
-        gam="{root}/aligned/{reference}/{refgraph}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    benchmark: "{root}/aligned/{reference}/{refgraph}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
-        realness="real"
+        realness="real",
+        mapper="graphaligner"
     threads: auto_mapping_threads
+    params:
+        mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
     resources:
         mem_mb=300000,
-        runtime=1200,
+        runtime=2400,
         slurm_partition=choose_partition(1200),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam}"
+        "GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam}"
 
 rule inject_bam:
     input:
@@ -1514,7 +1527,25 @@ rule annotate_alignments:
         slurm_partition=choose_partition(600)
     shell:
         "vg annotate -t16 -a {input.gam} -x {input.gbz} -m --search-limit=-1 >{output.gam}"
+
+#Since we're using the unchopped graph for graphaligner, use the unchopped hg to annotate instead of the gbz
+rule annotate_alignments_with_hg:
+    input:
+        hg=hg,
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output:
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    threads: 16
+    resources:
+        mem_mb=100000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "vg annotate -t16 -a {input.gam} -x {input.hg} -m --search-limit=-1 >{output.gam}"
+
 ruleorder: giraffe_sim_reads > annotate_alignments
+ruleorder: giraffe_sim_reads > annotate_alignments_with_hg
+ruleorder:  annotate_alignments > annotate_alignments_with_hg
 
 rule de_annotate_sim_alignments:
     input:
@@ -2143,6 +2174,7 @@ rule experiment_mapping_stats_real_tsv:
         printf "condition\tspeed_from_log(r/s)\tmemory_from_log(GB)\truntime_from_benchmark(min)\tmemory_from_benchmark(GB)\tsoftclips\n" >> {output.tsv} 
         cat {input} >>{output.tsv}
         """
+ruleorder: experiment_mapping_stats_real_tsv > experiment_stat_table
 
 #Get mapping stats from real and sim reads
 rule experiment_mapping_stats_tsv:
