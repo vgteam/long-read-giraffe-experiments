@@ -1800,7 +1800,7 @@ rule speed_from_log_bam:
         """
 rule speed_from_log_minigraph:
     input:
-        log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
     params:
@@ -1849,7 +1849,7 @@ rule memory_from_log_bam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(minimap2-.*|winnowmap|bwa|minigraph)"
+        mapper="(minimap2-.*|winnowmap|bwa)"
     threads: 1
     resources:
         mem_mb=200,
@@ -1857,6 +1857,25 @@ rule memory_from_log_bam:
         slurm_partition=choose_partition(5)
     shell:
         "echo \"{params.condition_name}\t$(cat {input.minimap2_log} | grep \"Peak RSS\" | sed \'s/.*Peak RSS: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
+
+rule memory_from_log_minigraph:
+    input:
+        log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="(minigraph)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"{params.condition_name}\t$(cat {input.log} | grep \"Peak RSS\" | sed \'s/.*Peak RSS: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
+
 
 #We need memory_from_log for all mappers but graphaligner doesn't have a log so make a dummy file
 rule memory_from_log_graphaligner:
@@ -2730,7 +2749,7 @@ rule softclips_by_name_gam:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(giraffe.*|graphaligner)"
+        mapper="(giraffe.*|graphaligner|minigraph)"
     threads: 5
     resources:
         mem_mb=2000,
