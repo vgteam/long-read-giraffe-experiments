@@ -1308,6 +1308,57 @@ rule graphaligner_real_reads:
     shell:
         "GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam}"
 
+rule minigraph_sim_reads:
+    input:
+        gfa=gfa,
+        fastq=fastq
+    output:
+        gaf="{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    wildcard_constraints:
+        realness="sim"
+    threads: auto_mapping_threads
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "minigraph -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
+
+rule minigraph_real_reads:
+    input:
+        gfa=gfa,
+        fastq=fastq
+    output:
+        gaf="{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    log: "{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    wildcard_constraints:
+        realness="real"
+    threads: auto_mapping_threads
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "minigraph -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
+
+rule gam_from_gaf:
+    input:
+        gbz=gbz,
+        gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    output:
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        mapper="(minigraph)"
+    threads: 64
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "vg convert --gaf-to-gam {input.gaf} {input.gbz}>{output.gam}"
+
+
 rule inject_bam:
     input:
         gbz=gbz,
@@ -1747,6 +1798,28 @@ rule speed_from_log_bam:
         startup_cpu_time_expr=$(cat {input.minimap2_log} | grep "loaded/built the index" | sed 's/.M::main::\([0-9]*\.[0-9]*\*[0-9]*\.[0-9]*\).*/\\1 /g')
         echo "{params.condition_name}\t$(echo "$mapped_count / ($total_cpu_time - $startup_cpu_time_expr)" | bc -l)" >{output.tsv}
         """
+rule speed_from_log_minigraph:
+    input:
+        log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="(minigraph)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        mapped_count=$(cat {input.log} | grep "mapped" | awk '{{sum+=$3}} END {{print sum}}')
+        total_cpu_time=$(cat {input.log} | grep "\\[M::main\\] Real time" | sed 's/.*CPU: \([0-9]*\.[0-9]*\) sec.*/\\1/g')
+        startup_cpu_time_expr=$(cat {input.log} | grep "indexed the graph" | sed 's/.M::mg_index::\([0-9]*\.[0-9]*\*[0-9]*\.[0-9]*\).*/\\1 /g')
+        echo "{params.condition_name}\t$(echo "$mapped_count / ($total_cpu_time - $startup_cpu_time_expr)" | bc -l)" >{output.tsv}
+        """
 #We need a speed_from_log.tsv file but graphaligner doesn't have a log so just make a dummy file
 rule speed_from_log_graphaligner:
     output:
@@ -1776,7 +1849,7 @@ rule memory_from_log_bam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(minimap2-.*|winnowmap|bwa)"
+        mapper="(minimap2-.*|winnowmap|bwa|minigraph)"
     threads: 1
     resources:
         mem_mb=200,
@@ -1992,7 +2065,7 @@ rule experiment_pr_plot_from_compared:
 
 rule experiment_speed_from_log_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"]))
     output:
         tsv="{root}/experiments/{expname}/results/speed_from_log.tsv"
     threads: 1
@@ -2018,7 +2091,7 @@ rule experiment_speed_from_log_plot:
 
 rule experiment_memory_from_log_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"]))
     output:
         tsv="{root}/experiments/{expname}/results/memory_from_log.tsv"
     threads: 1
@@ -2724,7 +2797,7 @@ rule memory_usage_gam:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_usage.tsv"
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.+|graphaligner)"
+        mapper="(giraffe.+|graphaligner|minigraph)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2784,7 +2857,7 @@ rule runtime_from_benchmark_gam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.*|graphaligner)"
+        mapper="(giraffe.*|graphaligner|minigraph)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2831,7 +2904,7 @@ rule memory_from_benchmark_gam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.*|graphaligner)"
+        mapper="(giraffe.*|graphaligner|minigraph)"
     threads: 1
     resources:
         mem_mb=1000,
