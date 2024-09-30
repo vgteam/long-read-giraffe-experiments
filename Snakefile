@@ -1281,7 +1281,7 @@ rule graphaligner_sim_reads:
         mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
     resources:
         mem_mb=300000,
-        runtime=1200,
+        runtime=3000,
         slurm_partition=choose_partition(1200)
     shell:
         "GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam}"
@@ -1342,21 +1342,56 @@ rule minigraph_real_reads:
     shell:
         "minigraph -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
 
+
+rule panaligner_sim_reads:
+    input:
+        gfa=gfa,
+        fastq=fastq
+    output:
+        gaf="{root}/aligned/{reference}/{refgraph}/panaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    wildcard_constraints:
+        realness="sim"
+    threads: auto_mapping_threads
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "PanAligner -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
+
+rule panaligner_real_reads:
+    input:
+        gfa=gfa,
+        fastq=fastq
+    output:
+        gaf="{root}/aligned/{reference}/{refgraph}/panaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/panaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    log: "{root}/aligned/{reference}/{refgraph}/panaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    wildcard_constraints:
+        realness="real"
+    threads: auto_mapping_threads
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "PanAligner -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
+
 rule gam_from_gaf:
     input:
-        gbz=gbz,
+        gfa=gfa,
         gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
     output:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
-        mapper="(minigraph)"
+        mapper="(minigraph|panaligner)"
     threads: 64
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg convert --gaf-to-gam {input.gaf} {input.gbz}>{output.gam}"
+        "vg convert --gaf-to-gam {input.gaf} {input.gfa} >{output.gam}"
 
 
 rule inject_bam:
@@ -1807,7 +1842,7 @@ rule speed_from_log_minigraph:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(minigraph)"
+        mapper="(minigraph|panaligner)"
     threads: 1
     resources:
         mem_mb=200,
@@ -1867,7 +1902,7 @@ rule memory_from_log_minigraph:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(minigraph)"
+        mapper="(minigraph|panaligner)"
     threads: 1
     resources:
         mem_mb=200,
@@ -2084,7 +2119,7 @@ rule experiment_pr_plot_from_compared:
 
 rule experiment_speed_from_log_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
     output:
         tsv="{root}/experiments/{expname}/results/speed_from_log.tsv"
     threads: 1
@@ -2110,7 +2145,7 @@ rule experiment_speed_from_log_plot:
 
 rule experiment_memory_from_log_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
     output:
         tsv="{root}/experiments/{expname}/results/memory_from_log.tsv"
     threads: 1
@@ -2749,7 +2784,7 @@ rule softclips_by_name_gam:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(giraffe.*|graphaligner|minigraph)"
+        mapper="(giraffe.*|graphaligner|minigraph|panaligner)"
     threads: 5
     resources:
         mem_mb=2000,
@@ -2772,6 +2807,8 @@ rule softclips_by_name_other:
         slurm_partition=choose_partition(60)
     shell:
         r"samtools view {input.bam} | cut -f1,2,6 | sed 's/\t\(\([0-9]*\)S\)\?\([0-9]*[IDMH]\|\*\)*\(\([0-9]*\)S\)\?$/\t\2\t\5/g' | sed 's/\t\t/\t0\t/g' | sed 's/\t$/\t0/g' | sed 's/16\t\([0-9]*\)\t\([0-9]*\)/\2\t\1/g' | sed 's/\t[0-9]\+\t\([0-9]*\t[0-9]*\)$/\t\1/g' > {output}"
+
+ruleorder: softclips_by_name_gam > softclips_by_name_other
 
 rule softclips:
     input:
@@ -2816,7 +2853,7 @@ rule memory_usage_gam:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_usage.tsv"
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.+|graphaligner|minigraph)"
+        mapper="(giraffe.+|graphaligner|minigraph|panaligner)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2824,7 +2861,7 @@ rule memory_usage_gam:
         slurm_partition=choose_partition(5)
     shell:
         # max_rss happens to be column 3, but try to check
-        "cat {input.bench} | cut -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
+        "cat {input.bench} | cut -d \"\\t\" -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
 
 rule memory_usage_sam:
     input:
@@ -2841,7 +2878,7 @@ rule memory_usage_sam:
         slurm_partition=choose_partition(5)
     shell:
         # max_rss happens to be column 3, but try to check
-        "cat {input.bench} | cut -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
+        "cat {input.bench} | cut -d \"\\t\" -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
 
 rule runtime_from_benchmark_bam:
     input:
@@ -2860,9 +2897,12 @@ rule runtime_from_benchmark_bam:
         slurm_partition=choose_partition(5)
     run:
         f = open(input.bench)
-        assert(f.readline().split()[1] == "h:m:s")
-        runtime_list = f.readline().split()[1].split(":")
-        runtime = (int(runtime_list[0]) * 60) + int(runtime_list[1]) + (int(runtime_list[2]) / 60)
+        assert(f.readline().split("\t")[1] == "h:m:s")
+        runtime_list = f.readline().split("\t")[1].split()
+        hms_list = rumtime_list[-1]
+        days = 0 if len(runtime_list) == 0 else int(runtime_list[0])
+        runtime = (int(hms_list[0]) * 60) + int(hms_list[1]) + (int(hms_list[2]) / 60)
+        runtime += 24 * 60 * days
         f.close()
 
         shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
@@ -2876,7 +2916,7 @@ rule runtime_from_benchmark_gam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.*|graphaligner|minigraph)"
+        mapper="(giraffe.*|graphaligner|minigraph|panaligner)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2884,9 +2924,12 @@ rule runtime_from_benchmark_gam:
         slurm_partition=choose_partition(5)
     run:
         f = open(input.bench)
-        assert(f.readline().split()[1] == "h:m:s")
-        runtime_list = f.readline().split()[1].split(":")
-        runtime = (int(runtime_list[0]) * 60) + int(runtime_list[1]) + (int(runtime_list[2]) / 60)
+        assert(f.readline().split("\t")[1] == "h:m:s")
+        runtime_list = f.readline().split("\t")[1].split()
+        hms_list = rumtime_list[-1]
+        days = 0 if len(runtime_list) == 0 else int(runtime_list[0])
+        runtime = (int(hms_list[0]) * 60) + int(hms_list[1]) + (int(hms_list[2]) / 60)
+        runtime += 24 * 60 * days
         f.close()
 
         shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
@@ -2908,8 +2951,8 @@ rule memory_from_benchmark_sam:
         slurm_partition=choose_partition(5)
     run:
         f = open(input.bench)
-        assert(f.readline().split()[2] == "max_rss")
-        memory = float(f.readline().split()[2]) / 1000
+        assert(f.readline().split("\t")[2] == "max_rss")
+        memory = float(f.readline().split("\t")[2]) / 1000
         f.close()
 
         shell("echo \"{params.condition_name}\t{memory}\" >{output.tsv}")
@@ -2923,7 +2966,7 @@ rule memory_from_benchmark_gam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.*|graphaligner|minigraph)"
+        mapper="(giraffe.*|graphaligner|minigraph|panaligner)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2931,8 +2974,8 @@ rule memory_from_benchmark_gam:
         slurm_partition=choose_partition(5)
     run:
         f = open(input.bench)
-        assert(f.readline().split()[2] == "max_rss")
-        memory = float(f.readline().split()[2]) / 1000
+        assert(f.readline().split("\t")[2] == "max_rss")
+        memory = float(f.readline().split("\t")[2]) / 1000
         f.close()
 
         shell("echo \"{params.condition_name}\t{memory}\" >{output.tsv}")
