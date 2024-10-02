@@ -136,6 +136,9 @@ SLURM_PARTITIONS = [
 
 # How many threads do we want mapping to use?
 MAPPER_THREADS=64
+# How many threads do we want to use for big mapping jobs?
+# Since we're using --exclusive anyways, just use all the threads available
+MAX_MAPPING_THREADS=254
 
 PARAM_SEARCH = parameter_search.ParameterSearch()
 
@@ -174,7 +177,9 @@ def auto_mapping_threads(wildcards):
     Choose the number of threads to use map reads, from subset.
     """
     number = subset_to_number(wildcards["subset"])
-    if number >= 100000:
+    if number >= 10000000:
+        return MAX_MAPPING_THREADS
+    elif number >= 100000:
         return MAPPER_THREADS
     elif number >= 10000:
         return 16
@@ -197,9 +202,7 @@ def auto_mapping_full_cluster_nodes(wildcards):
     TODO: Is this really used by Slurm?
     """
     number = subset_to_number(wildcards["subset"])
-    if number > 10000000:
-        return 0
-    elif EXCLUSIVE_TIMING:
+    if EXCLUSIVE_TIMING:
         return 1
     else:
         return 0
