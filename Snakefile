@@ -136,6 +136,9 @@ SLURM_PARTITIONS = [
 
 # How many threads do we want mapping to use?
 MAPPER_THREADS=64
+# How many threads do we want to use for big mapping jobs?
+# Since we're using --exclusive anyways, just use all the threads available
+MAX_MAPPING_THREADS=254
 
 PARAM_SEARCH = parameter_search.ParameterSearch()
 
@@ -156,7 +159,7 @@ wildcard_constraints:
     sample=".+(?<!\\.trimmed)",
     basename=".+(?<!\\.trimmed)",
     subset="([0-9]+[km]?|full)",
-    category="((not_)?(centromeric))?",
+    category="((not_)?(centromeric))?|",
     # We can restrict calling to a small region for testing
     region="(|chr21)",
     # We use this for an optional separating dot, so we can leave it out if we also leave the field empty
@@ -174,7 +177,9 @@ def auto_mapping_threads(wildcards):
     Choose the number of threads to use map reads, from subset.
     """
     number = subset_to_number(wildcards["subset"])
-    if number >= 100000:
+    if number >= 10000000:
+        return MAX_MAPPING_THREADS
+    elif number >= 100000:
         return MAPPER_THREADS
     elif number >= 10000:
         return 16
@@ -196,6 +201,7 @@ def auto_mapping_full_cluster_nodes(wildcards):
 
     TODO: Is this really used by Slurm?
     """
+    number = subset_to_number(wildcards["subset"])
     if EXCLUSIVE_TIMING:
         return 1
     else:
@@ -378,7 +384,12 @@ def graph_base(wildcards):
     Find the base name for a collection of graph files from reference.
     """
     if wildcards["refgraph"] == "hprc-v1.1-mc":
-        return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9")
+        return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"])
+    elif wildcards["refgraph"] == "hprc-v1.1-mc-d9":
+        if wildcards.get("mapper", "") == "graphaligner":
+            return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9.unchopped")
+        else:
+            return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9")
     else:
         return os.path.join(GRAPHS_DIR, wildcards["refgraph"] + "-" + wildcards["reference"])
 
@@ -387,6 +398,12 @@ def gbz(wildcards):
     Find a graph GBZ file from reference.
     """
     return graph_base(wildcards) + ".gbz"
+
+def hg(wildcards):
+    """
+    Find a graph hg file from reference.
+    """
+    return graph_base(wildcards) + ".hg"
 
 def gfa(wildcards):
     """
@@ -564,7 +581,7 @@ def augmented_with_each(base_dict, new_key, possible_values):
     Yield copies of base_dict with each value from possible_values under new_key.
     """
 
-    for value in possible_values:
+    for value in sorted(possible_values):
         clone = dict(base_dict)
         clone[new_key] = value
         yield clone
@@ -584,11 +601,12 @@ def augmented_with_all(base_dict, keys_and_values):
         first_values = keys_and_values[first_key]
         rest = dict(keys_and_values)
         del rest[first_key]
-        for with_rest in augmented_with_all(base_dict, rest):
-            # Augment with the rest
-            for with_first in augmented_with_each(with_rest, first_key, first_values):
-                # And augment with this key
-                yield with_first
+
+        for with_first in augmented_with_each(base_dict, first_key, first_values):
+            # Augment with this key
+            for with_rest in augmented_with_all(with_first, rest):
+                # And augment with the rest
+                yield with_rest
 
 def matches_constraint_value(query, value):
     """
@@ -672,6 +690,11 @@ def condition_name(wildcards):
     name_parts = []
 
     for varied_key in to_vary:
+
+        #Don't include realness
+        if varied_key == "realness":
+            continue
+
         # Look at the value we have for this varied variable
         condition_value = condition[varied_key]
         # And the other possible values that are used
@@ -781,6 +804,10 @@ def get_vg_flags(wildcard_flag):
             return "--explored-cap"
         case downsample_number if downsample_number[0:10] == "downsample":
             return "--downsample-min " + downsample_number[10:]
+        case "mapqscale":
+            return "--mapq-score-scale 0.01"
+        case "moreseeds":
+            return "--downsample-window-length 400"
         case "mqWindow":
             return "--mapq-score-scale 1 --mapq-score-window 150"
         case "noflags":
@@ -1248,35 +1275,127 @@ rule graphaligner_sim_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gam="{root}/aligned/{reference}/{refgraph}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
-        realness="sim"
+        realness="sim",
+        mapper="graphaligner"
     threads: auto_mapping_threads
+    params:
+        mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
     resources:
         mem_mb=300000,
-        runtime=1200,
+        runtime=3000,
         slurm_partition=choose_partition(1200)
     shell:
-        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.1 -a {output.gam}"
+        "GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam}"
 
 rule graphaligner_real_reads:
     input:
         gfa=gfa,
         fastq=fastq
     output:
-        gam="{root}/aligned/{reference}/{refgraph}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    benchmark: "{root}/aligned/{reference}/{refgraph}/graphaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    wildcard_constraints:
+        realness="real",
+        mapper="graphaligner"
+    threads: auto_mapping_threads
+    params:
+        mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
+    resources:
+        mem_mb=300000,
+        runtime=2400,
+        slurm_partition=choose_partition(1200),
+        slurm_extra=auto_mapping_slurm_extra,
+        full_cluster_nodes=auto_mapping_full_cluster_nodes
+    shell:
+        "GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam}"
+
+rule minigraph_sim_reads:
+    input:
+        gfa=gfa,
+        fastq=fastq
+    output:
+        gaf="{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    wildcard_constraints:
+        realness="sim"
+    threads: auto_mapping_threads
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "minigraph -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
+
+rule minigraph_real_reads:
+    input:
+        gfa=gfa,
+        fastq=fastq
+    output:
+        gaf="{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    log: "{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="real"
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
-        runtime=1200,
-        slurm_partition=choose_partition(1200),
-        slurm_extra=auto_mapping_slurm_extra,
-        full_cluster_nodes=auto_mapping_full_cluster_nodes
+        runtime=600,
+        slurm_partition=choose_partition(600)
     shell:
-        "GraphAligner -t {threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.1 -a {output.gam}"
+        "minigraph -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
+
+
+rule panaligner_sim_reads:
+    input:
+        gfa=gfa,
+        fastq=fastq
+    output:
+        gaf="{root}/aligned/{reference}/{refgraph}/panaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    wildcard_constraints:
+        realness="sim"
+    threads: auto_mapping_threads
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "PanAligner -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
+
+rule panaligner_real_reads:
+    input:
+        gfa=gfa,
+        fastq=fastq
+    output:
+        gaf="{root}/aligned/{reference}/{refgraph}/panaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/panaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    log: "{root}/aligned/{reference}/{refgraph}/panaligner/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    wildcard_constraints:
+        realness="real"
+    threads: auto_mapping_threads
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "PanAligner -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
+
+rule gam_from_gaf:
+    input:
+        gfa=gfa,
+        gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    output:
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        mapper="(minigraph|panaligner)"
+    threads: 64
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "vg convert --gaf-to-gam {input.gaf} {input.gfa} >{output.gam}"
+
 
 rule inject_bam:
     input:
@@ -1432,7 +1551,7 @@ rule stat_from_happy_summary:
         runtime=5,
         slurm_partition=choose_partition(5)
     run:
-        shell("cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].toUpper() + ",PASS' | cut -f{params.colnum} -d',' >{output.tsv}")
+        shell("cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].upper() + ",PASS' | cut -f{params.colnum} -d',' >{output.tsv}")
 
 rule compare_alignments:
     input:
@@ -1497,7 +1616,25 @@ rule annotate_alignments:
         slurm_partition=choose_partition(600)
     shell:
         "vg annotate -t16 -a {input.gam} -x {input.gbz} -m --search-limit=-1 >{output.gam}"
+
+#Since we're using the unchopped graph for graphaligner, use the unchopped hg to annotate instead of the gbz
+rule annotate_alignments_with_hg:
+    input:
+        hg=hg,
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output:
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    threads: 16
+    resources:
+        mem_mb=100000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "vg annotate -t16 -a {input.gam} -x {input.hg} -m --search-limit=-1 >{output.gam}"
+
 ruleorder: giraffe_sim_reads > annotate_alignments
+ruleorder: giraffe_sim_reads > annotate_alignments_with_hg
+ruleorder:  annotate_alignments > annotate_alignments_with_hg
 
 rule de_annotate_sim_alignments:
     input:
@@ -1584,6 +1721,21 @@ rule overall_fraction:
     shell:
         "echo \"$(cat {input.number}) / ($(wc -l {input.all_comparison} | cut -f1 -d' ') - 1)\" | bc -l >{output.tsv}"
 
+rule speed_from_log_giraffe_stats:
+    input:
+        giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+    wildcard_constraints:
+        realness="real",
+        mapper="giraffe.*"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"$(cat {input.giraffe_log} | grep \"reads per CPU-second\" | sed \'s/Achieved \([0-9]*\.[0-9]*\) reads per CPU-second.*/\\1/g\')\" >{output.tsv}"
 rule speed_from_log_giraffe:
     input:
         giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
@@ -1684,6 +1836,47 @@ rule speed_from_log_bam:
         startup_cpu_time_expr=$(cat {input.minimap2_log} | grep "loaded/built the index" | sed 's/.M::main::\([0-9]*\.[0-9]*\*[0-9]*\.[0-9]*\).*/\\1 /g')
         echo "{params.condition_name}\t$(echo "$mapped_count / ($total_cpu_time - $startup_cpu_time_expr)" | bc -l)" >{output.tsv}
         """
+rule speed_from_log_minigraph:
+    input:
+        log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="(minigraph|panaligner)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        mapped_count=$(cat {input.log} | grep "mapped" | awk '{{sum+=$3}} END {{print sum}}')
+        total_cpu_time=$(cat {input.log} | grep "\\[M::main\\] Real time" | sed 's/.*CPU: \([0-9]*\.[0-9]*\) sec.*/\\1/g')
+        startup_cpu_time_expr=$(cat {input.log} | grep "indexed the graph" | sed 's/.M::mg_index::\([0-9]*\.[0-9]*\*[0-9]*\.[0-9]*\).*/\\1 /g')
+        echo "{params.condition_name}\t$(echo "$mapped_count / ($total_cpu_time - $startup_cpu_time_expr)" | bc -l)" >{output.tsv}
+        """
+#We need a speed_from_log.tsv file but graphaligner doesn't have a log so just make a dummy file
+rule speed_from_log_graphaligner:
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="graphaligner"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        echo "{params.condition_name}\tNA" >{output.tsv}
+        """
+
 
 rule memory_from_log_bam:
     input:
@@ -1702,6 +1895,43 @@ rule memory_from_log_bam:
         slurm_partition=choose_partition(5)
     shell:
         "echo \"{params.condition_name}\t$(cat {input.minimap2_log} | grep \"Peak RSS\" | sed \'s/.*Peak RSS: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
+
+rule memory_from_log_minigraph:
+    input:
+        log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="(minigraph|panaligner)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"{params.condition_name}\t$(cat {input.log} | grep \"Peak RSS\" | sed \'s/.*Peak RSS: \([0-9]*\.[0-9]*\) GB.*/\\1/g\')\" >{output.tsv}"
+
+
+#We need memory_from_log for all mappers but graphaligner doesn't have a log so make a dummy file
+rule memory_from_log_graphaligner:
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="graphaligner"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "echo \"{params.condition_name}\tNA\" >{output.tsv}"
+
 
 
 # Some experiment stats can come straight from stats for the individual conditions
@@ -1892,7 +2122,7 @@ rule experiment_pr_plot_from_compared:
 
 rule experiment_speed_from_log_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
     output:
         tsv="{root}/experiments/{expname}/results/speed_from_log.tsv"
     threads: 1
@@ -1918,7 +2148,7 @@ rule experiment_speed_from_log_plot:
 
 rule experiment_memory_from_log_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
     output:
         tsv="{root}/experiments/{expname}/results/memory_from_log.tsv"
     threads: 1
@@ -2037,9 +2267,13 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         memory_from_log="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv",
         runtime_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv",
         memory_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv",
-        softclips="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv"
+        softclips="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv",
+        softclipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
+
     output:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv"
+    wildcard_constraints:
+        realness="real"
     params:
         condition_name=condition_name
     threads: 1
@@ -2049,7 +2283,7 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         slurm_partition=choose_partition(60)
     shell:
         """
-        echo "{params.condition_name}\t$(cat {input.speed_from_log} | cut -f 2)\t$(cat {input.memory_from_log} | cut -f 2)\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclips} | cut -f 2)" >>{output.tsv}
+        echo "{params.condition_name}\t$(cat {input.speed_from_log} | cut -f 2)\t$(cat {input.memory_from_log} | cut -f 2)\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclips} | cut -f 2)\t$(cat {input.softclipped_or_unmapped} | cut -f 2)" >>{output.tsv}
         """
 
 #Get the speed, memory use, and softclips from real reads
@@ -2058,6 +2292,8 @@ rule experiment_mapping_stats_real_tsv:
         lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv", lambda condition: condition["realness"] == "real")
     output:
         tsv="{root}/experiments/{expname}/results/mapping_stats_real.tsv"
+    wildcard_constraints:
+        realness="real"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2068,6 +2304,7 @@ rule experiment_mapping_stats_real_tsv:
         printf "condition\tspeed_from_log(r/s)\tmemory_from_log(GB)\truntime_from_benchmark(min)\tmemory_from_benchmark(GB)\tsoftclips\n" >> {output.tsv} 
         cat {input} >>{output.tsv}
         """
+ruleorder: experiment_mapping_stats_real_tsv > experiment_stat_table
 
 #Get mapping stats from real and sim reads
 rule experiment_mapping_stats_tsv:
@@ -2550,7 +2787,7 @@ rule softclips_by_name_gam:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(giraffe.*|graphaligner)"
+        mapper="(giraffe.*|graphaligner|minigraph|panaligner)"
     threads: 5
     resources:
         mem_mb=2000,
@@ -2573,6 +2810,8 @@ rule softclips_by_name_other:
         slurm_partition=choose_partition(60)
     shell:
         r"samtools view {input.bam} | cut -f1,2,6 | sed 's/\t\(\([0-9]*\)S\)\?\([0-9]*[IDMH]\|\*\)*\(\([0-9]*\)S\)\?$/\t\2\t\5/g' | sed 's/\t\t/\t0\t/g' | sed 's/\t$/\t0/g' | sed 's/16\t\([0-9]*\)\t\([0-9]*\)/\2\t\1/g' | sed 's/\t[0-9]\+\t\([0-9]*\t[0-9]*\)$/\t\1/g' > {output}"
+
+ruleorder: softclips_by_name_gam > softclips_by_name_other
 
 rule softclips:
     input:
@@ -2617,7 +2856,7 @@ rule memory_usage_gam:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_usage.tsv"
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.+|graphaligner)"
+        mapper="(giraffe.+|graphaligner|minigraph|panaligner)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2625,7 +2864,7 @@ rule memory_usage_gam:
         slurm_partition=choose_partition(5)
     shell:
         # max_rss happens to be column 3, but try to check
-        "cat {input.bench} | cut -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
+        "cat {input.bench} | cut -d \"\\t\" -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
 
 rule memory_usage_sam:
     input:
@@ -2642,7 +2881,7 @@ rule memory_usage_sam:
         slurm_partition=choose_partition(5)
     shell:
         # max_rss happens to be column 3, but try to check
-        "cat {input.bench} | cut -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
+        "cat {input.bench} | cut -d \"\\t\" -f3 | grep -A1 max_rss | tail -n1 >{output.tsv}"
 
 rule runtime_from_benchmark_bam:
     input:
@@ -2661,9 +2900,12 @@ rule runtime_from_benchmark_bam:
         slurm_partition=choose_partition(5)
     run:
         f = open(input.bench)
-        assert(f.readline().split()[1] == "h:m:s")
-        runtime_list = f.readline().split()[1].split(":")
-        runtime = (int(runtime_list[0]) * 60) + int(runtime_list[1]) + (int(runtime_list[2]) / 60)
+        assert(f.readline().split("\t")[1] == "h:m:s")
+        runtime_list = f.readline().split("\t")[1].split()
+        hms_list = runtime_list[-1]
+        days = 0 if len(runtime_list) == 0 else int(runtime_list[0])
+        runtime = (int(hms_list[0]) * 60) + int(hms_list[1]) + (int(hms_list[2]) / 60)
+        runtime += 24 * 60 * days
         f.close()
 
         shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
@@ -2677,7 +2919,7 @@ rule runtime_from_benchmark_gam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.*|graphaligner)"
+        mapper="(giraffe.*|graphaligner|minigraph|panaligner)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2685,9 +2927,12 @@ rule runtime_from_benchmark_gam:
         slurm_partition=choose_partition(5)
     run:
         f = open(input.bench)
-        assert(f.readline().split()[1] == "h:m:s")
-        runtime_list = f.readline().split()[1].split(":")
-        runtime = (int(runtime_list[0]) * 60) + int(runtime_list[1]) + (int(runtime_list[2]) / 60)
+        assert(f.readline().split("\t")[1] == "h:m:s")
+        runtime_list = f.readline().split("\t")[1].split()
+        hms_list = runtime_list[-1]
+        days = 0 if len(runtime_list) == 0 else int(runtime_list[0])
+        runtime = (int(hms_list[0]) * 60) + int(hms_list[1]) + (int(hms_list[2]) / 60)
+        runtime += 24 * 60 * days
         f.close()
 
         shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
@@ -2709,8 +2954,8 @@ rule memory_from_benchmark_sam:
         slurm_partition=choose_partition(5)
     run:
         f = open(input.bench)
-        assert(f.readline().split()[2] == "max_rss")
-        memory = float(f.readline().split()[2]) / 1000
+        assert(f.readline().split("\t")[2] == "max_rss")
+        memory = float(f.readline().split("\t")[2]) / 1000
         f.close()
 
         shell("echo \"{params.condition_name}\t{memory}\" >{output.tsv}")
@@ -2724,7 +2969,7 @@ rule memory_from_benchmark_gam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.*|graphaligner)"
+        mapper="(giraffe.*|graphaligner|minigraph|panaligner)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2732,8 +2977,8 @@ rule memory_from_benchmark_gam:
         slurm_partition=choose_partition(5)
     run:
         f = open(input.bench)
-        assert(f.readline().split()[2] == "max_rss")
-        memory = float(f.readline().split()[2]) / 1000
+        assert(f.readline().split("\t")[2] == "max_rss")
+        memory = float(f.readline().split("\t")[2]) / 1000
         f.close()
 
         shell("echo \"{params.condition_name}\t{memory}\" >{output.tsv}")
@@ -2755,7 +3000,8 @@ rule mean_stat:
         for line in open(input[0]):
             line = line.strip()
             if line:
-                total += float(line)
+                if line != "null":
+                    total += float(line)
                 count += 1
         with open(output[0], "w") as f:
             f.write(f"{total/count}\n")
@@ -3090,8 +3336,10 @@ rule mapping_accuracy:
 rule parameter_search_mapping_stats:
     input:
         times = lambda w: param_search_tsvs(w, "time_used.mean"),
+        speed_log = lambda w: param_search_tsvs(w, "speed_from_log"),
         memory = lambda w: param_search_tsvs(w, "memory_from_log"),
         softclips = lambda w : param_search_tsvs(w, "softclips.mean"),
+        unmapped = lambda w : param_search_tsvs(w, "softclipped_or_unmapped"),
         mapping_accuracy = expand("{{root}}/stats/{{reference}}/{{refgraph}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_accuracy.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
         outfile="{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
@@ -3103,8 +3351,9 @@ rule parameter_search_mapping_stats:
         slurm_partition=choose_partition(100)
     run:
         f = open(output.outfile, "w")
-        f.write("#correct\tmapq60\twrong_mapq60\tsoftclips\tspeed(r/s/t)\tmemory(GB)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
-        for param_hash, stats_file, times_file, memory_file, softclips_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_accuracy, input.times, input.memory, input.softclips):
+        f.write("#correct\tmapq60\twrong_mapq60\tsoftclips\tsoftclipped_or_unmapped\tspeed(r/s/t)\tspeed_from_log\tmemory(GB)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
+        for param_hash, stats_file, times_file, speed_file, memory_file, softclips_file, unmapped_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_accuracy, input.times, input.speed_log, input.memory, input.softclips, input.unmapped):
+
 
             param_f = open(stats_file)
             l = param_f.readline().split()
@@ -3118,10 +3367,20 @@ rule parameter_search_mapping_stats:
             softclips = l[0]
             softclips_f.close()
 
+            unmapped_f = open(unmapped_file)
+            l = unmapped_f.readline().split()
+            unmapped = l[0]
+            unmapped_f.close()
+
             time_f = open(times_file)
             l = time_f.readline().split()
             speed = str(1/float(l[0]))
             time_f.close()
+
+            speed_f = open(speed_file)
+            l = speed_f.readline().split()
+            log_speed=l[0]
+            speed_f.close()
 
             memory_f = open(memory_file)
             l = memory_f.readline().split()
@@ -3129,7 +3388,7 @@ rule parameter_search_mapping_stats:
             memory_f.close()
 
             parameters = PARAM_SEARCH.hash_to_parameters[param_hash]
-            f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + softclips + "\t" + speed + "\t" + memory + "\t" + '\t'.join([str(x) for x in parameters])) 
+            f.write("\n" + correct_count + "\t" + mapq60_count + "\t" + wrong_mapq60_count + "\t" + softclips + "\t" + unmapped + "\t" + speed + "\t" + log_speed + "\t" + memory + "\t" + '\t'.join([str(x) for x in parameters])) 
         f.close()
 
 rule plot_correct_speed_vs_parameter:
@@ -3147,7 +3406,8 @@ rule plot_correct_speed_vs_parameter:
         header = infile.readline().split()
         parameter_col = str(header.index(wildcards.parameter)+1) 
         infile.close()
-        shell("cat <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $5}}' | sed 's/^/RPS /g') <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $1}}' | sed 's/^/Correct /g') | ./scatter.py --title 'Speed vs Correctness vs " + wildcards.parameter + "' --x_label " + wildcards.parameter + "  --y_per_category --categories 'RPS' 'Correct' --y_label 'Reads per Second' 'Reads Correct' --legend_overlay 'best' --save {output.plot} /dev/stdin")
+        shell("cat <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $6}}' | sed 's/^/RPS /g') <(cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $1}}' | sed 's/^/Correct /g') | ./scatter.py --title 'Speed vs Correctness vs " + wildcards.parameter + "' --x_label " + wildcards.parameter + "  --y_per_category --categories 'RPS' 'Correct' --y_label 'Reads per Second' 'Reads Correct' --legend_overlay 'best' --save {output.plot} /dev/stdin")
+
 
 rule parameter_search_stat:
     input:
