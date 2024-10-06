@@ -137,8 +137,6 @@ SLURM_PARTITIONS = [
 # How many threads do we want mapping to use?
 MAPPER_THREADS=64
 # How many threads do we want to use for big mapping jobs?
-# Since we're using --exclusive anyways, just use all the threads available
-MAX_MAPPING_THREADS=254
 
 PARAM_SEARCH = parameter_search.ParameterSearch()
 
@@ -177,9 +175,7 @@ def auto_mapping_threads(wildcards):
     Choose the number of threads to use map reads, from subset.
     """
     number = subset_to_number(wildcards["subset"])
-    if number >= 10000000:
-        return MAX_MAPPING_THREADS
-    elif number >= 100000:
+    if elif number >= 100000:
         return MAPPER_THREADS
     elif number >= 10000:
         return 16
@@ -1305,7 +1301,7 @@ rule graphaligner_real_reads:
         mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
     resources:
         mem_mb=300000,
-        runtime=2400,
+        runtime=3000,
         slurm_partition=choose_partition(1200),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
