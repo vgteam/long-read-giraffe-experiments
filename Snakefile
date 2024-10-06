@@ -1098,7 +1098,7 @@ rule winnowmap_sim_reads:
     params:
         mode=minimap_derivative_mode,
     output:
-        sam="{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+        sam=temp("{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     log:"{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim"
@@ -1122,7 +1122,7 @@ rule winnowmap_real_reads:
     params:
         mode=minimap_derivative_mode,
     output:
-        sam="{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+        sam=temp("{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     log:"{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     benchmark: "{root}/aligned-secsup/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
@@ -1160,7 +1160,7 @@ rule minimap2_sim_reads:
         minimap2_index=minimap2_index,
         fastq=fastq
     output:
-        sam="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+        sam=temp("{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     log:"{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim"
@@ -1177,7 +1177,7 @@ rule minimap2_real_reads:
         minimap2_index=minimap2_index,
         fastq=fastq
     output:
-        sam="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+        sam=temp("{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     benchmark: "{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     log: "{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
@@ -1218,7 +1218,7 @@ rule bwa_sim_reads:
         reference_fasta=reference_fasta,
         fastq=fastq
     output:
-        sam="{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+        sam=temp("{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     log:"{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim",
@@ -1236,7 +1236,7 @@ rule bwa_real_reads:
         reference_fasta=reference_fasta,
         fastq=fastq
     output:
-        sam="{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
+        sam=temp("{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     benchmark: "{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     log: "{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
