@@ -1326,7 +1326,7 @@ rule minigraph_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minigraph -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
+        "minigraph --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
 
 rule minigraph_real_reads:
     input:
@@ -1344,7 +1344,7 @@ rule minigraph_real_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minigraph -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
+        "minigraph --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
 
 
 rule panaligner_sim_reads:
@@ -1361,7 +1361,7 @@ rule panaligner_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "PanAligner -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
+        "PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
 
 rule panaligner_real_reads:
     input:
@@ -1379,7 +1379,7 @@ rule panaligner_real_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "PanAligner -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
+        "PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
 
 rule gam_from_gaf:
     input:
@@ -1389,13 +1389,13 @@ rule gam_from_gaf:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         mapper="(minigraph|panaligner)"
-    threads: 64
+    threads: 16
     resources:
-        mem_mb=300000,
-        runtime=600,
-        slurm_partition=choose_partition(600)
+        mem_mb=100000,
+        runtime=800,
+        slurm_partition=choose_partition(800)
     shell:
-        "vg convert --gaf-to-gam {input.gaf} {input.gfa} >{output.gam}"
+        "vg convert -t {threads} --gaf-to-gam {input.gaf} {input.gfa} >{output.gam}"
 
 rule remove_duplicate_reads:
     input:
