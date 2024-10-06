@@ -2915,8 +2915,8 @@ rule runtime_from_benchmark_bam:
         f = open(input.bench)
         assert(f.readline().split("\t")[1] == "h:m:s")
         runtime_list = f.readline().split("\t")[1].split()
-        hms_list = runtime_list[-1]
-        days = 0 if len(runtime_list) == 0 else int(runtime_list[0])
+        hms_list = runtime_list[-1].split(":")
+        days = 0 if len(runtime_list) == 1 else int(runtime_list[0])
         runtime = (int(hms_list[0]) * 60) + int(hms_list[1]) + (int(hms_list[2]) / 60)
         runtime += 24 * 60 * days
         f.close()
@@ -2942,8 +2942,8 @@ rule runtime_from_benchmark_gam:
         f = open(input.bench)
         assert(f.readline().split("\t")[1] == "h:m:s")
         runtime_list = f.readline().split("\t")[1].split()
-        hms_list = runtime_list[-1]
-        days = 0 if len(runtime_list) == 0 else int(runtime_list[0])
+        hms_list = runtime_list[-1].split(":")
+        days = 0 if len(runtime_list) == 1 else int(runtime_list[0])
         runtime = (int(hms_list[0]) * 60) + int(hms_list[1]) + (int(hms_list[2]) / 60)
         runtime += 24 * 60 * days
         f.close()
