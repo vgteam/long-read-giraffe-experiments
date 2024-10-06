@@ -175,7 +175,7 @@ def auto_mapping_threads(wildcards):
     Choose the number of threads to use map reads, from subset.
     """
     number = subset_to_number(wildcards["subset"])
-    if elif number >= 100000:
+    if number >= 100000:
         return MAPPER_THREADS
     elif number >= 10000:
         return 16
@@ -1281,7 +1281,7 @@ rule graphaligner_sim_reads:
     resources:
         mem_mb=300000,
         runtime=3000,
-        slurm_partition=choose_partition(1200)
+        slurm_partition=choose_partition(3000)
     shell:
         "GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam}"
 
@@ -1302,7 +1302,7 @@ rule graphaligner_real_reads:
     resources:
         mem_mb=300000,
         runtime=3000,
-        slurm_partition=choose_partition(1200),
+        slurm_partition=choose_partition(3000),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
