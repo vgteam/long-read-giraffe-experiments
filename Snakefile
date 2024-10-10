@@ -1379,7 +1379,7 @@ rule panaligner_real_reads:
 
 rule gam_from_gaf:
     input:
-        gfa=gfa,
+        hg=hg,
         gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
     output:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
@@ -1391,7 +1391,7 @@ rule gam_from_gaf:
         runtime=800,
         slurm_partition=choose_partition(800)
     shell:
-        "vg convert -t {threads} --gaf-to-gam {input.gaf} {input.gfa} >{output.gam}"
+        "vg convert -t {threads} --gaf-to-gam {input.gaf} {input.hg} >{output.gam}"
 
 rule remove_duplicate_reads:
     input:
