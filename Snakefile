@@ -1404,7 +1404,7 @@ rule remove_duplicate_reads:
         runtime=1600,
         slurm_partition=choose_partition(1600)
     shell:
-        "vg view -aj {input.gam} | python3 remove_duplicates_alignments.py | vg view -aGJ - > {output.gam}"
+        "vg view -aj {input.gam} | python3 remove_duplicate_alignments.py | vg view -aGJ - > {output.gam}"
 
 rule inject_bam:
     input:
