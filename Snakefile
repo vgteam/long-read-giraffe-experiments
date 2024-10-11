@@ -1322,7 +1322,7 @@ rule minigraph_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minigraph --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
+        "minigraph --vc -N 0 -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
 
 rule minigraph_real_reads:
     input:
@@ -1340,7 +1340,7 @@ rule minigraph_real_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minigraph --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
+        "minigraph --vc -N 0 -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
 
 
 rule panaligner_sim_reads:
