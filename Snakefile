@@ -1388,8 +1388,8 @@ rule gam_from_gaf:
     threads: 16
     resources:
         mem_mb=100000,
-        runtime=800,
-        slurm_partition=choose_partition(800)
+        runtime=300,
+        slurm_partition=choose_partition(300)
     shell:
         "vg convert -t {threads} --gaf-to-gam {input.gaf} {input.hg} >{output.gam}"
 
@@ -1401,8 +1401,8 @@ rule remove_duplicate_reads:
     threads: 2
     resources:
         mem_mb=30000,
-        runtime=300,
-        slurm_partition=choose_partition(300)
+        runtime=1600,
+        slurm_partition=choose_partition(1600)
     shell:
         "vg view -aj {input.gam} | python3 remove_duplicates_alignments.py | vg view -aGJ - > {output.gam}"
 
