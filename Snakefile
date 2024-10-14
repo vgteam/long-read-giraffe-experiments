@@ -1166,7 +1166,7 @@ rule minimap2_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minimap2 -t {threads} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
+        "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
 
 rule minimap2_real_reads:
     input:
@@ -1186,7 +1186,7 @@ rule minimap2_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "minimap2 -t {threads} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
+        "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
 
 
 #TODO this doesn't have an output file and bwa doesn't take the index as an input so idk how to include it
@@ -1322,7 +1322,7 @@ rule minigraph_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minigraph --vc -N 0 -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
+        "minigraph --vc --secondary=no -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
 
 rule minigraph_real_reads:
     input:
@@ -1340,7 +1340,7 @@ rule minigraph_real_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minigraph --vc -N 0 -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
+        "minigraph --vc --secondary=no -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
 
 
 rule panaligner_sim_reads:
