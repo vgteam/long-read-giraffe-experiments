@@ -2129,6 +2129,19 @@ rule experiment_pr_plot_from_compared:
     shell:
         "Rscript plot-pr.R {input.tsv} {output}"
 
+rule experiment_roc_plot_from_compared:
+    input:
+        tsv="{root}/experiments/{expname}/results/compared.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/roc.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        "Rscript plot-roc.R {input.tsv} {output}"
+
 rule experiment_speed_from_log_tsv:
     input:
         lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
