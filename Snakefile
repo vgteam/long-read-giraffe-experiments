@@ -1271,7 +1271,7 @@ rule graphaligner_sim_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.raw.gam"
+        gam="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim",
         mapper="graphaligner"
@@ -1291,7 +1291,7 @@ rule graphaligner_real_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.raw.gam"
+        gam="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real",
@@ -1409,9 +1409,9 @@ rule gam_to_gaf:
     shell:
         "vg convert -t {threads} --gam-to-gaf {input.gam} {input.hg} >{output.gaf}"
 
-rule remove_duplicate_reads:
+rule select_first_duplicate_read_gam:
     input:
-        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.raw.gam"
+        gam="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     output:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     threads: 2
@@ -1420,7 +1420,7 @@ rule remove_duplicate_reads:
         runtime=1600,
         slurm_partition=choose_partition(1600)
     shell:
-        "vg view -aj {input.gam} | python3 remove_duplicate_alignments.py | vg view -aGJ - > {output.gam}"
+        "vg view -aj {input.gam} | python3 select_first_gam.py | vg view -aGJ - > {output.gam}"
 
 rule inject_bam:
     input:
