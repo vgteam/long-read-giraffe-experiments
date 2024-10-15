@@ -1377,7 +1377,7 @@ rule panaligner_real_reads:
     shell:
         "PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
 
-rule gam_from_gaf:
+rule gaf_to_gam:
     input:
         hg=hg,
         gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
@@ -1392,6 +1392,22 @@ rule gam_from_gaf:
         slurm_partition=choose_partition(300)
     shell:
         "vg convert -t {threads} --gaf-to-gam {input.gaf} {input.hg} >{output.gam}"
+
+rule gam_to_gaf:
+    input:
+        hg=hg,
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output:
+        gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    wildcard_constraints:
+        mapper="(graphaligner)"
+    threads: 16
+    resources:
+        mem_mb=100000,
+        runtime=300,
+        slurm_partition=choose_partition(300)
+    shell:
+        "vg convert -t {threads} --gam-to-gaf {input.gam} {input.hg} >{output.gaf}"
 
 rule remove_duplicate_reads:
     input:
@@ -2809,7 +2825,7 @@ rule softclips_by_name_gam:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(giraffe.*|graphaligner|minigraph|panaligner)"
+        mapper="(giraffe.*)"
     threads: 5
     resources:
         mem_mb=2000,
@@ -2817,6 +2833,22 @@ rule softclips_by_name_gam:
         slurm_partition=choose_partition(60)
     shell:
         "vg filter -t {threads} -T \"name;softclip_start;softclip_end\" {input.gam} | grep -v \"#\" > {output}"
+
+rule softclips_by_name_gaf:
+    input:
+        gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf",
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
+    wildcard_constraints:
+        mapper="(graphaligner|minigraph|panaligner)"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "awk -v OFS='\t' '{{print $1, $3, $2-$4}}' {input.gaf} > {output}"
+
 
 rule softclips_by_name_other:
     input:
