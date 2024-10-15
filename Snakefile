@@ -2857,7 +2857,7 @@ rule softclips_by_name_gaf:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(graphaligner|minigraph|panaligner)"
+        mapper="(minigraph|panaligner)"
     threads: 5
     resources:
         mem_mb=2000,
@@ -2866,6 +2866,50 @@ rule softclips_by_name_gaf:
     shell:
         "awk -v OFS='\t' '{{print $1, $3, $2-$4}}' {input.gaf} > {output}"
 
+rule softclips_by_name_and_length_by_mapping_graphaligner:
+    input:
+        fastq=fastq,
+        gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf",
+    output:
+        softclipped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
+        mapping="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
+    wildcard_constraints:
+        mapper="(graphaligner)"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    run:
+        read_to_length = dict()
+        with open(input.fastq) as read_file:
+            name = ""
+            for line in readfile:
+                if l[0] == "@":
+                    name = l[0][1:]
+                elif name != "": 
+                    read_to_len[name] = len(l)
+                    name = ""
+                else:
+                    name = ""
+
+        with open (output.mapping, 'w') as out_mapping:
+            with open(input.gaf) as mapped_file:
+                with open(output.softclipped, 'w') as out_softclipped:
+                    for line in mapped_file:
+                        length = int(line.split()[1])
+                        name = line.split()[0]
+                        softclipped = read_to_length[name] - length
+
+                        out_softclipped.write(name + "\t" + str(softclipped))
+                        out_mapping.write("mapped\t" + str(length))
+
+                        read_to_length.pop(name)
+            for name, length in read_to_length.items():
+                out_mapping.write("unmapped\t" + str(length));
+
+ruleorder: softclips_by_name_and_length_by_mapping_graphaligner > length_by_mapping
+ruleorder: softclips_by_name_and_length_by_mapping_graphaligner > softclips_by_name_gam
 
 rule softclips_by_name_other:
     input:
