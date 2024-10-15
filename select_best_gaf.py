@@ -22,8 +22,7 @@ for line in sys.stdin:
         best_length = length
         best_line = line
     else:
-        if mapq > best_mapq or
-           (mapq == best_mapq and length > best_length):
+        if mapq > best_mapq or (mapq == best_mapq and length > best_length):
             best_mapq = mapq
             best_length = length
             best_line = line 

@@ -1313,7 +1313,7 @@ rule minigraph_sim_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gaf="{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+        gaf="{root}/aligned-secsup/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
     wildcard_constraints:
         realness="sim"
     threads: auto_mapping_threads
@@ -1329,7 +1329,7 @@ rule minigraph_real_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gaf="{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+        gaf="{root}/aligned-secsup/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
     benchmark: "{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     log: "{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
@@ -1437,7 +1437,7 @@ rule select_best_duplicate_read_gaf:
         runtime=1600,
         slurm_partition=choose_partition(1600)
     shell:
-        "python3 select_best_gaf.py > {output.gaf}"
+        "cat {input.gaf} | python3 select_best_gaf.py > {output.gaf}"
 
 rule inject_bam:
     input:
