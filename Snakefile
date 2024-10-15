@@ -1414,6 +1414,8 @@ rule select_first_duplicate_read_gam:
         gam="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     output:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        mapper="(graphaligner)"
     threads: 2
     resources:
         mem_mb=30000,
@@ -1421,6 +1423,21 @@ rule select_first_duplicate_read_gam:
         slurm_partition=choose_partition(1600)
     shell:
         "vg view -aj {input.gam} | python3 select_first_gam.py | vg view -aGJ - > {output.gam}"
+
+rule select_best_duplicate_read_gaf:
+    input:
+        gaf="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    output:
+        gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    wildcard_constraints:
+        mapper="(minigraph)"
+    threads: 2
+    resources:
+        mem_mb=30000,
+        runtime=1600,
+        slurm_partition=choose_partition(1600)
+    shell:
+        "python3 select_best_gaf.py > {output.gaf}"
 
 rule inject_bam:
     input:
