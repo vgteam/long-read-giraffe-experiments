@@ -2808,14 +2808,14 @@ rule length_by_name:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg filter -t {threads} -T \"name;length\" {input.gam} >{output}"
+        "vg filter -t {threads} -T \"name;length\" {input.gam} | grep -v \"#\" >{output}"
 
 rule length_by_mapping:
     input:
         fastq=fastq,
         lengths="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"
     output:
-        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
     threads: 2
     resources:
         mem_mb=16000,
@@ -2828,16 +2828,16 @@ rule length_by_mapping:
                 mapped_names.add(line.split()[0])
 
         with open(input.fastq) as read_file:
-            with open(output) as out_file:
+            with open(output.tsv, "w") as out_file:
                 name = ""
                 for line in read_file:
                     if line.split()[0][0] == "@":
                         name = line.split()[0][1:]
                     elif name != "": 
                         if name in mapped_names:
-                            out_file.write("mapped\t"+len(line)+"\n")
+                            out_file.write("mapped\t"+str(len(line))+"\n")
                         else:
-                            out_file.write("mapped\t"+len(line)+"\n")
+                            out_file.write("unmapped\t"+str(len(line))+"\n")
                         name = ""
                     else:
                         name = ""
@@ -2919,14 +2919,14 @@ rule softclips_by_name_graphaligner:
                 if line.split()[0][0] == "@":
                     name = line.split()[0][1:]
                 elif name != "": 
-                    read_to_len[name] = len(line)
+                    read_to_length[name] = len(line)
                     name = ""
                 else:
                     name = ""
 
         with open(input.lengths) as mapped_lengths:
             with open(output.softclipped, 'w') as out_softclipped:
-                for line in mapped_file:
+                for line in mapped_lengths:
                     length = int(line.split()[1])
                     name = line.split()[0]
                     softclipped = read_to_length[name] - length
