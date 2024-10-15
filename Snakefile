@@ -2874,7 +2874,7 @@ rule softclips_by_name_gam:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(graphaligner|giraffe.*)"
+        mapper="(minigraph|graphaligner|giraffe.*)"
     threads: 5
     resources:
         mem_mb=2000,
@@ -2883,20 +2883,6 @@ rule softclips_by_name_gam:
     shell:
         "vg filter -t {threads} -T \"name;softclip_start;softclip_end\" {input.gam} | grep -v \"#\" > {output}"
 
-rule softclips_by_name_gaf:
-    input:
-        gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf",
-    output:
-        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
-    wildcard_constraints:
-        mapper="(minigraph|panaligner)"
-    threads: 5
-    resources:
-        mem_mb=2000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
-    shell:
-        "awk -v OFS='\t' '{{print $1, $3, $2-$4}}' {input.gaf} > {output}"
 
 #Graphaligner doesn't always map the entire read. This outputs a tsv of the read name and the number of bases that didn't get put in the final alignment
 rule unmapped_ends_by_name:
