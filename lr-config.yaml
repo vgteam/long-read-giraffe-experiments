@@ -75,6 +75,7 @@
 # "vary" section (to run them through a list of values).
 
 #graphs_dir: "/private/groups/patenlab/xhchang/graphs/lr_giraffe_graphs"
+#reads_dir: "/private/groups/patenlab/xhchang/reads"
 real_slurm_extra: "--exclude=phoenix-[00-10,22-24]"
 exclusive_timing: true
 
@@ -138,15 +139,18 @@ experiments:
       sample: HG002
     vary:
       realness: ["sim", "real"]
-      mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50-r10-default-noflags"]
-      refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled-HG002-r10", "primary"]
+      mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner", "minigraph", "giraffe-k31.w50.W-r10-839e93-noflags"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.0-minigraph", "primary"]
     constrain:
+        - refgraph: "hprc-v1.1-mc-d9"
+          mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "hprc-v1.1-mc"
-          mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-r10-default-noflags"]
-        - refgraph: "hprc-v1.1-mc-sampled-HG002-r10"
-          mapper: "giraffe-k31.w50-r10-default-noflags"
+          mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "primary"
-          mapper: "giraffe-k31.w50.W-r10-default-noflags"
+          mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
+        - refgraph: "hprc-v1.0-minigraph"
+          mapper: ["minigraph", "graphaligner"]
+
 
   #This is used to test different mappers on hifi reads
   #Add vg versions with `-commit` instead of `-default`, and make sure the binary
@@ -160,15 +164,18 @@ experiments:
       sample: HG002
     vary:
       realness: ["sim", "real"]
-      mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50-hifi-default-noflags"]
-      refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled-HG002-hifi", "primary"]
+      mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner", "minigraph", "giraffe-k31.w50.W-hifi-839e93-noflags"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.0-minigraph", "primary"]
     constrain:
+        - refgraph: "hprc-v1.1-mc-d9"
+          mapper: ["minimap2-map-hifi", "winnowmap", "graphaligner", "giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "hprc-v1.1-mc"
-          mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-hifi-default-noflags"]
-        - refgraph: "hprc-v1.1-mc-sampled-HG002-hifi"          
-          mapper: "giraffe-k31.w50-hifi-default-noflags"
-        - refgraph: "primary"          
-          mapper: "giraffe-k31.w50.W-hifi-default-noflags"
+          mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
+        - refgraph: "primary"
+          mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
+        - refgraph: "hprc-v1.0-minigraph"
+          mapper: ["minigraph", "graphaligner"]
+
 
   hifi_sim_regtest:
     control:
