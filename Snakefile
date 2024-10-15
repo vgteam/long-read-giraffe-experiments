@@ -2901,12 +2901,12 @@ rule softclips_by_name_and_length_by_mapping_graphaligner:
                         name = line.split()[0]
                         softclipped = read_to_length[name] - length
 
-                        out_softclipped.write(name + "\t" + str(softclipped) + "\t0")
-                        out_mapping.write("mapped\t" + str(length))
+                        out_softclipped.write(name + "\t" + str(softclipped) + "\t0\n")
+                        out_mapping.write("mapped\t" + str(length)+"\n")
 
                         read_to_length.pop(name)
             for name, length in read_to_length.items():
-                out_mapping.write("unmapped\t" + str(length));
+                out_mapping.write("unmapped\t" + str(length)+"\n");
 
 ruleorder: softclips_by_name_and_length_by_mapping_graphaligner > length_by_mapping
 ruleorder: softclips_by_name_and_length_by_mapping_graphaligner > softclips_by_name_gam
