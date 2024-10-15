@@ -2901,7 +2901,7 @@ rule softclips_by_name_and_length_by_mapping_graphaligner:
                         name = line.split()[0]
                         softclipped = read_to_length[name] - length
 
-                        out_softclipped.write(name + "\t" + str(softclipped))
+                        out_softclipped.write(name + "\t" + str(softclipped) + "\t0")
                         out_mapping.write("mapped\t" + str(length))
 
                         read_to_length.pop(name)
@@ -2927,6 +2927,7 @@ rule softclips_by_name_other:
         r"samtools view {input.bam} | cut -f1,2,6 | sed 's/\t\(\([0-9]*\)S\)\?\([0-9]*[IDMH]\|\*\)*\(\([0-9]*\)S\)\?$/\t\2\t\5/g' | sed 's/\t\t/\t0\t/g' | sed 's/\t$/\t0/g' | sed 's/16\t\([0-9]*\)\t\([0-9]*\)/\2\t\1/g' | sed 's/\t[0-9]\+\t\([0-9]*\t[0-9]*\)$/\t\1/g' > {output}"
 
 ruleorder: softclips_by_name_gam > softclips_by_name_other
+ruleorder: softclips_by_name_and_length_by_mapping_graphaligner > softclips_by_name_other
 
 rule softclips:
     input:
