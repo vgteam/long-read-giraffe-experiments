@@ -2874,7 +2874,7 @@ rule softclips_by_name_gam:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(giraffe.*)"
+        mapper="(graphaligner|giraffe.*)"
     threads: 5
     resources:
         mem_mb=2000,
@@ -2898,14 +2898,13 @@ rule softclips_by_name_gaf:
     shell:
         "awk -v OFS='\t' '{{print $1, $3, $2-$4}}' {input.gaf} > {output}"
 
-rule softclips_by_name_graphaligner:
+#Graphaligner doesn't always map the entire read. This outputs a tsv of the read name and the number of bases that didn't get put in the final alignment
+rule unmapped_ends_by_name:
     input:
         fastq=fastq,
         lengths="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"
     output:
-        softclipped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv",
-    wildcard_constraints:
-        mapper="(graphaligner)"
+        unmapped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends_by_name.tsv",
     threads: 5
     resources:
         mem_mb=2000,
@@ -2925,17 +2924,14 @@ rule softclips_by_name_graphaligner:
                     name = ""
 
         with open(input.lengths) as mapped_lengths:
-            with open(output.softclipped, 'w') as out_softclipped:
+            with open(output.unmapped, 'w') as outfile:
                 for line in mapped_lengths:
                     length = int(line.split()[1])
                     name = line.split()[0]
-                    softclipped = read_to_length[name] - length
+                    unmapped = read_to_length[name] - length
 
-                    out_softclipped.write(name + "\t" + str(softclipped) + "\t0\n")
+                    outfile.write(name + "\t" + str(unmapped) + "\t0\n")
 
-                    read_to_length.pop(name)
-
-ruleorder: softclips_by_name_graphaligner > softclips_by_name_gam
 
 rule softclips_by_name_other:
     input:
@@ -2953,7 +2949,6 @@ rule softclips_by_name_other:
         r"samtools view {input.bam} | cut -f1,2,6 | sed 's/\t\(\([0-9]*\)S\)\?\([0-9]*[IDMH]\|\*\)*\(\([0-9]*\)S\)\?$/\t\2\t\5/g' | sed 's/\t\t/\t0\t/g' | sed 's/\t$/\t0/g' | sed 's/16\t\([0-9]*\)\t\([0-9]*\)/\2\t\1/g' | sed 's/\t[0-9]\+\t\([0-9]*\t[0-9]*\)$/\t\1/g' > {output}"
 
 ruleorder: softclips_by_name_gam > softclips_by_name_other
-ruleorder: softclips_by_name_graphaligner > softclips_by_name_other
 
 rule softclips:
     input:
@@ -2968,10 +2963,24 @@ rule softclips:
     shell:
         r"sed 's/^.*\t\([0-9]*\)\t\([0-9]*\)$/\1\n\2/' {input} > {output}"
 
+rule unmapped_ends:
+    input:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends_by_name.tsv"
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends.tsv"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        r"sed 's/^.*\t\([0-9]*\)$/\1/' {input} > {output}"
+
 rule softclipped_or_unmapped:
     input:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.total.tsv",
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_length.total.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends.total.tsv"
     output:
          "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
     threads: 1
