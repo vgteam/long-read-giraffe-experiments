@@ -2884,11 +2884,11 @@ rule softclips_by_name_and_length_by_mapping_graphaligner:
         read_to_length = dict()
         with open(input.fastq) as read_file:
             name = ""
-            for line in readfile:
-                if l[0] == "@":
-                    name = l[0][1:]
+            for line in read_file:
+                if line.split()[0][0] == "@":
+                    name = line.split()[0][1:]
                 elif name != "": 
-                    read_to_len[name] = len(l)
+                    read_to_len[name] = len(line)
                     name = ""
                 else:
                     name = ""
