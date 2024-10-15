@@ -2797,9 +2797,23 @@ rule length:
     shell:
         "vg filter -t {threads} -T \"length\" {input.gam} >{output}"
 
+rule length_by_name:
+    input:
+        gam="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t {threads} -T \"name;length\" {input.gam} >{output}"
+
 rule length_by_mapping:
     input:
-        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        fastq=fastq,
+        lengths="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
     threads: 2
@@ -2807,8 +2821,26 @@ rule length_by_mapping:
         mem_mb=16000,
         runtime=60,
         slurm_partition=choose_partition(60)
-    shell:
-        "vg filter --only-mapped {input.gam} -T length | {{ grep -v '^#' || test $? = 1; }} | sed 's/^/mapped\t/' >{output} && vg filter --only-mapped --complement {input.gam} -T length | {{ grep -v '^#' || test $? = 1; }} | sed 's/^/unmapped\t/' >>{output}"
+    run:
+        mapped_names = set()
+        with open(input.lengths) as in_file:
+            for line in in_file:
+                mapped_names.add(line.split()[0])
+
+        with open(input.fastq) as read_file:
+            with open(output) as out_file:
+                name = ""
+                for line in read_file:
+                    if line.split()[0][0] == "@":
+                        name = line.split()[0][1:]
+                    elif name != "": 
+                        if name in mapped_names:
+                            out_file.write("mapped\t"+len(line)+"\n")
+                        else:
+                            out_file.write("mapped\t"+len(line)+"\n")
+                        name = ""
+                    else:
+                        name = ""
 
 rule unmapped_length:
     input:
@@ -2866,13 +2898,12 @@ rule softclips_by_name_gaf:
     shell:
         "awk -v OFS='\t' '{{print $1, $3, $2-$4}}' {input.gaf} > {output}"
 
-rule softclips_by_name_and_length_by_mapping_graphaligner:
+rule softclips_by_name_graphaligner:
     input:
         fastq=fastq,
-        gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf",
+        lengths="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"
     output:
         softclipped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv",
-        mapping="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
     wildcard_constraints:
         mapper="(graphaligner)"
     threads: 5
@@ -2893,23 +2924,18 @@ rule softclips_by_name_and_length_by_mapping_graphaligner:
                 else:
                     name = ""
 
-        with open (output.mapping, 'w') as out_mapping:
-            with open(input.gaf) as mapped_file:
-                with open(output.softclipped, 'w') as out_softclipped:
-                    for line in mapped_file:
-                        length = int(line.split()[1])
-                        name = line.split()[0]
-                        softclipped = read_to_length[name] - length
+        with open(input.lengths) as mapped_lengths:
+            with open(output.softclipped, 'w') as out_softclipped:
+                for line in mapped_file:
+                    length = int(line.split()[1])
+                    name = line.split()[0]
+                    softclipped = read_to_length[name] - length
 
-                        out_softclipped.write(name + "\t" + str(softclipped) + "\t0\n")
-                        out_mapping.write("mapped\t" + str(length)+"\n")
+                    out_softclipped.write(name + "\t" + str(softclipped) + "\t0\n")
 
-                        read_to_length.pop(name)
-            for name, length in read_to_length.items():
-                out_mapping.write("unmapped\t" + str(length)+"\n");
+                    read_to_length.pop(name)
 
-ruleorder: softclips_by_name_and_length_by_mapping_graphaligner > length_by_mapping
-ruleorder: softclips_by_name_and_length_by_mapping_graphaligner > softclips_by_name_gam
+ruleorder: softclips_by_name_graphaligner > softclips_by_name_gam
 
 rule softclips_by_name_other:
     input:
@@ -2927,7 +2953,7 @@ rule softclips_by_name_other:
         r"samtools view {input.bam} | cut -f1,2,6 | sed 's/\t\(\([0-9]*\)S\)\?\([0-9]*[IDMH]\|\*\)*\(\([0-9]*\)S\)\?$/\t\2\t\5/g' | sed 's/\t\t/\t0\t/g' | sed 's/\t$/\t0/g' | sed 's/16\t\([0-9]*\)\t\([0-9]*\)/\2\t\1/g' | sed 's/\t[0-9]\+\t\([0-9]*\t[0-9]*\)$/\t\1/g' > {output}"
 
 ruleorder: softclips_by_name_gam > softclips_by_name_other
-ruleorder: softclips_by_name_and_length_by_mapping_graphaligner > softclips_by_name_other
+ruleorder: softclips_by_name_graphaligner > softclips_by_name_other
 
 rule softclips:
     input:
