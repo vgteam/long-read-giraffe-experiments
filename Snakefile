@@ -2385,12 +2385,16 @@ rule experiment_run_and_index_time_slow_plot:
             for line in in_file:
                 runtimes.append(float(line.split()[1]))
 
-        runtimes.sort()
 
-        biggest_gap_index = max(enumerate([runtimes[i+1]-runtimes[i] for i in range(len(runtimes)-1)]), key = lambda x : x[1] )[0]
-        min_big = runtimes[biggest_gap_index+1]
+        iqr = np.percentile(runtimes, 75) - np.percentile(runtimes, 25)
+        cutoff = np.percentile(runtimes, 75) + (1.5 * iqr)
+        bigs = list(filter(lambda x : x > cutoff, runtimes))
 
-        shell("python3 barchart.py {input.runtime} --min " + str(min_big) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+        lower_limit = min(bigs) * 0.80
+
+
+        shell("python3 barchart.py {input.runtime} --min " + str(lower_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+
 
 
 #Plot only the fast runtimes- the bottom part of the bar plot
@@ -2410,14 +2414,13 @@ rule experiment_run_and_index_time_fast_plot:
         with open(input.runtime) as in_file:
             for line in in_file:
                 runtimes.append(float(line.split()[1]))
+        iqr = np.percentile(runtimes, 75) - np.percentile(runtimes, 25)
+        cutoff = np.percentile(runtimes, 75) + (1.5 * iqr)
+        smalls = list(filter(lambda x : x <= cutoff, runtimes))
 
-        runtimes.sort()
+        upper_limit = max(smalls) * 1.1
 
-        biggest_gap_index = max(enumerate([runtimes[i+1]-runtimes[i] for i in range(len(runtimes)-1)]), key = lambda x : x[1] )[0]
-        max_small = runtimes[biggest_gap_index]
-
-        shell("python3 barchart.py {input.runtime} --max " + str(max_small) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
-
+        shell("python3 barchart.py {input.runtime} --max " + str(upper_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
 
 
 rule experiment_memory_from_benchmark_tsv:
