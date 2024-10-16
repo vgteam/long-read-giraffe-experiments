@@ -1985,7 +1985,7 @@ rule index_load_time_from_log_giraffe:
     input:
         giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
@@ -2007,7 +2007,7 @@ rule index_load_time_from_log_bam:
     input:
         minimap2_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
@@ -2027,7 +2027,7 @@ rule index_load_time_from_log_minigraph:
     input:
         log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
@@ -2047,7 +2047,7 @@ rule index_load_time_from_log_minigraph:
 #a dummy file for the index load time since graphaligner doesn't have a log
 rule index_load_time_from_log_graphaligner:
     output:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
@@ -2055,7 +2055,7 @@ rule index_load_time_from_log_graphaligner:
         mapper="graphaligner"
     threads: 1
     resources:
-        mem_mb=20,
+        mem_mb=200,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
@@ -2342,7 +2342,7 @@ rule experiment_runtime_from_benchmark_plot:
 
 rule experiment_index_load_time_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv", lambda condition: condition["realness"] == "real")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv", lambda condition: condition["realness"] == "real")
     output:
         tsv="{root}/experiments/{expname}/results/index_load_time.tsv"
     threads: 1
@@ -2355,7 +2355,7 @@ rule experiment_index_load_time_tsv:
 
 rule experiment_run_and_index_time_plot:
     input:
-        runtime=rules.experiment_runtime_from_benchmark_time_tsv.output.tsv,
+        runtime=rules.experiment_runtime_from_benchmark_tsv.output.tsv,
         index_time=rules.experiment_index_load_time_tsv.output.tsv
     output:
         "{root}/experiments/{expname}/plots/run_and_index_time.{ext}"
