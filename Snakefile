@@ -1985,7 +1985,7 @@ rule index_load_time_from_log_giraffe:
     input:
         giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
@@ -2007,7 +2007,7 @@ rule index_load_time_from_log_bam:
     input:
         minimap2_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
@@ -2027,7 +2027,7 @@ rule index_load_time_from_log_minigraph:
     input:
         log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
@@ -2047,7 +2047,7 @@ rule index_load_time_from_log_minigraph:
 #a dummy file for the index load time since graphaligner doesn't have a log
 rule index_load_time_from_log_graphaligner:
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
@@ -2339,6 +2339,34 @@ rule experiment_runtime_from_benchmark_plot:
         slurm_partition=choose_partition(30)
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Runtime From Benchmark' --y_label 'Runtime (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+
+rule experiment_index_load_time_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv", lambda condition: condition["realness"] == "real")
+    output:
+        tsv="{root}/experiments/{expname}/results/index_load_time.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input} >>{output.tsv}"
+
+rule experiment_run_and_index_time_plot:
+    input:
+        runtime=rules.experiment_runtime_from_benchmark_time_tsv.output.tsv
+        index_time=rules.experiment_index_load_time_tsv.output.tsv
+    output:
+        "{root}/experiments/{expname}/plots/run_and_index_time.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        "python3 stacked_barchart.py {input.runtime} --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'T (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+
 
 rule experiment_memory_from_benchmark_tsv:
     input:
