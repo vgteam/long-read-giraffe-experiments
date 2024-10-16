@@ -2367,6 +2367,58 @@ rule experiment_run_and_index_time_plot:
     shell:
         "python3 barchart.py {input.runtime} --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
 
+#Plot only the slow runtimes- the top part of the bar plot
+rule experiment_run_and_index_time_slow_plot:
+    input:
+        runtime=rules.experiment_runtime_from_benchmark_tsv.output.tsv,
+        index_time=rules.experiment_index_load_time_tsv.output.tsv
+    output:
+        "{root}/experiments/{expname}/plots/run_and_index_slow_time.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    run:
+        runtimes = []
+        with open(input.runtime) as in_file:
+            for line in in_file:
+                runtimes.append(int(line.split()[1]))
+
+        runtimes.sort()
+
+        biggest_gap_index = max(enumerate([runtimes[i+1]-runtimes[i] for i in range(len(runtimes)-1)]), key = lambda x : x[1] )[0]
+        min_big = runtimes[biggest_gap_index+1]
+
+        shell("python3 barchart.py {input.runtime} --min " + str(min_big) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+
+
+#Plot only the fast runtimes- the bottom part of the bar plot
+rule experiment_run_and_index_time_fast_plot:
+    input:
+        runtime=rules.experiment_runtime_from_benchmark_tsv.output.tsv,
+        index_time=rules.experiment_index_load_time_tsv.output.tsv
+    output:
+        "{root}/experiments/{expname}/plots/run_and_index_fast_time.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    run:
+        runtimes = []
+        with open(input.runtime) as in_file:
+            for line in in_file:
+                runtimes.append(int(line.split()[1]))
+
+        runtimes.sort()
+
+        biggest_gap_index = max(enumerate([runtimes[i+1]-runtimes[i] for i in range(len(runtimes)-1)]), key = lambda x : x[1] )[0]
+        max_small = runtimes[biggest_gap_index]
+
+        shell("python3 barchart.py {input.runtime} --max " + str(max_small) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+
+
 
 rule experiment_memory_from_benchmark_tsv:
     input:
