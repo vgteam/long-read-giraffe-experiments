@@ -2355,7 +2355,7 @@ rule experiment_index_load_time_tsv:
 
 rule experiment_run_and_index_time_plot:
     input:
-        runtime=rules.experiment_runtime_from_benchmark_time_tsv.output.tsv
+        runtime=rules.experiment_runtime_from_benchmark_time_tsv.output.tsv,
         index_time=rules.experiment_index_load_time_tsv.output.tsv
     output:
         "{root}/experiments/{expname}/plots/run_and_index_time.{ext}"
