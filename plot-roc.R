@@ -126,13 +126,15 @@ range.log10 <- min.log10 : max.log10
 range.unlogged = 10^range.log10
 
 dat.plot <- ggplot(dat.roc, aes( x= FPR, y = TPR, color = aligner, label=mq)) +
-    geom_line() + geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
+    geom_line()
+    #+ geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
     geom_point(aes(size=Positive+Negative)) +
     scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
     scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
     scale_x_log10(limits=c(range.unlogged[1],range.unlogged[length(range.unlogged)]), breaks=range.unlogged, oob=squish) +
     geom_vline(xintercept=1/total.reads) + # vertical line at one wrong read
     theme_bw() + 
+    theme(legend.position=c(1,0), legend.justification=c(1,0)) +
     ggtitle(title)
     
 if (title != '') {
@@ -141,4 +143,7 @@ if (title != '') {
 }
     
 filename <- commandArgs(TRUE)[2]
-ggsave(filename, height=4, width=7)
+pdf(filename, 4.5, 4)
+dat.plot + guides(color="none", size="none")
+dat.plot
+dev.off()

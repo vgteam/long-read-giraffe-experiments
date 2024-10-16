@@ -2240,7 +2240,7 @@ rule experiment_pr_plot_from_compared:
     input:
         tsv="{root}/experiments/{expname}/results/compared.tsv"
     output:
-        "{root}/experiments/{expname}/plots/pr.{ext}"
+        "{root}/experiments/{expname}/plots/pr.pdf"
     threads: 1
     resources:
         mem_mb=10000,
