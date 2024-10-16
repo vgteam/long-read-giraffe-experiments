@@ -2365,7 +2365,7 @@ rule experiment_run_and_index_time_plot:
         runtime=30,
         slurm_partition=choose_partition(30)
     shell:
-        "python3 stacked_barchart.py {input.runtime} --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.runtime} --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
 
 
 rule experiment_memory_from_benchmark_tsv:
