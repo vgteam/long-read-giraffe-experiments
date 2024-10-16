@@ -3086,7 +3086,7 @@ rule unmapped_ends_by_name:
                     name = line.split()[0]
                     unmapped = read_to_length[name] - length
 
-                    outfile.write(name + "\t" + str(unmapped) + "\t0\n")
+                    outfile.write(name + "\t" + str(unmapped) + "\n")
 
 
 rule softclips_by_name_other:
