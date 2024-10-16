@@ -166,13 +166,13 @@ def main(args):
     
     for category, value in categories.items():
         
-        if options.min is not None and value < options.min:
-            # Throw out values that are too small (like 0s for log_y)
-            continue
-            
-        if options.max is not None and value > options.max:
-            # Throw out values that are too large
-            continue
+        #if options.min is not None and value < options.min:
+        #    # Throw out values that are too small (like 0s for log_y)
+        #    continue
+        #    
+        #if options.max is not None and value > options.max:
+        #    # Throw out values that are too large
+        #    continue
             
         # If the total value in a category passes the test, keep it
         categories_filtered[category] = value
