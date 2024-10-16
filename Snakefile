@@ -1778,6 +1778,7 @@ rule speed_from_log_giraffe_stats:
         slurm_partition=choose_partition(5)
     shell:
         "echo \"$(cat {input.giraffe_log} | grep \"reads per CPU-second\" | sed \'s/Achieved \([0-9]*\.[0-9]*\) reads per CPU-second.*/\\1/g\')\" >{output.tsv}"
+
 rule speed_from_log_giraffe:
     input:
         giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
@@ -1878,6 +1879,8 @@ rule speed_from_log_bam:
         startup_cpu_time_expr=$(cat {input.minimap2_log} | grep "loaded/built the index" | sed 's/.M::main::\([0-9]*\.[0-9]*\*[0-9]*\.[0-9]*\).*/\\1 /g')
         echo "{params.condition_name}\t$(echo "$mapped_count / ($total_cpu_time - $startup_cpu_time_expr)" | bc -l)" >{output.tsv}
         """
+
+
 rule speed_from_log_minigraph:
     input:
         log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
@@ -1900,6 +1903,7 @@ rule speed_from_log_minigraph:
         startup_cpu_time_expr=$(cat {input.log} | grep "indexed the graph" | sed 's/.M::mg_index::\([0-9]*\.[0-9]*\*[0-9]*\.[0-9]*\).*/\\1 /g')
         echo "{params.condition_name}\t$(echo "$mapped_count / ($total_cpu_time - $startup_cpu_time_expr)" | bc -l)" >{output.tsv}
         """
+
 #We need a speed_from_log.tsv file but graphaligner doesn't have a log so just make a dummy file
 rule speed_from_log_graphaligner:
     output:
@@ -1911,14 +1915,13 @@ rule speed_from_log_graphaligner:
         mapper="graphaligner"
     threads: 1
     resources:
-        mem_mb=200,
+        mem_mb=20,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
         """
         echo "{params.condition_name}\tNA" >{output.tsv}
         """
-
 
 rule memory_from_log_bam:
     input:
@@ -1975,6 +1978,89 @@ rule memory_from_log_graphaligner:
         "echo \"{params.condition_name}\tNA\" >{output.tsv}"
 
 
+#output tsv of:
+#condition name, index load time in minutes
+rule index_load_time_from_log_giraffe:
+    input:
+        giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="giraffe.*"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        index_sec=$(cat {input.giraffe_log} | grep "Loading and initialization" | sed 's/Loading and initialization: \([0-9]*\.[0-9]*\) second.*/\\1/g')
+        echo \"{params.condition_name}\t$(echo "$index_sec / 60" | bc -l)\" >{output.tsv}
+        """
+
+#Index load time in minutes
+rule index_load_time_from_log_bam:
+    input:
+        minimap2_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="(minimap2-.*|winnowmap)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        startup_cpu_time_expr=$(cat {input.minimap2_log} | grep "loaded/built the index" | sed 's/.M::main::\([0-9]*\.[0-9]*\*[0-9]*\.[0-9]*\).*/\\1 /g')
+        echo "{params.condition_name}\t$(echo "($startup_cpu_time_expr) / 60" | bc -l)" >{output.tsv}
+        """
+rule index_load_time_from_log_minigraph:
+    input:
+        log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="(minigraph|panaligner)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        startup_cpu_time_expr=$(cat {input.log} | grep "indexed the graph" | sed 's/.M::mg_index::\([0-9]*\.[0-9]*\*[0-9]*\.[0-9]*\).*/\\1 /g')
+        echo "{params.condition_name}\t$(echo "($startup_cpu_time_expr) / 60" | bc -l)" >{output.tsv}
+        """
+
+#a dummy file for the index load time since graphaligner doesn't have a log
+rule index_load_time_from_log_graphaligner:
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="graphaligner"
+    threads: 1
+    resources:
+        mem_mb=20,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        echo "{params.condition_name}\t0" >{output.tsv}
+        """
 
 # Some experiment stats can come straight from stats for the individual conditions
 rule condition_experiment_stat:
