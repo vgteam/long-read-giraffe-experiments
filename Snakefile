@@ -2383,7 +2383,7 @@ rule experiment_run_and_index_time_slow_plot:
         runtimes = []
         with open(input.runtime) as in_file:
             for line in in_file:
-                runtimes.append(int(line.split()[1]))
+                runtimes.append(float(line.split()[1]))
 
         runtimes.sort()
 
@@ -2409,7 +2409,7 @@ rule experiment_run_and_index_time_fast_plot:
         runtimes = []
         with open(input.runtime) as in_file:
             for line in in_file:
-                runtimes.append(int(line.split()[1]))
+                runtimes.append(float(line.split()[1]))
 
         runtimes.sort()
 
