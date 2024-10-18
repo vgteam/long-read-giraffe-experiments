@@ -176,12 +176,21 @@ def auto_mapping_threads(wildcards):
     Choose the number of threads to use map reads, from subset.
     """
     number = subset_to_number(wildcards["subset"])
+    mapping_threads = 0
     if number >= 100000:
-        return MAPPER_THREADS
+        mapping_threads= MAPPER_THREADS
     elif number >= 10000:
-        return 16
+        mapping_threads= 16
     else:
-        return 8
+        mapping_threads= 8
+
+    if wildcards["realness"] == "sim" and wildcards["mapper"] == "graphaligner":
+        #Graphaligner is really slow so for simulated reads where we don't care about time
+        #double the number of threads
+        #At most the number of cores on the phoenix nodes
+        return min(mapping_threads * 2, 254) 
+    else:
+        return mapping_threads
 
 def auto_mapping_slurm_extra(wildcards):
     """
