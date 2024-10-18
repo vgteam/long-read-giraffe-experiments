@@ -7,6 +7,7 @@ import parameter_search
 import functools
 import tempfile
 import os
+import numpy as np
 
 # Set a default config file. This can be overridden with --configfile.
 # See the config file for how to define experiments.
