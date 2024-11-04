@@ -1926,7 +1926,7 @@ rule speed_from_log_graphaligner:
         mapper="graphaligner"
     threads: 1
     resources:
-        mem_mb=20,
+        mem_mb=200,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
@@ -3011,7 +3011,7 @@ rule length_by_mapping:
             with open(output.tsv, "w") as out_file:
                 name = ""
                 for line in read_file:
-                    if line.split()[0][0] == "@":
+                    if (not line == "") and line[0] == "@":
                         name = line.split()[0][1:]
                     elif name != "": 
                         if name in mapped_names:
@@ -3081,7 +3081,7 @@ rule unmapped_ends_by_name:
         with open(input.fastq) as read_file:
             name = ""
             for line in read_file:
-                if line.split()[0][0] == "@":
+                if (not line == "") and line[0] == "@":
                     name = line.split()[0][1:]
                 elif name != "": 
                     read_to_length[name] = len(line)
