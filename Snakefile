@@ -822,6 +822,13 @@ def get_vg_flags(wildcard_flag):
             #otherwise this is a hash and we get the flags from ParameterSearch
             return PARAM_SEARCH.hash_to_parameter_string(wildcard_flag)
 
+def get_graphaligner_flags(wildcard_flag):
+    match wildcard_flag:
+        case "default":
+            return "-x vg --multimap-score-fraction 1.0"
+        case "fast":
+            return "--seeds-mxm-length 30 --seeds-mem-count 10000 --bandwidth 15 --multimap-score-fraction 0.99 --precise-clipping 0.85 --min-alignment-score 100 --clip-ambiguous-ends 100 --overlap-incompatible-cutoff 0.15 --max-trace-count 5 --mem-index-no-wavelet-tree"
+
 def get_vg_version(wildcard_vgversion):
     if wildcard_vgversion == "default":
         return "vg"
@@ -1281,7 +1288,7 @@ rule graphaligner_sim_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gam="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim",
         mapper="graphaligner"
@@ -1292,8 +1299,9 @@ rule graphaligner_sim_reads:
         mem_mb=300000,
         runtime=3000,
         slurm_partition=choose_partition(3000)
-    shell:
-        "GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam}"
+    run:
+        flags=get_graphaligner_flags(wildcards.graphalignerflag)
+        shell("GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} " + flags + " -a {output.gam}")
 
 
 rule graphaligner_real_reads:
@@ -1301,9 +1309,9 @@ rule graphaligner_real_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gam="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
-    log: "{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        gam="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    log: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="real",
         mapper="graphaligner"
@@ -1316,8 +1324,9 @@ rule graphaligner_real_reads:
         slurm_partition=choose_partition(3000),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
-    shell:
-        "GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam} 2> {log}"
+    run:
+        flags=get_graphaligner_flags(wildcards.graphalignerflag)
+        shell("GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} " + flags + " -a {output.gam} 2> {log}")
 
 rule minigraph_sim_reads:
     input:
