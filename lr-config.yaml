@@ -138,17 +138,17 @@ experiments:
       sample: HG002
       realness: real
     vary:
-      mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner", "minigraph", "giraffe-k31.w50.W-r10-839e93-noflags"]
+      mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "minigraph", "giraffe-k31.w50.W-r10-839e93-noflags"]
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
-          mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-r10-839e93-noflags"]
+          mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "hprc-v1.1-mc"
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "hprc-v1.0-minigraph"
-          mapper: ["minigraph", "graphaligner"]
+          mapper: ["minigraph", "graphaligner-default"]
 
   r10_test_sim:
     control:
@@ -159,17 +159,17 @@ experiments:
       sample: HG002
       realness: sim
     vary:
-      mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner", "minigraph", "giraffe-k31.w50.W-r10-839e93-noflags"]
+      mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "minigraph", "giraffe-k31.w50.W-r10-839e93-noflags"]
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
-          mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner", "giraffe-k31.w50.W-r10-839e93-noflags"]
+          mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "hprc-v1.1-mc"
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "hprc-v1.0-minigraph"
-          mapper: ["minigraph", "graphaligner"]
+          mapper: ["minigraph", "graphaligner-default"]
 
 
   #This is used to test different mappers on hifi reads
@@ -184,17 +184,17 @@ experiments:
       sample: HG002
       realness: real
     vary:
-      mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner", "minigraph", "giraffe-k31.w50.W-hifi-839e93-noflags"]
+      mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "minigraph", "giraffe-k31.w50.W-hifi-839e93-noflags"]
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
-          mapper: ["minimap2-map-hifi", "winnowmap", "graphaligner", "giraffe-k31.w50.W-hifi-839e93-noflags"]
+          mapper: ["minimap2-map-hifi", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "hprc-v1.1-mc"
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "hprc-v1.0-minigraph"
-          mapper: ["minigraph", "graphaligner"]
+          mapper: ["minigraph", "graphaligner-default"]
   hifi_test_sim:
     control:
       subset: 1m
@@ -204,17 +204,17 @@ experiments:
       sample: HG002
       realness: sim
     vary:
-      mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner", "minigraph", "giraffe-k31.w50.W-hifi-839e93-noflags"]
+      mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "minigraph", "giraffe-k31.w50.W-hifi-839e93-noflags"]
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
-          mapper: ["minimap2-map-hifi", "winnowmap", "graphaligner", "giraffe-k31.w50.W-hifi-839e93-noflags"]
+          mapper: ["minimap2-map-hifi", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "hprc-v1.1-mc"
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "hprc-v1.0-minigraph"
-          mapper: ["minigraph", "graphaligner"]
+          mapper: ["minigraph", "graphaligner-default"]
 
 
   hifi_sim_regtest:
@@ -252,7 +252,7 @@ experiments:
       realness: sim
       refgraph: hprc-v1.1-mc
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "graphaligner", "minimap2-lr:hq", "winnowmap"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "graphaligner-default", "minimap2-lr:hq", "winnowmap"]
 
   r10_sim_present:
     control:
@@ -264,7 +264,7 @@ experiments:
       realness: sim
       refgraph: hprc-v1.1-mc
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "graphaligner", "minimap2-map-ont", "winnowmap"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "graphaligner-default", "minimap2-map-ont", "winnowmap"]
 
   hifi_real_present:
     control:
@@ -276,7 +276,7 @@ experiments:
       realness: real
       refgraph: hprc-v1.1-mc
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "graphaligner", "minimap2-lr:hq"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "graphaligner-default", "minimap2-lr:hq"]
 
   r10_real_present:
     control:
@@ -288,7 +288,7 @@ experiments:
       realness: real
       refgraph: hprc-v1.1-mc
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "graphaligner", "minimap2-map-ont"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "graphaligner-default", "minimap2-map-ont"]
 
 
   hifi_big_table:
