@@ -390,7 +390,10 @@ def graph_base(wildcards):
     Find the base name for a collection of graph files from reference.
     """
     if wildcards["refgraph"] == "hprc-v1.1-mc":
-        return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"])
+        if wildcards.get("mapper", "") == "graphaligner":
+            return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".unchopped")
+        else:
+            return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"])
     elif wildcards["refgraph"] == "hprc-v1.1-mc-d9":
         if wildcards.get("mapper", "") == "graphaligner":
             return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9.unchopped")
