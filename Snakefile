@@ -2409,10 +2409,11 @@ rule experiment_run_and_index_time_slow_plot:
         cutoff = np.percentile(runtimes, 75) + (1.5 * iqr)
         bigs = list(filter(lambda x : x > cutoff, runtimes))
 
-        lower_limit = min(bigs) * 0.80
+        if not len(bigs) == 0:
 
+            lower_limit = min(bigs) * 0.80
 
-        shell("python3 barchart.py {input.runtime} --min " + str(lower_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+            shell("python3 barchart.py {input.runtime} --min " + str(lower_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
 
 
 
@@ -2437,9 +2438,12 @@ rule experiment_run_and_index_time_fast_plot:
         cutoff = np.percentile(runtimes, 75) + (1.5 * iqr)
         smalls = list(filter(lambda x : x <= cutoff, runtimes))
 
-        upper_limit = max(smalls) * 1.1
 
-        shell("python3 barchart.py {input.runtime} --max " + str(upper_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+        if not len(smalls) == 0:
+
+            upper_limit = max(smalls) * 1.1
+
+            shell("python3 barchart.py {input.runtime} --max " + str(upper_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
 
 
 rule experiment_memory_from_benchmark_tsv:
