@@ -381,7 +381,7 @@ def truth_bed_url(wildcards):
 
 def graph_base(wildcards):
     """
-    Find the base name for a collection of graph files from reference.
+    Find the base name for a collection of graph files from refgraph, reference, and clipping.
     """
     if wildcards["refgraph"] == "hprc-v1.1-mc":
         return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"])
@@ -391,7 +391,7 @@ def graph_base(wildcards):
         else:
             return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9")
     else:
-        return os.path.join(GRAPHS_DIR, wildcards["refgraph"] + "-" + wildcards["reference"])
+        return os.path.join(GRAPHS_DIR, wildcards["refgraph"] + "-" + wildcards["reference"] + wildcards.get("clipping", ""))
 
 def gbz(wildcards):
     """
@@ -844,12 +844,12 @@ def param_search_tsvs(wildcards, statname="time_used.mean", realness="real"):
 
 rule distance_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraph}-{reference}.{d9}gbz"
+        gbz="{graphs_dir}/{refgraph}-{reference}{clipping}.gbz"
     output:
-        distfile="{graphs_dir}/{refgraph}-{reference}.{d9}dist"
+        distfile="{graphs_dir}/{refgraph}-{reference}{clipping}.dist"
     wildcard_constraints:
         reference="chm13|grch38",
-        d9="d9\.|"
+        clipping="\.d[0-9]+|"
     threads: 16
     resources:
         mem_mb=120000,
@@ -862,14 +862,14 @@ rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
     output:
-        minfile="{graphs_dir}/{refgraph}-{reference}.{d9}k{k}.w{w}{weightedness}.withzip.min",
-        zipfile="{graphs_dir}/{refgraph}-{reference}.{d9}k{k}.w{w}{weightedness}.zipcodes"
+        minfile="{graphs_dir}/{refgraph}-{reference}{clipping}.k{k}.w{w}{weightedness}.withzip.min",
+        zipfile="{graphs_dir}/{refgraph}-{reference}{clipping}.k{k}.w{w}{weightedness}.zipcodes"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
         w="[0-9]+",
         reference="chm13|grch38",
-        d9="d9\.|"
+        clipping="\.d[0-9]+|"
     params:
         weighting_option=lambda w: "--weighted" if w["weightedness"] == ".W" else ""
     threads: 16
@@ -913,11 +913,11 @@ rule trim_base_fastq_gz:
         fq_gz="{reads_dir}/real/{tech}/{sample}/{basename}.trimmed.{fq_ext}.gz"
     wildcard_constraints:
         fq_ext="fq|fastq"
-    threads: 4
+    threads: 8
     resources:
         mem_mb=10000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        runtime=240,
+        slurm_partition=choose_partition(240)
     shell:
         "seqkit subseq -j {threads} -r 100:-10 {input.fq_gz} -o {output.fq_gz}"
     
