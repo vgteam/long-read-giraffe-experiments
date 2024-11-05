@@ -890,7 +890,7 @@ rule minimizer_index_graph:
         weighting_option=lambda w: "--weighted" if w["weightedness"] == ".W" else ""
     threads: 16
     resources:
-        mem_mb=lambda w: 320000 if w["weightedness"] == ".W" else 80000,
+        mem_mb=lambda w: 600000 if "hprc-v2" in w["refgraph"] else 320000 if w["weightedness"] == ".W" else 80000,
         runtime=240,
         slurm_partition=choose_partition(240)
     shell:
