@@ -178,9 +178,11 @@ EOF
                 
             OUTPUTS_FILE="toil-result-${EXPERIMENT_NAME}-${CONDITION_NAME}.json"
             
-            echo "Running ${CONDITION_NAME}"
-            mkdir -p ./output/${EXPERIMENT_NAME}
-            MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT=true MINIWDL__CALL_CACHE__DIR=$(pwd)/output/miniwdl-cache /private/home/anovak/workspace/toil/venv/bin/toil-wdl-runner "https://raw.githubusercontent.com/vgteam/vg_wdl/90940196ef371652f2dc3aa2c0ead0d20234dbf7/workflows/${WF_FILE}" ${INPUTS_FILE} --wdlOutputDialect miniwdl --wdlOutputDirectory ./output/${EXPERIMENT_NAME}/${CONDITION_NAME} --wdlOutputFile ${OUTPUTS_FILE} --jobStore ./output/${EXPERIMENT_NAME}/${CONDITION_NAME}-tree --clean=always --batchSystem slurm --slurmTime 11:59:59 --statePollingWait 30 --disableProgress --caching=False --retryCount 0 --logDebug --logFile ./output/${EXPERIMENT_NAME}/${CONDITION_NAME}.log --writeMessages ./output/${EXPERIMENT_NAME}/${CONDITION_NAME}.bus
+            if [[ ! -e "${OUTPUTS_FILE}" || ! -e "./output/${EXPERIMENT_NAME}/${CONDITION_NAME}" ]] ; then
+                echo "Running ${CONDITION_NAME}"
+                mkdir -p ./output/${EXPERIMENT_NAME}
+                MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT=true MINIWDL__CALL_CACHE__DIR=$(pwd)/output/miniwdl-cache /private/home/anovak/workspace/toil/venv/bin/toil-wdl-runner "https://raw.githubusercontent.com/vgteam/vg_wdl/90940196ef371652f2dc3aa2c0ead0d20234dbf7/workflows/${WF_FILE}" ${INPUTS_FILE} --wdlOutputDialect miniwdl --wdlOutputDirectory ./output/${EXPERIMENT_NAME}/${CONDITION_NAME} --wdlOutputFile ${OUTPUTS_FILE} --jobStore ./output/${EXPERIMENT_NAME}/${CONDITION_NAME}-tree --clean=always --batchSystem slurm --slurmTime 11:59:59 --statePollingWait 30 --disableProgress --caching=False --retryCount 0 --logDebug --logFile ./output/${EXPERIMENT_NAME}/${CONDITION_NAME}.log --writeMessages ./output/${EXPERIMENT_NAME}/${CONDITION_NAME}.bus
+            fi
         done
     done
 done
