@@ -7,6 +7,7 @@ import parameter_search
 import functools
 import tempfile
 import os
+import numpy as np
 
 # Set a default config file. This can be overridden with --configfile.
 # See the config file for how to define experiments.
@@ -137,8 +138,6 @@ SLURM_PARTITIONS = [
 # How many threads do we want mapping to use?
 MAPPER_THREADS=64
 # How many threads do we want to use for big mapping jobs?
-# Since we're using --exclusive anyways, just use all the threads available
-MAX_MAPPING_THREADS=254
 
 PARAM_SEARCH = parameter_search.ParameterSearch()
 
@@ -177,14 +176,21 @@ def auto_mapping_threads(wildcards):
     Choose the number of threads to use map reads, from subset.
     """
     number = subset_to_number(wildcards["subset"])
-    if number >= 10000000:
-        return MAX_MAPPING_THREADS
-    elif number >= 100000:
-        return MAPPER_THREADS
+    mapping_threads = 0
+    if number >= 100000:
+        mapping_threads= MAPPER_THREADS
     elif number >= 10000:
-        return 16
+        mapping_threads= 16
     else:
-        return 8
+        mapping_threads= 8
+
+    if wildcards["realness"] == "sim" and wildcards["mapper"] == "graphaligner":
+        #Graphaligner is really slow so for simulated reads where we don't care about time
+        #double the number of threads
+        #At most the number of cores on the phoenix nodes
+        return min(mapping_threads * 2, 254) 
+    else:
+        return mapping_threads
 
 def auto_mapping_slurm_extra(wildcards):
     """
@@ -384,7 +390,10 @@ def graph_base(wildcards):
     Find the base name for a collection of graph files from refgraph, reference, and clipping.
     """
     if wildcards["refgraph"] == "hprc-v1.1-mc":
-        return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"])
+        if wildcards.get("mapper", "") == "graphaligner":
+            return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".unchopped")
+        else:
+            return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"])
     elif wildcards["refgraph"] == "hprc-v1.1-mc-d9":
         if wildcards.get("mapper", "") == "graphaligner":
             return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9.unchopped")
@@ -816,6 +825,13 @@ def get_vg_flags(wildcard_flag):
             #otherwise this is a hash and we get the flags from ParameterSearch
             return PARAM_SEARCH.hash_to_parameter_string(wildcard_flag)
 
+def get_graphaligner_flags(wildcard_flag):
+    match wildcard_flag:
+        case "default":
+            return "-x vg --multimap-score-fraction 1.0"
+        case "fast":
+            return "--seeds-mxm-length 30 --seeds-mem-count 10000 --bandwidth 15 --multimap-score-fraction 0.99 --precise-clipping 0.85 --min-alignment-score 100 --clip-ambiguous-ends 100 --overlap-incompatible-cutoff 0.15 --max-trace-count 5 --mem-index-no-wavelet-tree"
+
 def get_vg_version(wildcard_vgversion):
     if wildcard_vgversion == "default":
         return "vg"
@@ -1170,7 +1186,7 @@ rule minimap2_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minimap2 -t {threads} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
+        "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
 
 rule minimap2_real_reads:
     input:
@@ -1190,7 +1206,7 @@ rule minimap2_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "minimap2 -t {threads} -ax {wildcards.minimapmode} -N 0 {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
+        "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
 
 
 #TODO this doesn't have an output file and bwa doesn't take the index as an input so idk how to include it
@@ -1275,7 +1291,7 @@ rule graphaligner_sim_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim",
         mapper="graphaligner"
@@ -1285,17 +1301,20 @@ rule graphaligner_sim_reads:
     resources:
         mem_mb=300000,
         runtime=3000,
-        slurm_partition=choose_partition(1200)
-    shell:
-        "GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam}"
+        slurm_partition=choose_partition(3000)
+    run:
+        flags=get_graphaligner_flags(wildcards.graphalignerflag)
+        shell("GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} " + flags + " -a {output.gam}")
+
 
 rule graphaligner_real_reads:
     input:
         gfa=gfa,
         fastq=fastq
     output:
-        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+        gam="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    log: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="real",
         mapper="graphaligner"
@@ -1304,19 +1323,20 @@ rule graphaligner_real_reads:
         mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
     resources:
         mem_mb=300000,
-        runtime=2400,
-        slurm_partition=choose_partition(1200),
+        runtime=3000,
+        slurm_partition=choose_partition(3000),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
-    shell:
-        "GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} -x vg --multimap-score-fraction 1.0 -a {output.gam}"
+    run:
+        flags=get_graphaligner_flags(wildcards.graphalignerflag)
+        shell("GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} " + flags + " -a {output.gam} 2> {log}")
 
 rule minigraph_sim_reads:
     input:
         gfa=gfa,
         fastq=fastq
     output:
-        gaf="{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+        gaf="{root}/aligned-secsup/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
     wildcard_constraints:
         realness="sim"
     threads: auto_mapping_threads
@@ -1325,14 +1345,14 @@ rule minigraph_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minigraph -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
+        "minigraph --vc --secondary=no -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
 
 rule minigraph_real_reads:
     input:
         gfa=gfa,
         fastq=fastq
     output:
-        gaf="{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+        gaf="{root}/aligned-secsup/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
     benchmark: "{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     log: "{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
@@ -1343,7 +1363,7 @@ rule minigraph_real_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minigraph -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
+        "minigraph --vc --secondary=no -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
 
 
 rule panaligner_sim_reads:
@@ -1360,7 +1380,7 @@ rule panaligner_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "PanAligner -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
+        "PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
 
 rule panaligner_real_reads:
     input:
@@ -1378,24 +1398,69 @@ rule panaligner_real_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "PanAligner -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
+        "PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
 
-rule gam_from_gaf:
+rule gaf_to_gam:
     input:
-        gfa=gfa,
+        hg=hg,
         gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
     output:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         mapper="(minigraph|panaligner)"
-    threads: 64
+    threads: 16
     resources:
-        mem_mb=300000,
-        runtime=600,
-        slurm_partition=choose_partition(600)
+        mem_mb=100000,
+        runtime=300,
+        slurm_partition=choose_partition(300)
     shell:
-        "vg convert --gaf-to-gam {input.gaf} {input.gfa} >{output.gam}"
+        "vg convert -t {threads} --gaf-to-gam {input.gaf} {input.hg} >{output.gam}"
 
+rule gam_to_gaf:
+    input:
+        hg=hg,
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output:
+        gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    wildcard_constraints:
+        mapper="(graphaligner)"
+    threads: 16
+    resources:
+        mem_mb=100000,
+        runtime=300,
+        slurm_partition=choose_partition(300)
+    shell:
+        "vg convert -t {threads} --gam-to-gaf {input.gam} {input.hg} >{output.gaf}"
+
+rule select_first_duplicate_read_gam:
+    input:
+        gam="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output:
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        mapper="(graphaligner)"
+    threads: 2
+    resources:
+        mem_mb=30000,
+        runtime=1600,
+        slurm_partition=choose_partition(1600)
+    shell:
+        "vg view -aj {input.gam} | python3 select_first_gam.py | vg view -aGJ - > {output.gam}"
+
+rule select_best_duplicate_read_gaf:
+    input:
+        gaf="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    output:
+        gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+    wildcard_constraints:
+        mapper="(minigraph)"
+    threads: 2
+    resources:
+        mem_mb=30000,
+        runtime=1600,
+        slurm_partition=choose_partition(1600)
+    shell:
+        "cat {input.gaf} | python3 select_best_gaf.py > {output.gaf}"
 
 rule inject_bam:
     input:
@@ -1736,6 +1801,7 @@ rule speed_from_log_giraffe_stats:
         slurm_partition=choose_partition(5)
     shell:
         "echo \"$(cat {input.giraffe_log} | grep \"reads per CPU-second\" | sed \'s/Achieved \([0-9]*\.[0-9]*\) reads per CPU-second.*/\\1/g\')\" >{output.tsv}"
+
 rule speed_from_log_giraffe:
     input:
         giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
@@ -1836,6 +1902,8 @@ rule speed_from_log_bam:
         startup_cpu_time_expr=$(cat {input.minimap2_log} | grep "loaded/built the index" | sed 's/.M::main::\([0-9]*\.[0-9]*\*[0-9]*\.[0-9]*\).*/\\1 /g')
         echo "{params.condition_name}\t$(echo "$mapped_count / ($total_cpu_time - $startup_cpu_time_expr)" | bc -l)" >{output.tsv}
         """
+
+
 rule speed_from_log_minigraph:
     input:
         log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
@@ -1858,6 +1926,7 @@ rule speed_from_log_minigraph:
         startup_cpu_time_expr=$(cat {input.log} | grep "indexed the graph" | sed 's/.M::mg_index::\([0-9]*\.[0-9]*\*[0-9]*\.[0-9]*\).*/\\1 /g')
         echo "{params.condition_name}\t$(echo "$mapped_count / ($total_cpu_time - $startup_cpu_time_expr)" | bc -l)" >{output.tsv}
         """
+
 #We need a speed_from_log.tsv file but graphaligner doesn't have a log so just make a dummy file
 rule speed_from_log_graphaligner:
     output:
@@ -1876,7 +1945,6 @@ rule speed_from_log_graphaligner:
         """
         echo "{params.condition_name}\tNA" >{output.tsv}
         """
-
 
 rule memory_from_log_bam:
     input:
@@ -1933,6 +2001,89 @@ rule memory_from_log_graphaligner:
         "echo \"{params.condition_name}\tNA\" >{output.tsv}"
 
 
+#output tsv of:
+#condition name, index load time in minutes
+rule index_load_time_from_log_giraffe:
+    input:
+        giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="giraffe.*"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        index_sec=$(cat {input.giraffe_log} | grep "Loading and initialization" | sed 's/Loading and initialization: \([0-9]*\.[0-9]*\) second.*/\\1/g')
+        echo \"{params.condition_name}\t$(echo "$index_sec / 60" | bc -l)\" >{output.tsv}
+        """
+
+#Index load time in minutes
+rule index_load_time_from_log_bam:
+    input:
+        minimap2_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="(minimap2-.*|winnowmap)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        startup_cpu_time_expr=$(cat {input.minimap2_log} | grep "loaded/built the index" | sed 's/.M::main::\([0-9]*\.[0-9]*\*[0-9]*\.[0-9]*\).*/\\1 /g')
+        echo "{params.condition_name}\t$(echo "($startup_cpu_time_expr) / 60" | bc -l)" >{output.tsv}
+        """
+rule index_load_time_from_log_minigraph:
+    input:
+        log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="(minigraph|panaligner)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        startup_cpu_time_expr=$(cat {input.log} | grep "indexed the graph" | sed 's/.M::mg_index::\([0-9]*\.[0-9]*\*[0-9]*\.[0-9]*\).*/\\1 /g')
+        echo "{params.condition_name}\t$(echo "($startup_cpu_time_expr) / 60" | bc -l)" >{output.tsv}
+        """
+
+#a dummy file for the index load time since graphaligner doesn't have a log
+rule index_load_time_from_log_graphaligner:
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        realness="real",
+        mapper="graphaligner"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        echo "{params.condition_name}\t0" >{output.tsv}
+        """
 
 # Some experiment stats can come straight from stats for the individual conditions
 rule condition_experiment_stat:
@@ -2111,7 +2262,7 @@ rule experiment_pr_plot_from_compared:
     input:
         tsv="{root}/experiments/{expname}/results/compared.tsv"
     output:
-        "{root}/experiments/{expname}/plots/pr.{ext}"
+        "{root}/experiments/{expname}/plots/pr.pdf"
     threads: 1
     resources:
         mem_mb=10000,
@@ -2119,6 +2270,19 @@ rule experiment_pr_plot_from_compared:
         slurm_partition=choose_partition(30)
     shell:
         "Rscript plot-pr.R {input.tsv} {output}"
+
+rule experiment_roc_plot_from_compared:
+    input:
+        tsv="{root}/experiments/{expname}/results/compared.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/roc.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        "Rscript plot-roc.R {input.tsv} {output}"
 
 rule experiment_speed_from_log_tsv:
     input:
@@ -2197,6 +2361,93 @@ rule experiment_runtime_from_benchmark_plot:
         slurm_partition=choose_partition(30)
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Runtime From Benchmark' --y_label 'Runtime (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+
+rule experiment_index_load_time_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv", lambda condition: condition["realness"] == "real")
+    output:
+        tsv="{root}/experiments/{expname}/results/index_load_time.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input} >>{output.tsv}"
+
+rule experiment_run_and_index_time_plot:
+    input:
+        runtime=rules.experiment_runtime_from_benchmark_tsv.output.tsv,
+        index_time=rules.experiment_index_load_time_tsv.output.tsv
+    output:
+        "{root}/experiments/{expname}/plots/run_and_index_time.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        "python3 barchart.py {input.runtime} --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+
+#Plot only the slow runtimes- the top part of the bar plot
+rule experiment_run_and_index_time_slow_plot:
+    input:
+        runtime=rules.experiment_runtime_from_benchmark_tsv.output.tsv,
+        index_time=rules.experiment_index_load_time_tsv.output.tsv
+    output:
+        "{root}/experiments/{expname}/plots/run_and_index_slow_time.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    run:
+        runtimes = []
+        with open(input.runtime) as in_file:
+            for line in in_file:
+                runtimes.append(float(line.split()[1]))
+
+
+        iqr = np.percentile(runtimes, 75) - np.percentile(runtimes, 25)
+        cutoff = np.percentile(runtimes, 75) + (1.5 * iqr)
+        bigs = list(filter(lambda x : x > cutoff, runtimes))
+
+        if not len(bigs) == 0:
+
+            lower_limit = min(bigs) * 0.80
+
+            shell("python3 barchart.py {input.runtime} --min " + str(lower_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+
+
+
+#Plot only the fast runtimes- the bottom part of the bar plot
+rule experiment_run_and_index_time_fast_plot:
+    input:
+        runtime=rules.experiment_runtime_from_benchmark_tsv.output.tsv,
+        index_time=rules.experiment_index_load_time_tsv.output.tsv
+    output:
+        "{root}/experiments/{expname}/plots/run_and_index_fast_time.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    run:
+        runtimes = []
+        with open(input.runtime) as in_file:
+            for line in in_file:
+                runtimes.append(float(line.split()[1]))
+        iqr = np.percentile(runtimes, 75) - np.percentile(runtimes, 25)
+        cutoff = np.percentile(runtimes, 75) + (1.5 * iqr)
+        smalls = list(filter(lambda x : x <= cutoff, runtimes))
+
+
+        if not len(smalls) == 0:
+
+            upper_limit = max(smalls) * 1.1
+
+            shell("python3 barchart.py {input.runtime} --max " + str(upper_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+
 
 rule experiment_memory_from_benchmark_tsv:
     input:
@@ -2742,18 +2993,50 @@ rule length:
     shell:
         "vg filter -t {threads} -T \"length\" {input.gam} >{output}"
 
-rule length_by_mapping:
+rule length_by_name:
     input:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
-        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t {threads} -T \"name;length\" {input.gam} | grep -v \"#\" >{output}"
+
+rule length_by_mapping:
+    input:
+        fastq=fastq,
+        lengths="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
     threads: 2
     resources:
         mem_mb=16000,
         runtime=60,
         slurm_partition=choose_partition(60)
-    shell:
-        "vg filter --only-mapped {input.gam} -T length | {{ grep -v '^#' || test $? = 1; }} | sed 's/^/mapped\t/' >{output} && vg filter --only-mapped --complement {input.gam} -T length | {{ grep -v '^#' || test $? = 1; }} | sed 's/^/unmapped\t/' >>{output}"
+    run:
+        mapped_names = set()
+        with open(input.lengths) as in_file:
+            for line in in_file:
+                mapped_names.add(line.split()[0])
+
+        with open(input.fastq) as read_file:
+            with open(output.tsv, "w") as out_file:
+                name = ""
+                for line in read_file:
+                    if (not line == "") and line[0] == "@":
+                        name = line.split()[0][1:]
+                    elif name != "": 
+                        if name in mapped_names:
+                            out_file.write("mapped\t"+str(len(line))+"\n")
+                        else:
+                            out_file.write("unmapped\t"+str(len(line))+"\n")
+                        name = ""
+                    else:
+                        name = ""
 
 rule unmapped_length:
     input:
@@ -2787,7 +3070,7 @@ rule softclips_by_name_gam:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(giraffe.*|graphaligner|minigraph|panaligner)"
+        mapper="(minigraph|graphaligner|giraffe.*)"
     threads: 5
     resources:
         mem_mb=2000,
@@ -2795,6 +3078,42 @@ rule softclips_by_name_gam:
         slurm_partition=choose_partition(60)
     shell:
         "vg filter -t {threads} -T \"name;softclip_start;softclip_end\" {input.gam} | grep -v \"#\" > {output}"
+
+
+#Graphaligner doesn't always map the entire read. This outputs a tsv of the read name and the number of bases that didn't get put in the final alignment
+rule unmapped_ends_by_name:
+    input:
+        fastq=fastq,
+        lengths="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"
+    output:
+        unmapped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends_by_name.tsv",
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    run:
+        read_to_length = dict()
+        with open(input.fastq) as read_file:
+            name = ""
+            for line in read_file:
+                if (not line == "") and line[0] == "@":
+                    name = line.split()[0][1:]
+                elif name != "": 
+                    read_to_length[name] = len(line)
+                    name = ""
+                else:
+                    name = ""
+
+        with open(input.lengths) as mapped_lengths:
+            with open(output.unmapped, 'w') as outfile:
+                for line in mapped_lengths:
+                    length = int(line.split()[1])
+                    name = line.split()[0]
+                    unmapped = read_to_length[name] - length
+
+                    outfile.write(name + "\t" + str(unmapped) + "\n")
+
 
 rule softclips_by_name_other:
     input:
@@ -2826,10 +3145,24 @@ rule softclips:
     shell:
         r"sed 's/^.*\t\([0-9]*\)\t\([0-9]*\)$/\1\n\2/' {input} > {output}"
 
+rule unmapped_ends:
+    input:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends_by_name.tsv"
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends.tsv"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        r"sed 's/^.*\t\([0-9]*\)$/\1/' {input} > {output}"
+
 rule softclipped_or_unmapped:
     input:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.total.tsv",
-        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_length.total.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_length.total.tsv",
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends.total.tsv"
     output:
          "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
     threads: 1
@@ -2902,8 +3235,8 @@ rule runtime_from_benchmark_bam:
         f = open(input.bench)
         assert(f.readline().split("\t")[1] == "h:m:s")
         runtime_list = f.readline().split("\t")[1].split()
-        hms_list = runtime_list[-1]
-        days = 0 if len(runtime_list) == 0 else int(runtime_list[0])
+        hms_list = runtime_list[-1].split(":")
+        days = 0 if len(runtime_list) == 1 else int(runtime_list[0])
         runtime = (int(hms_list[0]) * 60) + int(hms_list[1]) + (int(hms_list[2]) / 60)
         runtime += 24 * 60 * days
         f.close()
@@ -2929,8 +3262,8 @@ rule runtime_from_benchmark_gam:
         f = open(input.bench)
         assert(f.readline().split("\t")[1] == "h:m:s")
         runtime_list = f.readline().split("\t")[1].split()
-        hms_list = runtime_list[-1]
-        days = 0 if len(runtime_list) == 0 else int(runtime_list[0])
+        hms_list = runtime_list[-1].split(":")
+        days = 0 if len(runtime_list) == 1 else int(runtime_list[0])
         runtime = (int(hms_list[0]) * 60) + int(hms_list[1]) + (int(hms_list[2]) / 60)
         runtime += 24 * 60 * days
         f.close()
