@@ -36,7 +36,7 @@ The general flow for using this repository is:
     snakemake --rerun-incomplete --slurm --latency-wait 120 -j128 \
         output/experiments/r10_accuracy_small/plots/mapping_rate.png \
         output/experiments/r10_accuracy_small/plots/correct.png \
-        output/plots/chm13/hprc-v1.1-mc/minimap2/length_by_correctness-sim-r10-HG002.trimmed.1k.png
+        output/plots/chm13/hprc-v1.1-mc-d9/minimap2/length_by_correctness-sim-r10-HG002.trimmed.1k.png
     ```
 
     And you can use the `--dry-run` flag to see all the rules that will be executed and the files that will be created.
