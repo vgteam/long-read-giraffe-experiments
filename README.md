@@ -83,7 +83,23 @@ In these file name templates, `{root}` is your base output directory, `{ext}` is
 * `{root}/plots/{reference}/{refgraph}/{mapper}/average_aligner_probsize-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A chart of the average problem size averaged again over reads, per dynamic programming method, for Giraffe conditions.
 * `{root}/plots/{reference}/{refgraph}/{mapper}/length_by_mapping-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of read length, broken out by whether the read mapped or not.
 * `{root}/plots/{reference}/{refgraph}/{mapper}/length_by_correctness-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}`: A histogram of read length, broken out by whether the read was correct, incorrect, or without a truth position.
-* `{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt`: A Giraffe Facts report about where candidates are filtered, for Giraffe conditions. 
+* `{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.facts.txt`: A Giraffe Facts report about where candidates are filtered, for Giraffe conditions.
 
+# Multi-User Operation
+
+To collaborate with multiple people on a single set of intermediate files, first make a directory owned by a group they have in common. Set it to be group-writable and set the group sticky bit:
+```
+mkdir /private/groups/patenlab/project-lrg
+chgrp patenlab /private/groups/patenlab/project-lrg
+chmod g+w /private/groups/patenlab/project-lrg
+chmod g+s /private/groups/patenlab/project-lrg
+```
+
+Then run the Snakemake in a subshell with a group-writable umask set, and ask for a file under that directory:
+```
+(umask 0002; snakemake -j128 --rerun-incomplete --latency-wait 120 --slurm /private/groups/patenlab/project-lrg/output/plots/chm13/hprc-v1.1-mc-d9/giraffe-k31.w50.W-hifi-default-noflags/time_used-real-hifi-HG002.1k.png --debug-dag)
+```
+
+The file and all intermediates will end up owned and writable by the correct group.
 
 
