@@ -97,7 +97,7 @@ chmod g+s /private/groups/patenlab/project-lrg
 
 Then run the Snakemake in a subshell with a group-writable umask set, and ask for a file under that directory:
 ```
-(umask 0002; snakemake -j128 --rerun-incomplete --latency-wait 120 --slurm /private/groups/patenlab/project-lrg/output/plots/chm13/hprc-v1.1-mc-d9/giraffe-k31.w50.W-hifi-default-noflags/time_used-real-hifi-HG002.1k.png --debug-dag)
+(umask 0002; snakemake -j128 --rerun-incomplete --latency-wait 120 --slurm /private/groups/patenlab/project-lrg/output/plots/chm13/hprc-v1.1-mc-d9/giraffe-k31.w50.W-hifi-default-noflags/time_used-real-hifi-HG002.1k.png)
 ```
 
 The file and all intermediates will end up owned and writable by the correct group.
