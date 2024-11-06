@@ -160,6 +160,7 @@ EXCLUSIVE_TIMING = config.get("exclusive_timing", True)
 IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["speed_from_log", "softclipped_or_unmapped", "accuracy", "indel_f1", "snp_f1"])
 
 wildcard_constraints:
+    reference="[^/]*",
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
     basename=".+(?<!\\.trimmed)",
@@ -1322,7 +1323,7 @@ rule bwa_sim_reads:
     wildcard_constraints:
         realness="sim",
         tech="illumina",
-        pairing="-pe|"
+        pairing="(-pe|)"
     params:
         pairing_flag=lambda w: "-p" if w["pairing"] == "-pe" else ""
     threads: auto_mapping_threads
@@ -1343,7 +1344,7 @@ rule bwa_real_reads:
     log: "{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="real",
-        pairing="-pe|"
+        pairing="(-pe|)"
     params:
         pairing_flag=lambda w: "-p" if w["pairing"] == "-pe" else ""
     threads: auto_mapping_threads
@@ -1366,7 +1367,7 @@ rule drop_secondary_and_supplementary:
     output:
         bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
-        mapper="(minimap2-.*|winnowmap|bwa)"
+        mapper="(minimap2-.*|winnowmap|bwa(-pe)?)"
     threads: 16
     resources:
         mem_mb=30000,
@@ -1558,7 +1559,7 @@ rule inject_bam:
     output:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
-        mapper="(minimap2.+|winnowmap|bwa)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
     threads: 64
     resources:
         mem_mb=300000,
@@ -1591,7 +1592,7 @@ rule alias_bam_graph:
     output:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
-        mapper="(minimap2.+|winnowmap|bwa)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2059,7 +2060,7 @@ rule memory_from_log_bam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(minimap2-.*|winnowmap|bwa)"
+        mapper="(minimap2-.*|winnowmap|bwa(-pe)?)"
     threads: 1
     resources:
         mem_mb=200,
