@@ -89,7 +89,7 @@ experiments:
       subset: full
       reference: chm13
       tech: r10
-      trimmedness: ""
+      trimmedness: ".trimmed"
       sample: HG002
       realness: real
     vary:
@@ -129,6 +129,23 @@ experiments:
         - refgraph: "hprc-v1.0-minigraph"
           mapper: ["minigraph", "graphaligner-default"]
 
+  #For variant calling
+  dv_calling:
+    control:
+      subset: full
+      reference: chm13
+      sample: HG002
+      realness: real
+      refgraph: "hprc-v1.1-mc-d9"
+    vary:
+      tech: ["hifi", "r10"]
+      mapper: ["minimap2-map-hifi", "minimap2-lr:hqae", "giraffe-k31.w50.W-hifi-839e93-noflags", "giraffe-k31.w50.W-r10-839e93-noflags"]
+      trimmedness: [".trimmed", ""]
+    constrain:
+        - tech: "hifi"
+          mapper: ["minimap2-map-hifi", "giraffe-k31.w50.W-hifi-839e93-noflags"]
+        - tech: "r10"
+          mapper: ["minimap2-lr:hqae", "giraffe-k31.w50.W-r10-839e93-noflags"]
 
 
   # This experiment tests all the mappers, realnesses, technologies, and
@@ -185,7 +202,7 @@ experiments:
       subset: 1m
       reference: chm13
       tech: r10
-      trimmedness: ""
+      trimmedness: ".trimmed"
       sample: HG002
       realness: real
     vary:
