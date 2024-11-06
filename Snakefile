@@ -3937,3 +3937,20 @@ rule add_mapper_to_plot:
         slurm_partition=choose_partition(10)
     shell:
         "cp {input} {output}"
+
+#Make the figures we want for the paper
+#Experiments are specified in the config file
+#TODO: idk what we want for variant calling
+rule all_paper_figures:
+    input:
+        mapping_stats_real=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/results/mapping_stats_real.tsv", expname=config["real_exps"]),
+        softclipped_plot=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/plots/softclipped_or_unmapped.svg", expname=config["real_exps"]),
+        runtime_slow=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/plots/run_and_index_slow_time.svg", expname=config["real_exps"]),
+        runtime_fast=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/plots/run_and_index_fast_time.svg", expname=config["real_exps"]),
+        memory=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/plots/memory_from_benchmark.svg", expname=config["real_exps"]),
+        mapping_stats_sim=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/results/mapping_stats_sim.tsv", expname=config["sim_exps"]),
+        qq=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/plots/qq.svg", expname=config["sim_exps"]),
+        roc=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/plots/roc.svg", expname=config["sim_exps"]),
+        indel_f1=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/results/indel_f1.tsv", expname=config["dv_exps"]),
+        snp_f1=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/results/snp_f1.tsv", expname=config["dv_exps"])
+
