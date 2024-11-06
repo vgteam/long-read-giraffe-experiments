@@ -354,6 +354,12 @@ def calling_reference_restrict_bed(wildcards):
     """
     return calling_reference_fasta(wildcards) + ".callable.from." + wildcards["reference"] + ".bed"
 
+def calling_reference_par_bed(wildcards):
+    """
+    Find the BED for the psuedo-autosomal regions of a reference, from reference.
+    """
+    return os.path.splitext(calling_reference_fasta(wildcards))[0] + "_PAR.bed"
+
 def uncallable_contig_regex(wildcards):
     """
     Get a grep regex matching a substring in all uncallable contigs in the calling or PanSN reference, from reference.
@@ -366,6 +372,27 @@ def uncallable_contig_regex(wildcards):
             return "chr[YM]"
         case _:
             return "chrM"
+
+def haploid_contigs(wildcards):
+    """
+    Get a list of all haploid contigs in a sample, with no prefixes, from sample.
+
+    Will be either [] or ["chrX", "chrY"].
+    """
+    XX_SAMPLES = {"HG001"}
+    XY_SAMPLES = {"HG002"}
+    if wildcards["sample"] in XX_SAMPLES:
+        return []
+    elif wildcards["sample"] in XY_SAMPLES:
+        return ["chrX", "chrY"]
+    else:
+        raise RuntimeError(f"Unknown karyotype for {wildcards['sample']}")
+
+def wdl_cache(wildcards):
+    """
+    Get a WDL workflow step cache directory path from root.
+    """
+    return os.path.join(wildcards["root"], "miniwdl-cache")
 
 def truth_vcf_url(wildcards):
     """
@@ -883,8 +910,8 @@ rule hg_index_graph:
 rule unchop_hg_graph:
     input:
         hgfile="{graphs_dir}/{refgraph}-{reference}{clipping}.hg"
-    output
-        unchopped_hg="{graphs_dir}/{refgraph}-{reference}{clipping}.unchopped.hg":
+    output:
+        unchopped_hg="{graphs_dir}/{refgraph}-{reference}{clipping}.unchopped.hg"
     wildcard_constraints:
         reference="chm13|grch38",
         clipping="\.d[0-9]+|"
@@ -903,7 +930,7 @@ rule hg_to_gfa:
         gfa="{graphs_dir}/{refgraph}-{reference}{clipping}{choppedness}.gfa"
     wildcard_constraints:
         reference="chm13|grch38",
-        clipping="\.d[0-9]+|"
+        clipping="\.d[0-9]+|",
         choppedness="\.unchopped|"
     threads: 26
     resources:
@@ -1290,29 +1317,35 @@ rule bwa_sim_reads:
         reference_fasta=reference_fasta,
         fastq=fastq
     output:
-        sam=temp("{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
-    log:"{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        sam=temp("{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
+    log:"{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim",
-        tech="illumina"
+        tech="illumina",
+        pairing="-pe|"
+    params:
+        pairing_flag=lambda w: "-p" if w["pairing"] == "-pe" else ""
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "bwa mem -t {threads} {input.reference_fasta} {input.fastq}>{output.sam} 2> {log}"
+        "bwa mem -t {threads} {params.pairing_flag} {input.reference_fasta} {input.fastq}>{output.sam} 2> {log}"
 
 rule bwa_real_reads:
     input:
         reference_fasta=reference_fasta,
         fastq=fastq
     output:
-        sam=temp("{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
-    benchmark: "{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
-    log: "{root}/aligned-secsup/{reference}/bwa/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        sam=temp("{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
+    benchmark: "{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    log: "{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
-        realness="real"
+        realness="real",
+        pairing="-pe|"
+    params:
+        pairing_flag=lambda w: "-p" if w["pairing"] == "-pe" else ""
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
@@ -1321,7 +1354,7 @@ rule bwa_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "bwa mem -t {threads} {input.reference_fasta} {input.fastq}>{output.sam} 2> {log}"
+        "bwa mem -t {threads} {params.pairing_flag} {input.reference_fasta} {input.fastq}>{output.sam} 2> {log}"
 
 # Minimap2 and Winnowmap include secondary alignments in the output by default, and Winnowmap doesn't quite have a way to limit them (minimap2 has -N)
 # Also they only speak SAM and we don't want to benchmark the BAM-ification time.
@@ -1590,6 +1623,7 @@ rule call_variants:
         calling_reference_fasta=calling_reference_fasta,
         calling_reference_fasta_index=calling_reference_fasta_index,
         calling_reference_restrict_bed=calling_reference_restrict_bed,
+        calling_reference_par_bed=calling_reference_par_bed,
     output:
         wdl_input_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.input.json",
         wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.json",
@@ -1606,14 +1640,16 @@ rule call_variants:
         truth_vcf_index_url=truth_vcf_index_url,
         truth_bed_url=truth_bed_url,
         reference_prefix=reference_prefix,
-    threads: 1
+        haploid_contigs=haploid_contigs,
+        wdl_cache=wdl_cache,
+    threads: 8
     resources:
-        mem_mb=30000,
+        mem_mb=60000,
         runtime=1440,
         slurm_partition=choose_partition(1440)
     run:
         import json
-        wf_url = "https://raw.githubusercontent.com/vgteam/vg_wdl/lr-giraffe/workflows/deepvariant.wdl"
+        wf_url = "https://raw.githubusercontent.com/vgteam/vg_wdl/1845a89d5bd314e09f364cf48523a3bf546c0c79/workflows/deepvariant.wdl"
         wf_inputs = {
             "DeepVariant.MERGED_BAM_FILE": input.sorted_bam,
             "DeepVariant.MERGED_BAM_FILE_INDEX": input.sorted_bam_index,
@@ -1622,22 +1658,34 @@ rule call_variants:
             "DeepVariant.REFERENCE_PREFIX": params.reference_prefix,
             "DeepVariant.REFERENCE_PREFIX_ON_BAM": True,
             "DeepVariant.REFERENCE_FILE": input.calling_reference_fasta,
-            # TODO: Should we left-align for GraphAligner?
-            "DeepVariant.LEFTALIGN_BAM": wildcards.mapper.startswith("giraffe") or wildcards.tech == "illumina",
+            # TODO: Should we not left align for minimap2 or GraphAligner?
+            "DeepVariant.LEFTALIGN_BAM": True,
+            # Indel realignment tools aren't available for long reads.
             "DeepVariant.REALIGN_INDELS": wildcards.tech == "illumina",
             "DeepVariant.DV_MODEL_TYPE": {"hifi": "PACBIO", "r10": "ONT_R104", "illumina": "WGS"}[wildcards.tech],
-            "DeepVariant.MIN_MAPQ": None,
+            "DeepVariant.MIN_MAPQ": 0,
             # TODO: Should we use legacy AC like in the paper?
             "DeepVariant.DV_KEEP_LEGACY_AC": False,
-            "DeepVariant.DV_NORM_READS": wildcards.tech == "hifi",
+            "DeepVariant.DV_NORM_READS": True, # TODO: should this be off for R10 or Illunina?
+            # TODO: When we get a DV with a trained model that can also run everything, plug it in here.
+            "DeepVariant.DV_GPU_DOCKER": "google/deepvariant:1.6.1-gpu",
+            "DeepVariant.DV_NO_GPU_DOCKER": "google/deepvariant:1.6.1",
+            "DeepVariant.DV_IS_1_7_OR_NEWER": False,
             "DeepVariant.TRUTH_VCF": params.truth_vcf_url,
             "DeepVariant.TRUTH_VCF_INDEX": params.truth_vcf_index_url,
             "DeepVariant.EVALUATION_REGIONS_BED": params.truth_bed_url,
             "DeepVariant.RESTRICT_REGIONS_BED": input.calling_reference_restrict_bed,
-            "DeepVariant.CALL_MEM": 100
+            "DeepVariant.PAR_REGIONS_BED_FILE": input.calling_reference_par_bed,
+            "DeepVariant.HAPLOID_CONTIGS": params.haploid_contigs,
+            # We just need hap.py; we don't need a stand-alone vcfeval run.
+            "DeepVariant.RUN_STANDALONE_VCFEVAL": False,
+            # We also don't need BAMs.
+            "DeepVariant.OUTPUT_SINGLE_BAM": False,
+            "DeepVariant.OUTPUT_CALLING_BAMS": False,
+            "DeepVariant.CALL_CORES": 32,
         }
         json.dump(wf_inputs, open(output["wdl_input_file"], "w"))
-        shell("toil-wdl-runner " + wf_url + " {output.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False")
+        shell("MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT=true MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner " + wf_url + " {output.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False")
         wdl_result=json.load(open(output.wdl_output_file))
         shell("cp " + wdl_result["DeepVariant.output_vcf"] + " {output.vcf}")
         shell("cp " + wdl_result["DeepVariant.output_vcf_index"] + " {output.vcf_index}")
@@ -3259,7 +3307,7 @@ rule memory_usage_sam:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_usage.tsv"
     wildcard_constraints:
         realness="real",
-        mapper="(minimap2.+|winnowmap|bwa)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3278,7 +3326,7 @@ rule runtime_from_benchmark_bam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(minimap2.+|winnowmap|bwa)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3332,7 +3380,7 @@ rule memory_from_benchmark_sam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(minimap2.+|winnowmap|bwa)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
     threads: 1
     resources:
         mem_mb=1000,
