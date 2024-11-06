@@ -27,6 +27,12 @@ configfile: "lr-config.yaml"
 # hprc-v1.1-mc-chm13.d9.k31.w50.W.withzip.min
 # hprc-v1.1-mc-chm13.d9.k31.w50.W.zipcodes
 #
+# It must also either be writable or contain an unchopped hg and gfa file
+# for running GraphAligner, named like:
+#
+# hprc-v1.1-mc-chm13.unchopped.hg
+# hprc-v1.1-mc-chm13.unchopped.gfa
+#
 GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
 
 # Where are the reads to use?
@@ -857,6 +863,56 @@ def param_search_tsvs(wildcards, statname="time_used.mean", realness="real"):
     values["statname"] = statname
     
     return expand("{root}/stats/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{param_hash}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv", **values)
+
+rule hg_index_graph:
+    input:
+        gbz="{graphs_dir}/{refgraph}-{reference}{clipping}.gbz"
+    output:
+        hgfile="{graphs_dir}/{refgraph}-{reference}{clipping}.hg"
+    wildcard_constraints:
+        reference="chm13|grch38",
+        clipping="\.d[0-9]+|"
+    threads: 26
+    resources:
+        mem_mb=120000,
+        runtime=240,
+        slurm_partition=choose_partition(240)
+    shell:
+        "vg convert -a -H -t {threads} {input.gbz} > {output.hgfile}"
+
+rule unchop_hg_graph:
+    input:
+        hgfile="{graphs_dir}/{refgraph}-{reference}{clipping}.hg"
+    output
+        unchopped_hg="{graphs_dir}/{refgraph}-{reference}{clipping}.unchopped.hg":
+    wildcard_constraints:
+        reference="chm13|grch38",
+        clipping="\.d[0-9]+|"
+    threads: 26
+    resources:
+        mem_mb=120000,
+        runtime=240,
+        slurm_partition=choose_partition(240)
+    shell:
+        "vg mod -u {input.hgfile} -t {threads} > {output.unchopped_hg}"
+
+rule hg_to_gfa:
+    input:
+        hgfile="{graphs_dir}/{refgraph}-{reference}{clipping}{choppedness}.hg"
+    output:
+        gfa="{graphs_dir}/{refgraph}-{reference}{clipping}{choppedness}.gfa"
+    wildcard_constraints:
+        reference="chm13|grch38",
+        clipping="\.d[0-9]+|"
+        choppedness="\.unchopped|"
+    threads: 26
+    resources:
+        mem_mb=120000,
+        runtime=240,
+        slurm_partition=choose_partition(240)
+    shell:
+        "vg convert -f -t {threads} {input.hgfile} > {output.gfa}"
+
 
 rule distance_index_graph:
     input:
