@@ -1699,7 +1699,10 @@ rule call_variants:
             # TODO: Should we not left align for minimap2 or GraphAligner?
             "DeepVariant.LEFTALIGN_BAM": True,
             # Indel realignment tools aren't available for long reads.
-            "DeepVariant.REALIGN_INDELS": wildcards.tech == "illumina",
+            # Also, we can't realign indels on our CHM13 non-2.0 mapping
+            # reference when usiong our CHM13v2.0 calling reference.
+            # TODO: Turn indel realignment back on when we manage to ditch CHM13 non-2.0.
+            "DeepVariant.REALIGN_INDELS": False,
             "DeepVariant.DV_MODEL_TYPE": {"hifi": "PACBIO", "r10": "ONT_R104", "illumina": "WGS"}[wildcards.tech],
             "DeepVariant.MIN_MAPQ": 0,
             # TODO: Should we use legacy AC like in the paper?
