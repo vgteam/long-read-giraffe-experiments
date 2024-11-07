@@ -1365,7 +1365,7 @@ rule bwa_sim_reads:
         pairing_flag=lambda w: "-p" if w["pairing"] == "-pe" else ""
     threads: auto_mapping_threads
     resources:
-        mem_mb=300000,
+        mem_mb=30000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
@@ -1386,7 +1386,7 @@ rule bwa_real_reads:
         pairing_flag=lambda w: "-p" if w["pairing"] == "-pe" else ""
     threads: auto_mapping_threads
     resources:
-        mem_mb=300000,
+        mem_mb=30000,
         runtime=600,
         slurm_partition=choose_partition(600),
         slurm_extra=auto_mapping_slurm_extra,

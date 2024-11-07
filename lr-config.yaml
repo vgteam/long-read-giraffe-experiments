@@ -77,7 +77,7 @@
 #graphs_dir: "/private/groups/patenlab/xhchang/graphs/lr_giraffe_graphs"
 #reads_dir: "/private/groups/patenlab/xhchang/reads"
 real_slurm_extra: "--exclude=phoenix-[00-10,22-24]"
-exclusive_timing: true
+exclusive_timing: false
 
 real_exps: ["hifi_real_full", "r10_real_full"]
 sim_exps: ["hifi_sim_1m", "r10_sim_1m"]
