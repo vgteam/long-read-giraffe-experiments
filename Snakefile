@@ -45,10 +45,9 @@ GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/
 # The name of the file must contain the sample name. If the directory is not
 # writable, and you want to trim adapters off nanopore reads, there must also
 # be a ".trimmed.fq.gz" or ".trimmed.fastq.gz" version of this file, with the
-# first 100 and last 10 bases trimmed off. Also, there must be
-# "{basename}-{subset}.fq" files for each subset size in reads ("1k", "1m:,
-# etc.) that you want to work with. "_" and "." are also accepted for setting
-# off the subset, and that ".fastq" is alos accepted as the extension.
+# first 100 and last 10 bases trimmed off. Thw workflow will generate
+# "{basename}.{subset}.fq.gz" files for each subset size in reads ("1k", "1m:,
+# etc.) that you want to work with.
 #
 # For simulated reads, each sample directory must have files
 # "{sample}-sim-{tech}-{subset}.gam" for each subset size as a number (100, 1000,
@@ -74,9 +73,9 @@ GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/
 #│       └── HG002
 #│           ├── HG002_1_R1041_UL_Guppy_6.3.7_5mc_cg_sup_prom_pass.fastq.gz
 #│           ├── HG002_1_R1041_UL_Guppy_6.3.7_5mc_cg_sup_prom_pass.trimmed.fastq.gz
-#│           ├── HG002_1_R1041_UL_Guppy_6.3.7_5mc_cg_sup_prom_pass.trimmed.10k.fastq
-#│           ├── HG002_1_R1041_UL_Guppy_6.3.7_5mc_cg_sup_prom_pass.trimmed.1k.fastq
-#│           └── HG002_1_R1041_UL_Guppy_6.3.7_5mc_cg_sup_prom_pass.trimmed.1m.fastq
+#│           ├── HG002_1_R1041_UL_Guppy_6.3.7_5mc_cg_sup_prom_pass.trimmed.10k.fq.gz
+#│           ├── HG002_1_R1041_UL_Guppy_6.3.7_5mc_cg_sup_prom_pass.trimmed.1k.fq.gz
+#│           └── HG002_1_R1041_UL_Guppy_6.3.7_5mc_cg_sup_prom_pass.trimmed.1m.fq.gz
 #└── sim
 #    ├── hifi
 #    │   └── HG002
@@ -497,7 +496,7 @@ def indexed_graph(wildcards):
     new_indexes.update(indexes)
     return new_indexes
 
-def base_fastq(wildcards):
+def base_fastq_gz(wildcards):
     """
     Find a full compressed FASTQ for a real sample, based on realness, sample,
     tech, and trimmedness.
@@ -511,12 +510,17 @@ def base_fastq(wildcards):
     if wildcards["trimmedness"] != ".trimmed":
         # Don't match trimmed files when not trimmed.
         results = [r for r in results if ".trimmed" not in r]
+    subset_regex = re.compile("([0-9]+[km]?|full)")
+    # Skip any subset files
+    results = [r for r in results if not subset_regex.fullmatch(r.split(".")[-3])]
     if len(results) == 0:
         # Can't find it
         if wildcards["trimmedness"] == ".trimmed":
             # Look for an untrimmed version
             untrimmed_pattern = os.path.join(READS_DIR, "{realness}/{tech}/{sample}/*{sample}*.f*q.gz".format(**wildcards))
             results = glob.glob(untrimmed_pattern)
+            # Skip any subset files
+            results = [r for r in results if not subset_regex.fullmatch(r.split(".")[-3])]
             if len(results) == 1:
                 # We can use this untrimmed one to make a trimmed one
                 without_gz = os.path.splitext(results[0])[0]
@@ -528,15 +532,18 @@ def base_fastq(wildcards):
         raise RuntimeError("Multiple files matched " + full_gz_pattern)
     return results[0]
 
-def fastq(wildcards):
+def fastq_finder(wildcards, compressed = False):
     """
-    Find a FASTQ from realness, tech, sample, trimmedness, and subset.
+    Find a FASTQ or compressed FASTQ from realness, tech, sample, trimmedness, and subset.
 
     Works even if there is extra stuff in the name besides sample. Accounts for
     being able to make a FASTQ from a GAM.
     """
+
+    extra_ext = ".gz" if compressed else ""
+
     import glob
-    fastq_by_sample_pattern = os.path.join(READS_DIR, "{realness}/{tech}/{sample}/*{sample}*{trimmedness}[._-]{subset}.f*q".format(**wildcards))
+    fastq_by_sample_pattern = os.path.join(READS_DIR, ("{realness}/{tech}/{sample}/*{sample}*{trimmedness}[._-]{subset}.f*q" + extra_ext).format(**wildcards))
     results = glob.glob(fastq_by_sample_pattern)
     if wildcards["trimmedness"] != ".trimmed":
         # Don't match trimmed files when not trimmed.
@@ -544,21 +551,39 @@ def fastq(wildcards):
     if len(results) == 0:
         if wildcards["realness"] == "real":
             # Make sure there's a full .fq.gz to extract from (i.e. this doesn't raise)
-            full_file = base_fastq(wildcards)
+            full_file = base_fastq_gz(wildcards)
             # And compute the subset name
             without_gz = os.path.splitext(full_file)[0]
             without_fq = os.path.splitext(without_gz)[0]
-            return without_fq + ".{subset}.fq".format(**wildcards)
+            return without_fq + (".{subset}.fq" + extra_ext).format(**wildcards)
         elif wildcards["realness"] == "sim":
             # Assume we can get this FASTQ.
             # For simulated reads we assume the right subset GAM is there. We
             # don't want to deal with the 1k/1000 difference here.
-            return os.path.join(READS_DIR, "{realness}/{tech}/{sample}/{sample}-{realness}-{tech}{trimmedness}-{subset}.fq".format(**wildcards))
+            return os.path.join(READS_DIR, ("{realness}/{tech}/{sample}/{sample}-{realness}-{tech}{trimmedness}-{subset}.fq" + extra_ext).format(**wildcards))
         else:
             raise FileNotFoundError(f"No files found matching {fastq_by_sample_pattern}")
     elif len(results) > 1:
         raise AmbiguousRuleException("Multiple files matched " + fastq_by_sample_pattern)
     return results[0]
+
+def fastq(wildcards):
+    """
+    Find a FASTQ from realness, tech, sample, trimmedness, and subset.
+
+    Works even if there is extra stuff in the name besides sample. Accounts for
+    being able to make a FASTQ from a GAM.
+    """
+    return fastq_finder(wildcards, compressed=False)
+
+def fastq_gz(wildcards):
+    """
+    Find a compressed FASTQ from realness, tech, sample, trimmedness, and subset.
+
+    Works even if there is extra stuff in the name besides sample. Accounts for
+    being able to make a FASTQ from a GAM.
+    """
+    return fastq_finder(wildcards, compressed=True)
 
 def all_experiment_conditions(expname, filter_function=None, debug=False):
     """
@@ -1021,12 +1046,11 @@ rule trim_base_fastq_gz:
     shell:
         "seqkit subseq -j {threads} -r 100:-10 {input.fq_gz} -o {output.fq_gz}"
     
-
 rule subset_base_fastq_gz:
     input:
-        base_fastq=base_fastq
+        base_fastq_gz=base_fastq_gz
     output:
-        fastq="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.{subset}.fq"
+        fastq_gz="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.{subset}.fq.gz"
     wildcard_constraints:
         realness="real",
         subset="[0-9]+[km]?"
@@ -1039,13 +1063,26 @@ rule subset_base_fastq_gz:
         slurm_partition=choose_partition(120)
     shell:
         # We need to account for bgzip getting upset that we close the pipe before it is done writing.
-        "(bgzip -d <{input.base_fastq} || true) | head -n {params.lines} >{output.fastq}"
+        "(bgzip -d <{input.base_fastq_gz} || true) | head -n {params.lines} | pigz -p8 -c >{output.fastq_gz}"
+
+rule decompress_fastq:
+    input:
+        fastq_gz="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.{subset}.fq.gz"
+    output:
+        fastq="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.{subset}.fq"
+    threads: 8
+    resources:
+        mem_mb=1000,
+        runtime=120,
+        slurm_partition=choose_partition(120)
+    shell:
+        "pigz -d -c -p 8 {input.fastq_gz} > {output.fastq}"
 
 rule subset_alias_base_fastq_gz:
     input:
-        base_fastq=base_fastq
+        base_fastq_gz=base_fastq_gz
     output:
-        fastq="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.{subset}.fq"
+        fastq_gz="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.{subset}.fq.gz"
     wildcard_constraints:
         realness="real",
         subset="full"
@@ -1055,7 +1092,7 @@ rule subset_alias_base_fastq_gz:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "ln {input.base_fastq} {output.fastq}"
+        "ln {input.base_fastq_gz} {output.fastq_gz}"
 
 rule extract_fastq_from_gam:
     input:
@@ -1129,7 +1166,7 @@ rule callable_bed_index_calling_reference:
 rule giraffe_real_reads:
     input:
         unpack(indexed_graph),
-        fastq=fastq,
+        fastq_gz=fastq_gz,
     output:
         # Giraffe can dump out pre-annotated reads at annotation range -1.
         gam="{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
@@ -1148,7 +1185,7 @@ rule giraffe_real_reads:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} " + flags + " >{output.gam} 2>{log}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq_gz} " + flags + " >{output.gam} 2>{log}")
 
 rule giraffe_sim_reads:
     input:
@@ -1316,7 +1353,7 @@ rule minimap2_real_reads:
 rule bwa_sim_reads:
     input:
         reference_fasta=reference_fasta,
-        fastq=fastq
+        fastq_gz=fastq_gz
     output:
         sam=temp("{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     log:"{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
@@ -1332,12 +1369,12 @@ rule bwa_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "bwa mem -t {threads} {params.pairing_flag} {input.reference_fasta} {input.fastq}>{output.sam} 2> {log}"
+        "bwa mem -t {threads} {params.pairing_flag} {input.reference_fasta} {input.fastq_gz} >{output.sam} 2> {log}"
 
 rule bwa_real_reads:
     input:
         reference_fasta=reference_fasta,
-        fastq=fastq
+        fastq_gz=fastq_gz
     output:
         sam=temp("{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     benchmark: "{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
@@ -1355,7 +1392,7 @@ rule bwa_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "bwa mem -t {threads} {params.pairing_flag} {input.reference_fasta} {input.fastq}>{output.sam} 2> {log}"
+        "bwa mem -t {threads} {params.pairing_flag} {input.reference_fasta} {input.fastq_gz} >{output.sam} 2> {log}"
 
 # Minimap2 and Winnowmap include secondary alignments in the output by default, and Winnowmap doesn't quite have a way to limit them (minimap2 has -N)
 # Also they only speak SAM and we don't want to benchmark the BAM-ification time.
