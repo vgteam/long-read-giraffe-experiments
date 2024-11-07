@@ -1369,7 +1369,7 @@ rule bwa_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "bwa mem -t {threads} {params.pairing_flag} {input.reference_fasta} {input.fastq_gz} >{output.sam} 2> {log}"
+        "bwa mem -t {threads} -R '@RG\\tID:1\\tLB:lib1\\tSM:{wildcards.sample}\\tPL:{wildcards.tech}\\tPU:unit1' {params.pairing_flag} {input.reference_fasta} {input.fastq_gz} >{output.sam} 2> {log}"
 
 rule bwa_real_reads:
     input:
@@ -1392,7 +1392,7 @@ rule bwa_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "bwa mem -t {threads} {params.pairing_flag} {input.reference_fasta} {input.fastq_gz} >{output.sam} 2> {log}"
+        "bwa mem -t {threads} -R '@RG\\tID:1\\tLB:lib1\\tSM:{wildcards.sample}\\tPL:{wildcards.tech}\\tPU:unit1' {params.pairing_flag} {input.reference_fasta} {input.fastq_gz} >{output.sam} 2> {log}"
 
 # Minimap2 and Winnowmap include secondary alignments in the output by default, and Winnowmap doesn't quite have a way to limit them (minimap2 has -N)
 # Also they only speak SAM and we don't want to benchmark the BAM-ification time.
