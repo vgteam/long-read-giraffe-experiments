@@ -290,7 +290,8 @@ experiments:
         - refgraph: "hprc-v1.0-minigraph"
           mapper: ["minigraph", "graphaligner-default"]
 
-  hifi_sim_regtest:
+  # TODO: "primary" can't do correctness because it wants to inject the minimap2 BAMs.
+  hifi_sim_graphs:
     control:
       subset: 10k
       tech: hifi
@@ -298,10 +299,14 @@ experiments:
       trimmedness: ""
       sample: HG002
       realness: sim
-      refgraph: hprc-v1.1-mc
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-bd8ded-noflags", "giraffe-k31.w50.W-hifi-beec23-noflags"]
-
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "minimap2-lr:hq", "minimap2-map-hifi"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-d32", "hprc-v2.prereease-mc-R2-d32"]
+    constrain:
+      - refgraph: "hprc-v1.1-mc-d9"
+        mapper: ["minimap2-lr:hq", "minimap2-map-hifi"]
+      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-d32", "hprc-v2.prereease-mc-R2-d32"]
+        mapper: "giraffe-k31.w50.W-hifi-default-noflags"
 
   hifi_speed:
     control:
@@ -314,55 +319,6 @@ experiments:
       refgraph: hprc-v1.1-mc
     vary:
       mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-370f8f-noflags"]
-
-  hifi_sim_present:
-    control:
-      subset: 1m
-      tech: hifi
-      reference: chm13
-      trimmedness: ""
-      sample: HG002
-      realness: sim
-      refgraph: hprc-v1.1-mc
-    vary:
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "graphaligner-default", "minimap2-lr:hq", "winnowmap"]
-
-  r10_sim_present:
-    control:
-      subset: 1m
-      tech: r10
-      reference: chm13
-      trimmedness: ""
-      sample: HG002
-      realness: sim
-      refgraph: hprc-v1.1-mc
-    vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "graphaligner-default", "minimap2-map-ont", "winnowmap"]
-
-  hifi_real_present:
-    control:
-      subset: 1m
-      tech: hifi
-      reference: chm13
-      trimmedness: ""
-      sample: HG002
-      realness: real
-      refgraph: hprc-v1.1-mc
-    vary:
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "graphaligner-default", "minimap2-lr:hq"]
-
-  r10_real_present:
-    control:
-      subset: 1m
-      tech: r10
-      reference: chm13
-      trimmedness: ".trimmed"
-      sample: HG002
-      realness: real
-      refgraph: hprc-v1.1-mc
-    vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "graphaligner-default", "minimap2-map-ont"]
-
 
   hifi_big_table:
     control:

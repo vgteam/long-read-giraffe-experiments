@@ -190,7 +190,7 @@ def auto_mapping_threads(wildcards):
     else:
         mapping_threads= 8
 
-    if wildcards["realness"] == "sim" and wildcards["mapper"] == "graphaligner":
+    if wildcards["realness"] == "sim" and wildcards.get("mapper") == "graphaligner":
         #Graphaligner is really slow so for simulated reads where we don't care about time
         #double the number of threads
         #At most the number of cores on the phoenix nodes
@@ -420,20 +420,42 @@ def truth_bed_url(wildcards):
 
 def graph_base(wildcards):
     """
-    Find the base name for a collection of graph files from refgraph, reference, and clipping.
+    Find the base name for a collection of graph files from reference and either refgraph or all of refgraphbase, modifications, and clipping.
+
+    For GraphAligner, selects an unchopped version of the graph based on mapper.
     """
-    if wildcards["refgraph"] == "hprc-v1.1-mc":
-        if wildcards.get("mapper", "") == "graphaligner":
-            return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".unchopped")
-        else:
-            return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"])
-    elif wildcards["refgraph"] == "hprc-v1.1-mc-d9":
-        if wildcards.get("mapper", "") == "graphaligner":
-            return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9.unchopped")
-        else:
-            return os.path.join(GRAPHS_DIR, "hprc-v1.1-mc-" + wildcards["reference"] + ".d9")
+
+    # For membership testing, we need a set of wildcard keys
+    wc_keys = set(wildcards.keys())
+
+    reference = wildcards["reference"]
+    modifications = []
+
+    if "refgraphbase" in wc_keys and "modifications" in wc_keys and "clipping" in wc_keys:
+        # We already have the reference graph base (hprc-v1.1-mc) and clipping (.d9) cut apart.
+        refgraphbase = wildcards["refgraphbase"]
+        modifications.append(wildcards["modifications"])
+        modifications.append(wildcards["clipping"])
     else:
-        return os.path.join(GRAPHS_DIR, wildcards["refgraph"] + "-" + wildcards["reference"] + wildcards.get("clipping", ""))
+        assert "refgraph" in wc_keys, f"No refgraph wildcard in: {wc_keys}"
+        # We need to handle hprc-v1.1-mc and hprc-v1.1-mc-d9 and hprc-v2.prereease-mc-R2-d32.
+        # They need the regerence inserted after the -mc.
+        parse_regex = re.compile("(.*?)(-R[0-9]+)?(-(d[0-9]+))?")
+        match = parse_regex.fullmatch(wildcards["refgraph"])
+        refgraphbase = match[1]
+        if match[2]:
+            # We have a version modifier
+            modifications.append(match[2])
+        if match[4]:
+            # We have a clipping modifier, which gets a dot.
+             modifications.append("." + match[4])
+    
+    if wildcards.get("mapper", "") == "graphaligner":
+        # GraphAligner needs the graph un-chopped.
+        modifications.append(".unchopped")
+
+    
+    return os.path.join(GRAPHS_DIR, refgraphbase + "-" + reference + "".join(modifications))
 
 def gbz(wildcards):
     """
@@ -919,11 +941,12 @@ def param_search_tsvs(wildcards, statname="time_used.mean", realness="real"):
 
 rule hg_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraph}-{reference}{clipping}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
     output:
-        hgfile="{graphs_dir}/{refgraph}-{reference}{clipping}.hg"
+        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.hg"
     wildcard_constraints:
         reference="chm13|grch38",
+        modifications="-.*|",
         clipping="\.d[0-9]+|"
     threads: 26
     resources:
@@ -935,11 +958,12 @@ rule hg_index_graph:
 
 rule unchop_hg_graph:
     input:
-        hgfile="{graphs_dir}/{refgraph}-{reference}{clipping}.hg"
+        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.hg"
     output:
-        unchopped_hg="{graphs_dir}/{refgraph}-{reference}{clipping}.unchopped.hg"
+        unchopped_hg="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.unchopped.hg"
     wildcard_constraints:
         reference="chm13|grch38",
+        modifications="-.*|",
         clipping="\.d[0-9]+|"
     threads: 26
     resources:
@@ -951,11 +975,12 @@ rule unchop_hg_graph:
 
 rule hg_to_gfa:
     input:
-        hgfile="{graphs_dir}/{refgraph}-{reference}{clipping}{choppedness}.hg"
+        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{choppedness}.hg"
     output:
-        gfa="{graphs_dir}/{refgraph}-{reference}{clipping}{choppedness}.gfa"
+        gfa="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{choppedness}.gfa"
     wildcard_constraints:
         reference="chm13|grch38",
+        modifications="-.*|",
         clipping="\.d[0-9]+|",
         choppedness="\.unchopped|"
     threads: 26
@@ -969,11 +994,12 @@ rule hg_to_gfa:
 
 rule distance_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraph}-{reference}{clipping}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
     output:
-        distfile="{graphs_dir}/{refgraph}-{reference}{clipping}.dist"
+        distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.dist"
     wildcard_constraints:
         reference="chm13|grch38",
+        modifications="-.*|",
         clipping="\.d[0-9]+|"
     threads: 16
     resources:
@@ -987,19 +1013,20 @@ rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
     output:
-        minfile="{graphs_dir}/{refgraph}-{reference}{clipping}.k{k}.w{w}{weightedness}.withzip.min",
-        zipfile="{graphs_dir}/{refgraph}-{reference}{clipping}.k{k}.w{w}{weightedness}.zipcodes"
+        minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.k{k}.w{w}{weightedness}.withzip.min",
+        zipfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.k{k}.w{w}{weightedness}.zipcodes"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
         w="[0-9]+",
         reference="chm13|grch38",
+        modifications="-.*|",
         clipping="\.d[0-9]+|"
     params:
         weighting_option=lambda w: "--weighted" if w["weightedness"] == ".W" else ""
     threads: 16
     resources:
-        mem_mb=lambda w: 600000 if "hprc-v2" in w["refgraph"] else 320000 if w["weightedness"] == ".W" else 80000,
+        mem_mb=lambda w: 600000 if "hprc-v2" in w["refgraphbase"] else 320000 if w["weightedness"] == ".W" else 80000,
         runtime=240,
         slurm_partition=choose_partition(240)
     shell:
@@ -1421,6 +1448,7 @@ rule graphaligner_sim_reads:
         gam="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim",
+        # Need to hint mapper to auto_mapping_threads
         mapper="graphaligner"
     threads: auto_mapping_threads
     params:
