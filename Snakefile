@@ -1799,13 +1799,20 @@ rule compare_alignments:
         gam="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
         tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
         compare="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+    params:
+        # TODO: Until we settle on a non-CHM13v2.0 CHM13 reference for all the
+        # graphs involved in the comparison, we need to ignore chrY for HG002
+        # since the CHM13v2.0 version comes from HG002 itself. Also we can't
+        # compare positions from a CHM13v1.1-based truth against positions from
+        # a CHM13v2.0-based graph, and we haven't sorted out which those are.
+        ignore_flag=lambda w: "--ignore 'CHM13#0#chrY'" if "HG002" in w["sample"] else ""
     threads: 16
     resources:
         mem_mb=200000,
         runtime=800,
         slurm_partition=choose_partition(800)
     shell:
-        "vg gamcompare --threads 16 --range 200 {input.gam} {input.truth_gam} --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
+        "vg gamcompare --threads 16 --range 200 {params.ignore_flag} {input.gam} {input.truth_gam} --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
 
 rule compare_alignments_category:
     input:

@@ -301,11 +301,11 @@ experiments:
       realness: sim
     vary:
       mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "minimap2-lr:hq", "minimap2-map-hifi"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-d32", "hprc-v2.prereease-mc-R2-d32"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-d32", "hprc-v2.prereease-mc-R2-d32", "hprc-v2-90-d9"]
     constrain:
       - refgraph: "hprc-v1.1-mc-d9"
         mapper: ["minimap2-lr:hq", "minimap2-map-hifi"]
-      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-d32", "hprc-v2.prereease-mc-R2-d32"]
+      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-d32", "hprc-v2.prereease-mc-R2-d32", "hprc-v2-90-d9"]
         mapper: "giraffe-k31.w50.W-hifi-default-noflags"
 
   hifi_speed:
