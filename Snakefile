@@ -178,7 +178,7 @@ wildcard_constraints:
     refgraphbase="[^/]+?",
     reference="chm13|grch38",
     # We can have multiple versions of graphs with different modifications and clipping regimes
-    modifications="(-[^.-]+)+|",
+    modifications="(-[^.-]+)*",
     clipping="\\.d[0-9]+|",
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
@@ -447,7 +447,6 @@ def graph_base(wildcards):
 
     # For membership testing, we need a set of wildcard keys
     wc_keys = set(wildcards.keys())
-
     reference = wildcards["reference"]
     modifications = []
 
@@ -460,22 +459,23 @@ def graph_base(wildcards):
         assert "refgraph" in wc_keys, f"No refgraph wildcard in: {wc_keys}"
         # We need to handle hprc-v1.1-mc and hprc-v1.1-mc-d9 and hprc-v2.prereease-mc-R2-d32.
         # They need the regerence inserted after the -mc.
-        parse_regex = re.compile("(.*?)(-R[0-9]+)?(-(d[0-9]+))?")
+        parse_regex = re.compile("(.*?)(-mc)?((-[^-.]+)+?)(-(d[0-9]+))?")
         match = parse_regex.fullmatch(wildcards["refgraph"])
-        refgraphbase = match[1]
-        if match[2]:
-            # We have a version modifier
-            modifications.append(match[2])
-        if match[4]:
+        refgraphbase = match[1] + (match[2] or "")
+        if match[3]:
+            # We have other modifications
+            modifications.append(match[3])
+        if match[6]:
             # We have a clipping modifier, which gets a dot.
-             modifications.append("." + match[4])
+             modifications.append("." + match[6])
     
     if wildcards.get("mapper", "") == "graphaligner":
         # GraphAligner needs the graph un-chopped.
         modifications.append(".unchopped")
 
     
-    return os.path.join(GRAPHS_DIR, refgraphbase + "-" + reference + "".join(modifications))
+    result = os.path.join(GRAPHS_DIR, refgraphbase + "-" + reference + "".join(modifications))
+    return result
 
 def gbz(wildcards):
     """
@@ -1097,7 +1097,7 @@ rule haplotype_sample_graph:
         kmer_counts=kmer_counts
     output:
         # Need to sample back into the graphs directory so e.g. minimizer indexing and mapping can work.
-        sampled_gbz="{graphs_dir}/sampled-for-{realness}-{tech}-{sample}{trimmedness}.{subset}-from-{refgraphbase}-{reference}{modifications}{clipping}.gbz"
+        sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}-sampled-for-{realness}-{tech}-{sample}{trimmedness}-{subset}{clipping}.gbz"
     wildcard_constraints:
         # We don't support clipping for ther graph to sample from or after sampling.
         clipping="()"
