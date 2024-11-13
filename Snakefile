@@ -33,6 +33,19 @@ configfile: "lr-config.yaml"
 # hprc-v1.1-mc-chm13.unchopped.hg
 # hprc-v1.1-mc-chm13.unchopped.gfa
 #
+# And for haplotype sampling, the full graph (without any .dXX) must be available:
+#
+# hprc-v1.1-mc-chm13.gbz
+#
+# A snarls-only "distance" index will be made if not present:
+#
+# hprc-v1.1-mc-chm13.di2snarls
+#
+# As will the haplotype sampling indexes:
+#
+# hprc-v1.1-mc-chm13.ri
+# hprc-v1.1-mc-chm13.hapl
+#
 GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
 
 # Where are the reads to use?
@@ -146,6 +159,9 @@ MAPPER_THREADS=64
 
 PARAM_SEARCH = parameter_search.ParameterSearch()
 
+# Where is a large temo directory?
+LARGE_TEMP_DIR = config.get("large_temp_dir", "/scratch/tmp")
+
 #Different phoenix nodes seem to run at different speeds, so we can specify which node to run
 #This gets added as a slurm_extra for all the real read runs
 REAL_SLURM_EXTRA = config.get("real_slurm_extra", None) or ""
@@ -159,7 +175,11 @@ EXCLUSIVE_TIMING = config.get("exclusive_timing", True)
 IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["speed_from_log", "softclipped_or_unmapped", "accuracy", "indel_f1", "snp_f1"])
 
 wildcard_constraints:
-    reference="[^/]*",
+    refgraphbase="[^/]+?",
+    reference="chm13|grch38",
+    # We can have multiple versions of graphs with different modifications and clipping regimes
+    modifications="(-[^.-]+)+|",
+    clipping="\\.d[0-9]+|",
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
     basename=".+(?<!\\.trimmed)",
@@ -518,6 +538,20 @@ def indexed_graph(wildcards):
     new_indexes.update(indexes)
     return new_indexes
 
+def haplotype_indexed_graph(wildcards):
+    """
+    Find a GBZ and its dist index from reference.
+
+    Uses the full distance index if present or the snarls-only one otherwise.
+    """
+    base = graph_base(wildcards)
+    return {
+        "gbz": gbz(wildcards),
+        "hapl": base + ".hapl",
+        "ri": base + ".ri",
+        "snarls": base + ".dist" if os.path.exists(base + ".dist") else base + ".di2snarls"
+    }
+
 def base_fastq_gz(wildcards):
     """
     Find a full compressed FASTQ for a real sample, based on realness, sample,
@@ -606,6 +640,14 @@ def fastq_gz(wildcards):
     being able to make a FASTQ from a GAM.
     """
     return fastq_finder(wildcards, compressed=True)
+
+def kmer_counts(wildcards):
+    """
+    Find a compressed FASTQ from realness, tech, sample, trimmedness, and subset, and get the corresponding kmer file name.
+    """
+    result = re.sub("\\.f.*?q.gz$", ".kff", fastq_gz(wildcards))
+    assert result.endswith(".kff")
+    return result
 
 def all_experiment_conditions(expname, filter_function=None, debug=False):
     """
@@ -944,10 +986,6 @@ rule hg_index_graph:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
     output:
         hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.hg"
-    wildcard_constraints:
-        reference="chm13|grch38",
-        modifications="-.*|",
-        clipping="\.d[0-9]+|"
     threads: 26
     resources:
         mem_mb=120000,
@@ -961,10 +999,6 @@ rule unchop_hg_graph:
         hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.hg"
     output:
         unchopped_hg="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.unchopped.hg"
-    wildcard_constraints:
-        reference="chm13|grch38",
-        modifications="-.*|",
-        clipping="\.d[0-9]+|"
     threads: 26
     resources:
         mem_mb=120000,
@@ -979,9 +1013,6 @@ rule hg_to_gfa:
     output:
         gfa="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{choppedness}.gfa"
     wildcard_constraints:
-        reference="chm13|grch38",
-        modifications="-.*|",
-        clipping="\.d[0-9]+|",
         choppedness="\.unchopped|"
     threads: 26
     resources:
@@ -997,17 +1028,86 @@ rule distance_index_graph:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
     output:
         distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.dist"
-    wildcard_constraints:
-        reference="chm13|grch38",
-        modifications="-.*|",
-        clipping="\.d[0-9]+|"
     threads: 16
     resources:
         mem_mb=120000,
         runtime=240,
         slurm_partition=choose_partition(240)
     shell:
-        "vg index -t 16 -j {output.distfile} {input.gbz}"
+        "vg index -t {threads} -j {output.distfile} {input.gbz}"
+
+rule di2snarls_index_graph:
+    input:
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
+    output:
+        di2snarlsfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.di2snarls"
+    threads: 16
+    resources:
+        mem_mb=120000,
+        runtime=240,
+        slurm_partition=choose_partition(240)
+    shell:
+        "vg index -t {threads} --snarl-limit 0 -j {output.di2snarlsfile} {input.gbz}"
+
+rule r_index_graph:
+    input:
+        # We don't operate on clipped graphs
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}.gbz"
+    output:
+        rifile="{graphs_dir}/{refgraphbase}-{reference}{modifications}.ri"
+    threads: 16
+    resources:
+        mem_mb=120000,
+        runtime=240,
+        slurm_partition=choose_partition(240)
+    shell:
+        "vg gbwt -p --num-threads {threads} -r {output.rifile} -Z {input.gbz}"
+
+rule haplotype_index_graph:
+    input:
+        # We don't operate on clipped graphs
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}.gbz"
+    output:
+        haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}.hapl"
+    threads: 16
+    resources:
+        mem_mb=120000,
+        runtime=240,
+        slurm_partition=choose_partition(240)
+    shell:
+        "vg haplotypes -v 2 -t 16 -H {output.haplfile} {input.gbz}"
+
+rule kmer_count_full_sample:
+    input:
+        base_fastq_gz=base_fastq_gz
+    output:
+        kmer_counts="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.kff"
+    threads: 16
+    resources:
+        mem_mb=120000,
+        runtime=240,
+        slurm_partition=choose_partition(240),
+        tmpdir=LARGE_TEMP_DIR
+    shell:
+        "kmc -k29 -m128 -okff -t{threads} -hp {input.base_fastq_gz} {output.kmer_counts} \"$TMPDIR\""
+
+rule haplotype_sample_graph:
+    input:
+        unpack(haplotype_indexed_graph),
+        kmer_counts=kmer_counts
+    output:
+        # Need to sample back into the graphs directory so e.g. minimizer indexing and mapping can work.
+        sampled_gbz="{graphs_dir}/sampled-for-{realness}-{tech}-{sample}{trimmedness}.{subset}-from-{refgraphbase}-{reference}{modifications}{clipping}.gbz"
+    wildcard_constraints:
+        # We don't support clipping for ther graph to sample from or after sampling.
+        clipping="()"
+    threads: 16
+    resources:
+        mem_mb=120000,
+        runtime=240,
+        slurm_partition=choose_partition(240)
+    shell:
+        "vg haplotypes -v 2 -t {threads} --include-reference --diploid-sampling -i {input.hapl} -k {input.kmer_counts} -d {input.snarls} -g {output.sampled_gbz} {input.gbz}"
 
 rule minimizer_index_graph:
     input:
@@ -1018,10 +1118,7 @@ rule minimizer_index_graph:
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
-        w="[0-9]+",
-        reference="chm13|grch38",
-        modifications="-.*|",
-        clipping="\.d[0-9]+|"
+        w="[0-9]+"
     params:
         weighting_option=lambda w: "--weighted" if w["weightedness"] == ".W" else ""
     threads: 16
