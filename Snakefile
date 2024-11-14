@@ -1039,7 +1039,8 @@ rule distance_index_graph:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
     output:
         distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.dist"
-    threads: 16
+    # TODO: Distance indexing only really uses 1 thread
+    threads: 2
     resources:
         mem_mb=120000,
         runtime=240,
@@ -1052,7 +1053,8 @@ rule di2snarls_index_graph:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
     output:
         di2snarlsfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.di2snarls"
-    threads: 64
+    # TODO: Distance indexing only really uses 1 thread
+    threads: 2
     resources:
         mem_mb=500000,
         runtime=800,
