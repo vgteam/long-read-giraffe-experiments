@@ -160,7 +160,7 @@ MAPPER_THREADS=64
 PARAM_SEARCH = parameter_search.ParameterSearch()
 
 # Where is a large temo directory?
-LARGE_TEMP_DIR = config.get("large_temp_dir", "/scratch/tmp")
+LARGE_TEMP_DIR = config.get("large_temp_dir", "/data/tmp")
 
 #Different phoenix nodes seem to run at different speeds, so we can specify which node to run
 #This gets added as a slurm_extra for all the real read runs
@@ -450,11 +450,12 @@ def graph_base(wildcards):
     reference = wildcards["reference"]
     modifications = []
 
-    if "refgraphbase" in wc_keys and "modifications" in wc_keys and "clipping" in wc_keys:
-        # We already have the reference graph base (hprc-v1.1-mc) and clipping (.d9) cut apart.
+    if "refgraphbase" in wc_keys and "modifications" in wc_keys:
+        # We already have the reference graph base (hprc-v1.1-mc) and clipping (.d9) if allowed cut apart.
         refgraphbase = wildcards["refgraphbase"]
         modifications.append(wildcards["modifications"])
-        modifications.append(wildcards["clipping"])
+        if "clipping" in wc_keys:
+            modifications.append(wildcards["clipping"])
     else:
         assert "refgraph" in wc_keys, f"No refgraph wildcard in: {wc_keys}"
         # We need to handle hprc-v1.1-mc and hprc-v1.1-mc-d9 and hprc-v2.prereease-mc-R2-d32.
@@ -538,19 +539,29 @@ def indexed_graph(wildcards):
     new_indexes.update(indexes)
     return new_indexes
 
-def haplotype_indexed_graph(wildcards):
+def r_and_snarl_indexed_graph(wildcards):
     """
-    Find a GBZ and its dist index from reference.
+    Find a GBZ and its snarl/distance and ri indexes.
 
     Uses the full distance index if present or the snarls-only one otherwise.
     """
     base = graph_base(wildcards)
     return {
         "gbz": gbz(wildcards),
-        "hapl": base + ".hapl",
         "ri": base + ".ri",
         "snarls": base + ".dist" if os.path.exists(base + ".dist") else base + ".di2snarls"
     }
+
+def haplotype_indexed_graph(wildcards):
+    """
+    Find a GBZ and its snarl/distance, ri, and hapl indexes.
+
+    Uses the full distance index if present or the snarls-only one otherwise.
+    """
+    base = graph_base(wildcards)
+    result = dict(r_and_snarl_indexed_graph(wildcards))
+    result["hapl"] = base + ".hapl"
+    return result
 
 def base_fastq_gz(wildcards):
     """
@@ -1041,11 +1052,11 @@ rule di2snarls_index_graph:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
     output:
         di2snarlsfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.di2snarls"
-    threads: 16
+    threads: 64
     resources:
-        mem_mb=120000,
-        runtime=240,
-        slurm_partition=choose_partition(240)
+        mem_mb=500000,
+        runtime=800,
+        slurm_partition=choose_partition(800)
     shell:
         "vg index -t {threads} --snarl-limit 0 -j {output.di2snarlsfile} {input.gbz}"
 
@@ -1065,8 +1076,7 @@ rule r_index_graph:
 
 rule haplotype_index_graph:
     input:
-        # We don't operate on clipped graphs
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}.gbz"
+        unpack(r_and_snarl_indexed_graph),
     output:
         haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}.hapl"
     threads: 16
@@ -1075,7 +1085,7 @@ rule haplotype_index_graph:
         runtime=240,
         slurm_partition=choose_partition(240)
     shell:
-        "vg haplotypes -v 2 -t 16 -H {output.haplfile} {input.gbz}"
+        "vg haplotypes -v 2 -t 16 -d {input.snarls} -r {input.ri} {input.gbz} -H {output.haplfile}"
 
 rule kmer_count_full_sample:
     input:
@@ -1097,17 +1107,14 @@ rule haplotype_sample_graph:
         kmer_counts=kmer_counts
     output:
         # Need to sample back into the graphs directory so e.g. minimizer indexing and mapping can work.
-        sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}-sampled-for-{realness}-{tech}-{sample}{trimmedness}-{subset}{clipping}.gbz"
-    wildcard_constraints:
-        # We don't support clipping for ther graph to sample from or after sampling.
-        clipping="()"
+        sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}-sampled-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.gbz"
     threads: 16
     resources:
         mem_mb=120000,
         runtime=240,
         slurm_partition=choose_partition(240)
     shell:
-        "vg haplotypes -v 2 -t {threads} --include-reference --diploid-sampling -i {input.hapl} -k {input.kmer_counts} -d {input.snarls} -g {output.sampled_gbz} {input.gbz}"
+        "vg haplotypes -v 2 -t {threads} --include-reference --diploid-sampling -i {input.hapl} -k {input.kmer_counts} -d {input.snarls} -r {input.ri} {input.gbz} -g {output.sampled_gbz}"
 
 rule minimizer_index_graph:
     input:
