@@ -1101,7 +1101,8 @@ rule kmer_count_full_sample:
         slurm_partition=choose_partition(240),
         tmpdir=LARGE_TEMP_DIR
     shell:
-        "kmc -k29 -m128 -okff -t{threads} -hp {input.base_fastq_gz} {output.kmer_counts} \"$TMPDIR\""
+        # Need to cut the extension off the output file because KMC will supply it.
+        "kmc -k29 -m128 -okff -t{threads} -hp {input.base_fastq_gz} {output.kmer_counts[-4:]} \"$TMPDIR\""
 
 rule haplotype_sample_graph:
     input:
