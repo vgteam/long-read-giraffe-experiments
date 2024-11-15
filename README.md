@@ -41,6 +41,18 @@ The general flow for using this repository is:
 
     And you can use the `--dry-run` flag to see all the rules that will be executed and the files that will be created.
 
+    To test the Snakemake:
+
+    ```
+    snakemake all_paper_figures --dry-run --debug-dag
+    ```
+
+    And to run all the plots for the paper into the configured `all_out_dir` (expected to be group sticky):
+
+    ```
+    (umask 0002; snakemake -j128 --rerun-incomplete --latency-wait 120 --slurm all_paper_figures)
+    ```
+
 ## Dependencies
 
 To run all the rules, you will need to have installations of:
