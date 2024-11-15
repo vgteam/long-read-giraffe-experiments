@@ -98,11 +98,11 @@ experiments:
       realness: real
     vary:
       mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "minigraph", "giraffe-k31.w50.W-r10-839e93-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.0-minigraph", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-sampled", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-r10-839e93-noflags"]
-        - refgraph: "hprc-v1.1-mc"
+        - refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled"]
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
@@ -122,11 +122,11 @@ experiments:
       realness: real
     vary:
       mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-hifi-839e93-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.0-minigraph", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-sampled", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-map-hifi", "winnowmap", "graphaligner-default", "graphaligner-fast", "giraffe-k31.w50.W-hifi-839e93-noflags"]
-        - refgraph: "hprc-v1.1-mc"
+        - refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled"]
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
@@ -143,11 +143,11 @@ experiments:
       realness: sim
     vary:
       mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "minigraph", "giraffe-k31.w50.W-r10-839e93-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.0-minigraph", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-sampled", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-r10-839e93-noflags"]
-        - refgraph: "hprc-v1.1-mc"
+        - refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled"]
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
@@ -164,11 +164,11 @@ experiments:
       realness: sim
     vary:
       mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "minigraph", "giraffe-k31.w50.W-hifi-839e93-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.0-minigraph", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-sampled-for-real-hifi-HG002-full", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-map-hifi", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-hifi-839e93-noflags"]
-        - refgraph: "hprc-v1.1-mc"
+        - refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled-for-real-hifi-HG002-full"]
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
@@ -301,11 +301,11 @@ experiments:
       realness: sim
     vary:
       mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "minimap2-lr:hq", "minimap2-map-hifi"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-d32", "hprc-v2.prereease-mc-R2-d32", "hprc-v2-90-d9", "sampled-for-real-hifi-HG002-from-chm13-hprc-v2.prereease-mc-R2"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-d32", "hprc-v2.prereease-mc-R2-d32", "hprc-v2-90-d9", "hprc-v2.prereease-mc-R2-sampled"]
     constrain:
       - refgraph: "hprc-v1.1-mc-d9"
         mapper: ["minimap2-lr:hq", "minimap2-map-hifi"]
-      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-d32", "hprc-v2.prereease-mc-R2-d32", "hprc-v2-90-d9", "sampled-for-real-hifi-HG002-from-chm13-hprc-v2.prereease-mc-R2"]
+      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-d32", "hprc-v2.prereease-mc-R2-d32", "hprc-v2-90-d9", "hprc-v2.prereease-mc-R2-sampled"]
         mapper: "giraffe-k31.w50.W-hifi-default-noflags"
 
   hifi_speed:

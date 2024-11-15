@@ -442,6 +442,8 @@ def graph_base(wildcards):
     """
     Find the base name for a collection of graph files from reference and either refgraph or all of refgraphbase, modifications, and clipping.
 
+    For graphs ending in "-sampled", autodetects the right haplotype-sampled full graph name to use from tech and sample.
+
     For GraphAligner, selects an unchopped version of the graph based on mapper.
     """
 
@@ -460,7 +462,7 @@ def graph_base(wildcards):
         assert "refgraph" in wc_keys, f"No refgraph wildcard in: {wc_keys}"
         # We need to handle hprc-v1.1-mc and hprc-v1.1-mc-d9 and hprc-v2.prereease-mc-R2-d32.
         # They need the regerence inserted after the -mc.
-        parse_regex = re.compile("(.*?)(-mc)?((-[^-.]+)+?)(-(d[0-9]+))?")
+        parse_regex = re.compile("(.*?)(-mc)?((-[^-.]+)+?)(-(d[0-9]+))?(-sampled)?")
         match = parse_regex.fullmatch(wildcards["refgraph"])
         refgraphbase = match[1] + (match[2] or "")
         if match[3]:
@@ -469,6 +471,21 @@ def graph_base(wildcards):
         if match[6]:
             # We have a clipping modifier, which gets a dot.
              modifications.append("." + match[6])
+        if match[7]:
+            # We have a generic haplotype sampling flag.
+            # Autodetect the right haplotype-sampled graph to use.
+
+            # We need to convert this into the graph sampled for the right sample.
+            # Which means we need some info about the sample we are working on.
+            assert "tech" in wc_keys, "No tech known for haplotype sampling graph " + wildcards["refgraph"]
+            assert "sample" in wc_keys, "No sample known for haplotype sampling graph " + wildcards["refgraph"]
+           
+            # TODO: We always sample for the full real trimmed-if-R10 version
+            # of whatever reads we're going to map, so we can consistently use
+            # one graph.
+            sampling_trimmedness = ".trimmed" if wildcards["tech"] == "r10" else ""
+            modifications.append(f"-sampled-for-real-{wildcards['tech']}-{wildcards['sample']}{sampling_trimmedness}-full")
+            
     
     if wildcards.get("mapper", "") == "graphaligner":
         # GraphAligner needs the graph un-chopped.
@@ -1040,7 +1057,7 @@ rule distance_index_graph:
     output:
         distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.dist"
     # TODO: Distance indexing only really uses 1 thread
-    threads: 2
+    threads: 1
     resources:
         mem_mb=120000,
         runtime=240,
@@ -1054,11 +1071,13 @@ rule di2snarls_index_graph:
     output:
         di2snarlsfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.di2snarls"
     # TODO: Distance indexing only really uses 1 thread
-    threads: 2
+    threads: 1
     resources:
-        mem_mb=500000,
-        runtime=800,
-        slurm_partition=choose_partition(800)
+        # These requirements are for no-Dijkstra indexing. The old version
+        # needs like 800 minutes and 500G memory.
+        mem_mb=120000,
+        runtime=240,
+        slurm_partition=choose_partition(240)
     shell:
         "vg index -t {threads} --snarl-limit 0 -j {output.di2snarlsfile} {input.gbz}"
 
@@ -1094,9 +1113,9 @@ rule kmer_count_full_sample:
         base_fastq_gz=base_fastq_gz
     output:
         kmer_counts="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.kff"
-    threads: 16
+    threads: 8
     resources:
-        mem_mb=120000,
+        mem_mb=160000,
         runtime=240,
         slurm_partition=choose_partition(240),
         tmpdir=LARGE_TEMP_DIR
@@ -1111,11 +1130,11 @@ rule haplotype_sample_graph:
     output:
         # Need to sample back into the graphs directory so e.g. minimizer indexing and mapping can work.
         sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}-sampled-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.gbz"
-    threads: 16
+    threads: 8
     resources:
-        mem_mb=120000,
-        runtime=240,
-        slurm_partition=choose_partition(240)
+        mem_mb=60000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
     shell:
         "vg haplotypes -v 2 -t {threads} --include-reference --diploid-sampling -i {input.hapl} -k {input.kmer_counts} -d {input.snarls} -r {input.ri} {input.gbz} -g {output.sampled_gbz}"
 
