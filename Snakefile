@@ -134,6 +134,9 @@ READS_DIR = config.get("reads_dir", None) or "/private/groups/patenlab/anovak/pr
 #
 REFS_DIR = config.get("refs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references"
 
+# Wen we "snakemake all_paper_figures", where should the results go?
+ALL_OUT_DIR = config.get("all_out_dir", None) or "/private/groups/patenlab/project-lrg"
+
 # What stages does the Giraffe mapper report times for?
 STAGES = ["minimizer", "seed", "tree", "fragment", "chain", "align", "winner"]
 
@@ -178,7 +181,7 @@ wildcard_constraints:
     refgraphbase="[^/]+?",
     reference="chm13|grch38",
     # We can have multiple versions of graphs with different modifications and clipping regimes
-    modifications="(-[^.-]+)*",
+    modifications="(-[^.-]+(.trimmed)?)*",
     clipping="\\.d[0-9]+|",
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
@@ -210,7 +213,7 @@ def auto_mapping_threads(wildcards):
     else:
         mapping_threads= 8
 
-    if wildcards["realness"] == "sim" and wildcards.get("mapper") == "graphaligner":
+    if wildcards["realness"] == "sim" and wildcards.get("mapper", "").startswith("graphaligner"):
         #Graphaligner is really slow so for simulated reads where we don't care about time
         #double the number of threads
         #At most the number of cores on the phoenix nodes
@@ -460,18 +463,18 @@ def graph_base(wildcards):
             modifications.append(wildcards["clipping"])
     else:
         assert "refgraph" in wc_keys, f"No refgraph wildcard in: {wc_keys}"
-        # We need to handle hprc-v1.1-mc and hprc-v1.1-mc-d9 and hprc-v2.prereease-mc-R2-d32.
-        # They need the regerence inserted after the -mc.
-        parse_regex = re.compile("(.*?)(-mc)?((-[^-.]+)+?)(-(d[0-9]+))?(-sampled)?")
-        match = parse_regex.fullmatch(wildcards["refgraph"])
-        refgraphbase = match[1] + (match[2] or "")
-        if match[3]:
-            # We have other modifications
-            modifications.append(match[3])
-        if match[6]:
-            # We have a clipping modifier, which gets a dot.
-             modifications.append("." + match[6])
-        if match[7]:
+        # We need to handle hprc-v1.1-mc and hprc-v1.1-mc-d9 and hprc-v2.prereease-mc-R2-d32 and hprc-v2.prereease-mc-R2-sampled10d.
+        # Also probaby primary.
+        # They need the reference inserted after the -mc. but before the other stuff, and -d32 needs to become .d32.
+        # And -sampled10d needs to be expanded to say what sample and read set we are haplotype sampling from.
+
+        # TODO: If it's not -mc, where would the reference go?
+        
+        refgraph = wildcards["refgraph"]
+
+        parts = refgraph.split("-")
+        last = parts[-1]
+        if re.fullmatch("sampled[0-9]+d?", last):
             # We have a generic haplotype sampling flag.
             # Autodetect the right haplotype-sampled graph to use.
 
@@ -484,13 +487,27 @@ def graph_base(wildcards):
             # of whatever reads we're going to map, so we can consistently use
             # one graph.
             sampling_trimmedness = ".trimmed" if wildcards["tech"] == "r10" else ""
-            modifications.append(f"-sampled-for-real-{wildcards['tech']}-{wildcards['sample']}{sampling_trimmedness}-full")
-            
-    
-    if wildcards.get("mapper", "") == "graphaligner":
+            modifications.append(f"-{last}-for-real-{wildcards['tech']}-{wildcards['sample']}{sampling_trimmedness}-full")
+            parts.pop()
+        elif re.fullmatch("d[0-9]+", last):
+            # We have a clipping modifier, which gets a dot.
+            modifications.append("." + last)
+            parts.pop()
+        
+        while len(parts) > 3:
+            # We have more than just the 3-tuple of name, version, algorithm. Take the last thing into modifications.
+            modifications.append("-" + parts[-1])
+            parts.pop()
+
+        # Now we have all the modifications. Flip them around the right way.
+        modifications.reverse()
+        
+        # The first 3 or fewer parts are the graph base name.
+        refgraphbase = "-".join(parts)
+
+    if wildcards.get("mapper", "").startswith("graphaligner"):
         # GraphAligner needs the graph un-chopped.
         modifications.append(".unchopped")
-
     
     result = os.path.join(GRAPHS_DIR, refgraphbase + "-" + reference + "".join(modifications))
     return result
@@ -1113,6 +1130,8 @@ rule kmer_count_full_sample:
         base_fastq_gz=base_fastq_gz
     output:
         kmer_counts="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.kff"
+    params:
+        output_basename="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}"
     threads: 8
     resources:
         mem_mb=160000,
@@ -1121,7 +1140,7 @@ rule kmer_count_full_sample:
         tmpdir=LARGE_TEMP_DIR
     shell:
         # Need to cut the extension off the output file because KMC will supply it.
-        "kmc -k29 -m128 -okff -t{threads} -hp {input.base_fastq_gz} {output.kmer_counts[-4:]} \"$TMPDIR\""
+        "kmc -k29 -m128 -okff -t{threads} -hp {input.base_fastq_gz} {params.output_basename} \"$TMPDIR\""
 
 rule haplotype_sample_graph:
     input:
@@ -1129,14 +1148,20 @@ rule haplotype_sample_graph:
         kmer_counts=kmer_counts
     output:
         # Need to sample back into the graphs directory so e.g. minimizer indexing and mapping can work.
-        sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}-sampled-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.gbz"
+        sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}-sampled{hapcount}{diploidtag}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.gbz"
+    wildcard_constraints:
+        hapcount="[0-9]+",
+        diploidtag="d?"
+    params:
+        haplotype_count=lambda w: int(w["hapcount"]),
+        diploid_flag=lambda w: "--diploid-sampling" if w["diploidtag"] == "d" else ""
     threads: 8
     resources:
         mem_mb=60000,
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg haplotypes -v 2 -t {threads} --include-reference --diploid-sampling -i {input.hapl} -k {input.kmer_counts} -d {input.snarls} -r {input.ri} {input.gbz} -g {output.sampled_gbz}"
+        "vg haplotypes -v 2 -t {threads} --include-reference --num-haplotypes {params.haplotype_count} {params.diploid_flag} -i {input.hapl} -k {input.kmer_counts} -d {input.snarls} -r {input.ri} {input.gbz} -g {output.sampled_gbz}"
 
 rule minimizer_index_graph:
     input:
@@ -1704,7 +1729,7 @@ rule gam_to_gaf:
     output:
         gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
     wildcard_constraints:
-        mapper="(graphaligner)"
+        mapper="(graphaligner-.*)"
     threads: 16
     resources:
         mem_mb=100000,
@@ -1719,7 +1744,7 @@ rule select_first_duplicate_read_gam:
     output:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
-        mapper="(graphaligner)"
+        mapper="(graphaligner-.*)"
     threads: 2
     resources:
         mem_mb=30000,
@@ -1767,7 +1792,7 @@ rule surject_gam:
     output:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
-        mapper="(giraffe.*|graphaligner)"
+        mapper="(giraffe.*|graphaligner-.*)"
     threads: 64
     resources:
         mem_mb=100000,
@@ -2241,7 +2266,7 @@ rule speed_from_log_graphaligner:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="graphaligner"
+        mapper="graphaligner-.*"
     threads: 1
     resources:
         mem_mb=200,
@@ -2297,7 +2322,7 @@ rule memory_from_log_graphaligner:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="graphaligner"
+        mapper="graphaligner-.*"
     threads: 1
     resources:
         mem_mb=200,
@@ -2380,7 +2405,7 @@ rule index_load_time_from_log_graphaligner:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="graphaligner"
+        mapper="graphaligner-.*"
     threads: 1
     resources:
         mem_mb=200,
@@ -3373,7 +3398,7 @@ rule softclips_by_name_gam:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(minigraph|graphaligner|giraffe.*)"
+        mapper="(minigraph|graphaligner-.*|giraffe.*)"
     threads: 5
     resources:
         mem_mb=2000,
@@ -3424,7 +3449,7 @@ rule softclips_by_name_other:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(?!giraffe).+"
+        mapper="(?!(giraffe|graphaligner)).+"
     threads: 7
     resources:
         mem_mb=2000,
@@ -3492,7 +3517,7 @@ rule memory_usage_gam:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_usage.tsv"
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.+|graphaligner|minigraph|panaligner)"
+        mapper="(giraffe.+|graphaligner-.*|minigraph|panaligner)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3555,7 +3580,7 @@ rule runtime_from_benchmark_gam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.*|graphaligner|minigraph|panaligner)"
+        mapper="(giraffe.*|graphaligner-.*|minigraph|panaligner)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3605,7 +3630,7 @@ rule memory_from_benchmark_gam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.*|graphaligner|minigraph|panaligner)"
+        mapper="(giraffe.*|graphaligner-.*|minigraph|panaligner)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -4193,14 +4218,14 @@ rule add_mapper_to_plot:
 #TODO: idk what we want for variant calling
 rule all_paper_figures:
     input:
-        mapping_stats_real=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/results/mapping_stats_real.tsv", expname=config["real_exps"]),
-        softclipped_plot=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/plots/softclipped_or_unmapped.svg", expname=config["real_exps"]),
-        runtime_slow=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/plots/run_and_index_slow_time.svg", expname=config["real_exps"]),
-        runtime_fast=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/plots/run_and_index_fast_time.svg", expname=config["real_exps"]),
-        memory=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/plots/memory_from_benchmark.svg", expname=config["real_exps"]),
-        mapping_stats_sim=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/results/mapping_stats_sim.tsv", expname=config["sim_exps"]),
-        qq=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/plots/qq.svg", expname=config["sim_exps"]),
-        roc=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/plots/roc.svg", expname=config["sim_exps"]),
-        indel_f1=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/results/indel_f1.tsv", expname=config["dv_exps"]),
-        snp_f1=expand("/private/groups/patenlab/project-lrg/experiments/{expname}/results/snp_f1.tsv", expname=config["dv_exps"])
+        mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.tsv", expname=config["real_exps"]),
+        softclipped_plot=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/softclipped_or_unmapped.svg", expname=config["real_exps"]),
+        runtime_slow=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_slow_time.svg", expname=config["real_exps"]),
+        runtime_fast=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_fast_time.svg", expname=config["real_exps"]),
+        memory=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/memory_from_benchmark.svg", expname=config["real_exps"]),
+        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=config["sim_exps"]),
+        qq=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/qq.svg", expname=config["sim_exps"]),
+        roc=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/roc.svg", expname=config["sim_exps"]),
+        indel_f1=expand(ALL_OUT_DIR + "/experiments/{expname}/results/indel_f1.tsv", expname=config["dv_exps"]),
+        snp_f1=expand(ALL_OUT_DIR + "/experiments/{expname}/results/snp_f1.tsv", expname=config["dv_exps"])
 
