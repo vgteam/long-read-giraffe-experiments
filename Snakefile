@@ -48,6 +48,15 @@ configfile: "lr-config.yaml"
 #
 GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
 
+#
+# For SV calling, we need a truth vcf and a BED file with confident regions
+#
+# giab6_chm13.vcf.gz
+# giab6_chm13.confreg.bed
+#
+
+SV_DATA_DIR = config.get("sv_data_dir", None) or "/private/home/jmonlong/workspace/lreval/data"
+
 # Where are the reads to use?
 #
 # This directory must have "real" and "sim" subdirectories. Within each, there
@@ -351,6 +360,15 @@ def reference_prefix(wildcards):
         "grch38": "GRCh38#0#"
     }[wildcards["reference"]]
 
+def reference_sample(wildcards):
+    """
+    Get the reference as a sample name
+    """
+    return {
+        "chm13": "CHM13",
+        "grch38": "GRCh38"
+    }[wildcards["reference"]]
+
 def calling_reference_fasta(wildcards):
     """
     Find the linear reference FASTA with non-PanSN names from a reference (for
@@ -529,6 +547,12 @@ def gfa(wildcards):
     Find a graph GFA file from reference.
     """
     return graph_base(wildcards) + ".gfa"
+
+def snarls(wildcards):
+    """
+    Find a graph snarls file from reference.
+    """
+    return graph_base(wildcards) + ".snarls"
 
 def minimizer_k(wildcards):
     """
@@ -1081,6 +1105,17 @@ rule distance_index_graph:
         slurm_partition=choose_partition(240)
     shell:
         "vg index -t {threads} -j {output.distfile} {input.gbz}"
+
+rule precompute_snarls:
+    input:
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
+    output:
+        snarls="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.snarls"
+    threads: 4
+    resources:
+        mem='120G',
+        runtime='3h'
+    shell: "vg snarls -t {threads} -T {input.gbz} > {output.snarls}"
 
 rule di2snarls_index_graph:
     input:
@@ -4217,6 +4252,103 @@ rule add_mapper_to_plot:
     shell:
         "cp {input} {output}"
 
+##########################################################################
+## Genotyping with vg call
+rule vgpack:
+    input:
+        gam='{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.gam',
+        gbz=gbz
+    output: '{root}/svcall/vgcall/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.pack'
+    benchmark: '{root}/svcall/vgcall/benchmark.call.vgcall_pack.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.tsv'
+    resources:
+        mem='200G',
+        runtime='6h'
+    threads: 4
+    shell: "vg pack -e -x {input.gbz} -o {output} -g {input.gam} -Q 5 -t {threads}"
+
+rule vgcall:
+    input:
+        pack='{root}/svcall/vgcall/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.pack',
+        graph=gbz,
+        snarls=snarls
+    output: '{root}/svcall/vgcall/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.vgcall.vcf.gz'
+    benchmark: '{root}/svcall/vgcall/benchmark.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.tsv'
+    log: '{root}/svcall/vgcall/log.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.log'
+    threads: 4
+    params:
+        reference_sample=reference_sample
+    resources:
+        mem='160G',
+        runtime='6h'
+    shell: "vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k {input.pack} -t {threads} {input.graph} | gzip > {output} 2> {log}"
+
+rule truvari:
+    input:
+        truth_vcf=SV_DATA_DIR+'/{truthset}.vcf.gz',
+        sample_vcf='{root}/svcall/{caller}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.{caller}.vcf.gz'
+        confreg=SV_DATA_DIR+'/{truthset}.confreg.bed',
+        ref=calling_reference_fasta
+    output:
+        summary="{root}/svcall/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.{caller}.{truthset}.truvari.summary.json",
+        refine_var="{root}/svcall/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.{caller}.{truthset}.truvari.refine.variant_summary.json",
+        refine_reg="{root}/svcall/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.{caller}.{truthset}.truvari.refine.region_summary.json"
+    resources:
+        mem='12G',
+        runtime='6h'
+    params:
+        odir='{root}/temp/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.{caller}.{truthset}',
+        bvcf='{root}/temp/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.{caller}.{truthset}.base.vcf.gz',
+        cvcf_temp='{root}/temp/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.{caller}.{truthset}.call.vcf.gz',
+        cvcf='{root}/temp/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.{caller}.{truthset}.call.nomulti.vcf.gz'
+    container: 'docker://quay.io/jmonlong/truvari:v4.3.1'
+    threads: 4
+    shell:
+        """
+        export TMPDIR=temp
+
+        rm -rf {params.odir}
+        
+        bcftools norm -m -both {input.truth_vcf} -O z -o {params.bvcf}
+        tabix -p vcf  {params.bvcf}
+        zcat {input.sample_vcf} | bgzip > {params.cvcf_temp}
+        tabix -p vcf {params.cvcf_temp}
+        bcftools norm -m -both {params.cvcf_temp} -O z -o {params.cvcf}
+        tabix -p vcf  {params.cvcf}
+        
+        truvari bench -b {params.bvcf} -c {params.cvcf} -o {params.odir} --pick ac --passonly -r 2000 -C 5000 --includebed {input.confreg}
+
+        truvari refine --recount --use-region-coords --use-original-vcfs --align mafft --reference {input.ref} --regions {params.odir}/candidate.refine.bed {params.odir}
+
+        cp {params.odir}/summary.json {output.summary}
+        cp {params.odir}/refine.variant_summary.json {output.refine_var}
+        cp {params.odir}/refine.region_summary.json {output.refine_reg}
+
+        rm -r {params.odir}*
+        """
+
+#Print summary statistics from sv calling with the format:
+# condition f1 FN FP
+#The input json also has "TP-base", "TP-comp", "precision", "recall", "base cnt", "comp cnt"
+rule sv_summary_table:
+    input:
+        json=lambda w: all_experiment(w, "{root}/svcall/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{mapper}.{caller}.{truthset}.truvari.refine.variant_summary.json")
+    output:
+        tsv="{root}/experiments/{expname}/svcall/results/sv_calling_summary.tsv"
+    params:
+        condition_name=condition_name
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "echo \"{params.condition_name}\t$(jq -r '[.f1,.FN,.FP] | @tsv' {input.json})\" >{output.tsv}"
+
+
+
+
+
+
 #Make the figures we want for the paper
 #Experiments are specified in the config file
 #TODO: idk what we want for variant calling
@@ -4232,4 +4364,5 @@ rule all_paper_figures:
         roc=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/roc.svg", expname=config["sim_exps"]),
         indel_f1=expand(ALL_OUT_DIR + "/experiments/{expname}/results/indel_f1.tsv", expname=config["dv_exps"]),
         snp_f1=expand(ALL_OUT_DIR + "/experiments/{expname}/results/snp_f1.tsv", expname=config["dv_exps"])
+        svs=expand(ALL_OUT_DIR + "{root}/experiments/{expname}/svcall/results/sv_calling_summary.tsv", expname=config["sv_exps"])
 

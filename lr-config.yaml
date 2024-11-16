@@ -83,6 +83,7 @@ exclusive_timing: false
 real_exps: ["hifi_real_full", "r10_real_full"]
 sim_exps: ["hifi_sim_1m", "r10_sim_1m"]
 dv_exps: ["dv_calling"]
+sv_exps: ["sv_calling"]
 
 experiments:
 
@@ -177,7 +178,6 @@ experiments:
           mapper: ["minigraph", "graphaligner-default"]
 
 
-
   #For variant calling
   dv_calling:
     control:
@@ -217,6 +217,52 @@ experiments:
         # Don't use the linear mappers on all the graphs
         - mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags", "giraffe-k31.w50.W-r10-839e93-noflags"]
           refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+        - mapper: ["minimap2-map-hifi", "minimap2-lr:hqae"]
+          refgraph: ["hprc-v1.1-mc-d9"]
+
+
+
+  #For sv calling
+  sv_calling:
+    control:
+      subset: full
+      reference: chm13
+      sample: HG002
+      realness: real
+    vary:
+      tech: ["hifi", "r10"]
+      mapper: ["minimap2-map-hifi", "minimap2-lr:hqae", "graphaligner-default", "giraffe-k31.w50.W-hifi-839e93-noflags", "giraffe-k31.w50.W-r10-839e93-noflags"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+      trimmedness: [".trimmed", ""]
+    constrain:
+      - 
+        # Always use the no trimming for real hifi reads
+        - realness: real
+          tech: hifi
+          trimmedness: ""
+        # Always use trimming for real R10 reads
+        - realness: real
+          tech: r10
+          trimmedness: ".trimmed"
+        # Always use no trimming for real Illumina reads
+        - realness: real
+          tech: illumina
+          trimmedness: ""
+        # Always use no trimming after simulation for simulated reads
+        - realness: sim
+          trimmedness: ""
+      - 
+        # Use the right mapping preset for each tech
+        - tech: "hifi"
+          mapper: ["minimap2-map-hifi", "graphaligner-default", "giraffe-k31.w50.W-hifi-839e93-noflags"]
+        - tech: "r10"
+          mapper: ["minimap2-lr:hqae", "graphaligner-default", "giraffe-k31.w50.W-r10-839e93-noflags"]
+      - 
+        # Don't use the linear mappers on all the graphs
+        - mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags", "giraffe-k31.w50.W-r10-839e93-noflags"]
+          refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+        - mapper: ["graphaligner-default"]
+          refgraph: ["hprc-v1.1-mc"]
         - mapper: ["minimap2-map-hifi", "minimap2-lr:hqae"]
           refgraph: ["hprc-v1.1-mc-d9"]
 
