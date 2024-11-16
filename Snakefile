@@ -4271,7 +4271,7 @@ rule vgcall:
         pack='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.pack',
         graph=gbz,
         snarls=snarls
-    output: '{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}..vgcall.vcf.gz'
+    output: '{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vgcall.vcf.gz'
     benchmark: '{root}/svcall/vgcall/{mapper}/benchmark.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.tsv'
     log: '{root}/svcall/vgcall/{mapper}/log.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.log'
     threads: 4
@@ -4285,21 +4285,21 @@ rule vgcall:
 rule truvari:
     input:
         truth_vcf=SV_DATA_DIR+'/{truthset}.vcf.gz',
-        sample_vcf='{root}/svcall/{mapper}/{caller}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{caller}.vcf.gz',
+        sample_vcf='{root}/svcall/{caller}/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vcf.gz',
         confreg=SV_DATA_DIR+'/{truthset}.confreg.bed',
         ref=calling_reference_fasta
     output:
-        summary="{root}/svcall/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{caller}.{truthset}.truvari.summary.json",
-        refine_var="{root}/svcall/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{caller}.{truthset}.truvari.refine.variant_summary.json",
-        refine_reg="{root}/svcall/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{caller}.{truthset}.truvari.refine.region_summary.json"
+        summary="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.summary.json",
+        refine_var="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json",
+        refine_reg="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.region_summary.json"
     resources:
         mem='12G',
         runtime='6h'
     params:
-        odir='{root}/temp/{mapper}/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{caller}.{truthset}',
-        bvcf='{root}/temp/{mapper}/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{caller}.{truthset}.base.vcf.gz',
-        cvcf_temp='{root}/{mapper}/temp/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{caller}.{truthset}.call.vcf.gz',
-        cvcf='{root}/temp/{mapper}/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{caller}.{truthset}.call.nomulti.vcf.gz'
+        odir='{root}/temp/{caller}/{mapper}/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}',
+        bvcf='{root}/temp/{caller}/{mapper}/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.base.vcf.gz',
+        cvcf_temp='{root}/{caller}/{mapper}/temp/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.vcf.gz',
+        cvcf='{root}/temp/{caller}/{mapper}/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.nomulti.vcf.gz'
     container: 'docker://quay.io/jmonlong/truvari:v4.3.1'
     threads: 4
     shell:
@@ -4331,7 +4331,7 @@ rule truvari:
 #The input json also has "TP-base", "TP-comp", "precision", "recall", "base cnt", "comp cnt"
 rule sv_summary_table:
     input:
-        json=lambda w: all_experiment(w, "{root}/svcall/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{caller}.{truthset}.truvari.refine.variant_summary.json")
+        json=lambda w: all_experiment(w, "{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json")
     output:
         tsv="{root}/experiments/{expname}/svcall/results/sv_calling_summary.tsv"
     params:
