@@ -210,7 +210,7 @@ def auto_mapping_threads(wildcards):
     else:
         mapping_threads= 8
 
-    if wildcards["realness"] == "sim" and wildcards.get("mapper") == "graphaligner":
+    if wildcards["realness"] == "sim" and "graphaligner" in wildcards.get("mapper",""):
         #Graphaligner is really slow so for simulated reads where we don't care about time
         #double the number of threads
         #At most the number of cores on the phoenix nodes
@@ -487,7 +487,7 @@ def graph_base(wildcards):
             modifications.append(f"-sampled-for-real-{wildcards['tech']}-{wildcards['sample']}{sampling_trimmedness}-full")
             
     
-    if wildcards.get("mapper", "") == "graphaligner":
+    if "graphaligner" in wildcards.get("mapper", ""):
         # GraphAligner needs the graph un-chopped.
         modifications.append(".unchopped")
 
@@ -1330,8 +1330,8 @@ rule giraffe_real_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=auto_mapping_memory,
-        runtime=600,
-        slurm_partition=choose_partition(600),
+        runtime=1200,
+        slurm_partition=choose_partition(1200),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     run:
@@ -1424,8 +1424,8 @@ rule winnowmap_real_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
-        runtime=600,
-        slurm_partition=choose_partition(600),
+        runtime=1600,
+        slurm_partition=choose_partition(1600),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
@@ -1475,8 +1475,8 @@ rule minimap2_real_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
-        runtime=600,
-        slurm_partition=choose_partition(600),
+        runtime=1200,
+        slurm_partition=choose_partition(1200),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
@@ -1540,8 +1540,8 @@ rule bwa_real_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=30000,
-        runtime=600,
-        slurm_partition=choose_partition(600),
+        runtime=1200,
+        slurm_partition=choose_partition(1200),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
@@ -1575,7 +1575,7 @@ rule graphaligner_sim_reads:
     wildcard_constraints:
         realness="sim",
         # Need to hint mapper to auto_mapping_threads
-        mapper="graphaligner"
+        mapper="graphaligner.*"
     threads: auto_mapping_threads
     params:
         mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
@@ -1598,14 +1598,14 @@ rule graphaligner_real_reads:
     log: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="real",
-        mapper="graphaligner"
+        mapper="graphaligner.*"
     threads: auto_mapping_threads
     params:
         mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
     resources:
-        mem_mb=300000,
-        runtime=3000,
-        slurm_partition=choose_partition(3000),
+        mem_mb=800000,
+        runtime=8000,
+        slurm_partition=choose_partition(8000),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     run:
@@ -1641,8 +1641,10 @@ rule minigraph_real_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
-        runtime=600,
-        slurm_partition=choose_partition(600)
+        runtime=1200,
+        slurm_partition=choose_partition(1200),
+        slurm_extra=auto_mapping_slurm_extra,
+        full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
         "minigraph --vc --secondary=no -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
 
@@ -1677,7 +1679,9 @@ rule panaligner_real_reads:
     resources:
         mem_mb=300000,
         runtime=600,
-        slurm_partition=choose_partition(600)
+        slurm_partition=choose_partition(600),
+        slurm_extra=auto_mapping_slurm_extra,
+        full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
         "PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
 
@@ -1704,7 +1708,7 @@ rule gam_to_gaf:
     output:
         gaf="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
     wildcard_constraints:
-        mapper="(graphaligner)"
+        mapper="(graphaligner.*)"
     threads: 16
     resources:
         mem_mb=100000,
@@ -1719,7 +1723,7 @@ rule select_first_duplicate_read_gam:
     output:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
-        mapper="(graphaligner)"
+        mapper="(graphaligner.*)"
     threads: 2
     resources:
         mem_mb=30000,
@@ -1767,7 +1771,7 @@ rule surject_gam:
     output:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
-        mapper="(giraffe.*|graphaligner)"
+        mapper="(giraffe.*|graphaligner.*)"
     threads: 64
     resources:
         mem_mb=100000,
@@ -2241,7 +2245,7 @@ rule speed_from_log_graphaligner:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="graphaligner"
+        mapper="graphaligner.*"
     threads: 1
     resources:
         mem_mb=200,
@@ -2297,7 +2301,7 @@ rule memory_from_log_graphaligner:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="graphaligner"
+        mapper="graphaligner.*"
     threads: 1
     resources:
         mem_mb=200,
@@ -2380,7 +2384,7 @@ rule index_load_time_from_log_graphaligner:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="graphaligner"
+        mapper="graphaligner.*"
     threads: 1
     resources:
         mem_mb=200,
@@ -3373,7 +3377,7 @@ rule softclips_by_name_gam:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(minigraph|graphaligner|giraffe.*)"
+        mapper="(minigraph|graphaligner.*|giraffe.*)"
     threads: 5
     resources:
         mem_mb=2000,
@@ -3392,9 +3396,9 @@ rule unmapped_ends_by_name:
         unmapped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends_by_name.tsv",
     threads: 5
     resources:
-        mem_mb=2000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        mem_mb=4000,
+        runtime=120,
+        slurm_partition=choose_partition(120)
     run:
         read_to_length = dict()
         with open(input.fastq) as read_file:
@@ -3492,7 +3496,7 @@ rule memory_usage_gam:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_usage.tsv"
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.+|graphaligner|minigraph|panaligner)"
+        mapper="(giraffe.+|graphaligner.*|minigraph|panaligner)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3555,7 +3559,7 @@ rule runtime_from_benchmark_gam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.*|graphaligner|minigraph|panaligner)"
+        mapper="(giraffe.*|graphaligner.*|minigraph|panaligner)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3605,7 +3609,7 @@ rule memory_from_benchmark_gam:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="(giraffe.*|graphaligner|minigraph|panaligner)"
+        mapper="(giraffe.*|graphaligner.*|minigraph|panaligner)"
     threads: 1
     resources:
         mem_mb=1000,
