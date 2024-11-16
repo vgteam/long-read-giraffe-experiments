@@ -229,6 +229,8 @@ experiments:
       reference: chm13
       sample: HG002
       realness: real
+      truthset: giab6
+      caller: vgcall
     vary:
       tech: ["hifi", "r10"]
       mapper: ["minimap2-map-hifi", "minimap2-lr:hqae", "graphaligner-default", "giraffe-k31.w50.W-hifi-839e93-noflags", "giraffe-k31.w50.W-r10-839e93-noflags"]
