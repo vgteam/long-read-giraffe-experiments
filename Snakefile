@@ -1593,7 +1593,7 @@ rule graphaligner_real_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gam="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam=temp("{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam")
     benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     log: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
