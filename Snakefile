@@ -1617,7 +1617,7 @@ rule minigraph_sim_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gaf="{root}/aligned-secsup/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+        gaf=temp("{root}/aligned-secsup/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf")
     wildcard_constraints:
         realness="sim"
     threads: auto_mapping_threads
@@ -1633,7 +1633,7 @@ rule minigraph_real_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gaf="{root}/aligned-secsup/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+        gaf=temp("{root}/aligned-secsup/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf")
     benchmark: "{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     log: "{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
