@@ -4271,7 +4271,7 @@ rule vgcall:
         pack='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.pack',
         graph=gbz,
         snarls=snarls
-    output: '{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vgcall.vcf.gz'
+    output: '{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vcf.gz'
     benchmark: '{root}/svcall/vgcall/{mapper}/benchmark.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.tsv'
     log: '{root}/svcall/vgcall/{mapper}/log.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.log'
     threads: 4
