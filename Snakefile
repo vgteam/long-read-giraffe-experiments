@@ -1119,7 +1119,7 @@ rule haplotype_index_graph:
         haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}.hapl"
     threads: 16
     resources:
-        mem_mb=240000,
+        mem_mb=480000,
         runtime=240,
         slurm_partition=choose_partition(240)
     shell:
