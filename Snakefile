@@ -4339,9 +4339,23 @@ rule truvari:
 #Print summary statistics from sv calling with the format:
 # condition f1 FN FP
 #The input json also has "TP-base", "TP-comp", "precision", "recall", "base cnt", "comp cnt"
+rule sv_summary_by_condition:
+    input:
+        json="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json"
+    output:
+        tsv="{root}/experiments/{expname}/svcall/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    params:
+        condition_name=condition_name
+    shell:
+        "echo \"{params.condition_name}\t$(jq -r '[.f1,.FN,.FP] | @tsv' {input.json})\" >{output.tsv}"
 rule sv_summary_table:
     input:
-        json=lambda w: all_experiment(w, "{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json")
+        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/svcall/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv")
     output:
         tsv="{root}/experiments/{expname}/svcall/results/sv_calling_summary.tsv"
     threads: 1
@@ -4349,9 +4363,8 @@ rule sv_summary_table:
         mem_mb=200,
         runtime=10,
         slurm_partition=choose_partition(10)
-    run:
-        condition=condition_name(all_experiment_conditions(wildcards["expname"]))
-        shell("echo \"" + condition +"\t$(jq -r '[.f1,.FN,.FP] | @tsv' {input.json})\" >{output.tsv}")
+    shell:
+        "cat {input.tsv} >>{output.tsv}"
 
 
 
