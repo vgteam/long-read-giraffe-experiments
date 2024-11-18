@@ -4334,15 +4334,14 @@ rule sv_summary_table:
         json=lambda w: all_experiment(w, "{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json")
     output:
         tsv="{root}/experiments/{expname}/svcall/results/sv_calling_summary.tsv"
-    params:
-        condition_name=condition_name
     threads: 1
     resources:
         mem_mb=200,
         runtime=10,
         slurm_partition=choose_partition(10)
-    shell:
-        "echo \"{params.condition_name}\t$(jq -r '[.f1,.FN,.FP] | @tsv' {input.json})\" >{output.tsv}"
+    run:
+        condition_name=condition_name(all_experiment_conditions(wildcards["expname"]))
+        shell("echo \"" + condition_name +"\t$(jq -r '[.f1,.FN,.FP] | @tsv' {input.json})\" >{output.tsv}")
 
 
 
