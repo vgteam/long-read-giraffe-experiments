@@ -4300,15 +4300,15 @@ rule truvari:
         runtime=360,
         slurm_partition=choose_partition(360)
     params:
-        odir='{root}/temp/{caller}/{mapper}/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}',
-        bvcf='{root}/temp/{caller}/{mapper}/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.base.vcf.gz',
-        cvcf_temp='{root}/{caller}/{mapper}/temp/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.vcf.gz',
-        cvcf='{root}/temp/{caller}/{mapper}/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.nomulti.vcf.gz'
+        odir='{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}',
+        bvcf='{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.base.vcf.gz',
+        cvcf_temp='{root}/temp/{caller}.{mapper}.temp.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.vcf.gz',
+        cvcf='{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.nomulti.vcf.gz'
     container: 'docker://quay.io/jmonlong/truvari:v4.3.1'
     threads: 4
     shell:
         """
-        export TMPDIR=temp
+        export TMPDIR={wildcards.root}/temp
 
         rm -rf {params.odir}
         
@@ -4344,8 +4344,8 @@ rule sv_summary_table:
         runtime=10,
         slurm_partition=choose_partition(10)
     run:
-        condition_name=condition_name(all_experiment_conditions(wildcards["expname"]))
-        shell("echo \"" + condition_name +"\t$(jq -r '[.f1,.FN,.FP] | @tsv' {input.json})\" >{output.tsv}")
+        condition=condition_name(all_experiment_conditions(wildcards["expname"]))
+        shell("echo \"" + condition +"\t$(jq -r '[.f1,.FN,.FP] | @tsv' {input.json})\" >{output.tsv}")
 
 
 
