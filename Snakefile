@@ -192,6 +192,7 @@ wildcard_constraints:
     # We can have multiple versions of graphs with different modifications and clipping regimes
     modifications="(-[^.-]+(.trimmed)?)*",
     clipping="\\.d[0-9]+|",
+    chopping="\\.unchopped|",
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
     basename=".+(?<!\\.trimmed)",
@@ -474,11 +475,13 @@ def graph_base(wildcards):
     modifications = []
 
     if "refgraphbase" in wc_keys and "modifications" in wc_keys:
-        # We already have the reference graph base (hprc-v1.1-mc) and clipping (.d9) if allowed cut apart.
+        # We already have the reference graph base (hprc-v1.1-mc) and clipping (.d9) and chopping (.unchopped) if allowed cut apart.
         refgraphbase = wildcards["refgraphbase"]
         modifications.append(wildcards["modifications"])
         if "clipping" in wc_keys:
             modifications.append(wildcards["clipping"])
+        if "chopping" in wc_keys:
+            modifications.append(wildcards["chopping"])
     else:
         assert "refgraph" in wc_keys, f"No refgraph wildcard in: {wc_keys}"
         # We need to handle hprc-v1.1-mc and hprc-v1.1-mc-d9 and hprc-v2.prereease-mc-R2-d32 and hprc-v2.prereease-mc-R2-sampled10d.
@@ -491,6 +494,13 @@ def graph_base(wildcards):
         refgraph = wildcards["refgraph"]
 
         parts = refgraph.split("-")
+        last = parts[-1]
+
+        if re.fullmatch("unchopped", last):
+            # We have a choppedness modifier, which gets a dot.
+            modifications.append("." + last)
+            parts.pop()
+
         last = parts[-1]
         if re.fullmatch("sampled[0-9]+d?", last):
             # We have a generic haplotype sampling flag.
@@ -522,10 +532,6 @@ def graph_base(wildcards):
         
         # The first 3 or fewer parts are the graph base name.
         refgraphbase = "-".join(parts)
-
-    if wildcards.get("mapper", "").startswith("graphaligner"):
-        # GraphAligner needs the graph un-chopped.
-        modifications.append(".unchopped")
     
     result = os.path.join(GRAPHS_DIR, refgraphbase + "-" + reference + "".join(modifications))
     return result
@@ -1052,9 +1058,9 @@ def param_search_tsvs(wildcards, statname="time_used.mean", realness="real"):
 
 rule hg_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
-        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.hg"
+        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.hg"
     threads: 26
     resources:
         mem_mb=120000,
@@ -1078,11 +1084,11 @@ rule unchop_hg_graph:
 
 rule hg_to_gfa:
     input:
-        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{choppedness}.hg"
+        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.hg"
     output:
-        gfa="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{choppedness}.gfa"
+        gfa="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gfa"
     wildcard_constraints:
-        choppedness="\.unchopped|"
+        chopping="\.unchopped|"
     threads: 26
     resources:
         mem_mb=120000,
@@ -1094,9 +1100,9 @@ rule hg_to_gfa:
 
 rule distance_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
-        distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.dist"
+        distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.dist"
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
     resources:
@@ -1108,9 +1114,9 @@ rule distance_index_graph:
 
 rule precompute_snarls:
     input:
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
-        snarls="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.snarls"
+        snarls="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.snarls"
     threads: 4
     resources:
         mem_mb=120000,
@@ -1120,9 +1126,9 @@ rule precompute_snarls:
 
 rule di2snarls_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
-        di2snarlsfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.di2snarls"
+        di2snarlsfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.di2snarls"
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
     resources:
@@ -1203,8 +1209,8 @@ rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
     output:
-        minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.k{k}.w{w}{weightedness}.withzip.min",
-        zipfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.k{k}.w{w}{weightedness}.zipcodes"
+        minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.withzip.min",
+        zipfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.zipcodes"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
