@@ -1113,8 +1113,9 @@ rule precompute_snarls:
         snarls="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.snarls"
     threads: 4
     resources:
-        mem='120G',
-        runtime='3h'
+        mem_mb=120000,
+        runtime=180,
+        slurm_partition=choose_partition(180)
     shell: "vg snarls -t {threads} -T {input.gbz} > {output.snarls}"
 
 rule di2snarls_index_graph:
@@ -4261,8 +4262,9 @@ rule vgpack:
     output: '{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.pack'
     benchmark: '{root}/svcall/vgcall/{mapper}/benchmark.call.vgcall_pack.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.tsv'
     resources:
-        mem='200G',
-        runtime='6h'
+        mem_mb=200000,
+        runtime=360,
+        slurm_partition=choose_partition(360)
     threads: 4
     shell: "vg pack -e -x {input.gbz} -o {output} -g {input.gam} -Q 5 -t {threads}"
 
@@ -4278,8 +4280,9 @@ rule vgcall:
     params:
         reference_sample=reference_sample
     resources:
-        mem='160G',
-        runtime='6h'
+        mem_mb=160000,
+        runtime=360,
+        slurm_partition=choose_partition(360)
     shell: "vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k {input.pack} -t {threads} {input.graph} | gzip > {output} 2> {log}"
 
 rule truvari:
@@ -4293,8 +4296,9 @@ rule truvari:
         refine_var="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json",
         refine_reg="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.region_summary.json"
     resources:
-        mem='12G',
-        runtime='6h'
+        mem_mb=12000,
+        runtime=360,
+        slurm_partition=choose_partition(360)
     params:
         odir='{root}/temp/{caller}/{mapper}/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}',
         bvcf='{root}/temp/{caller}/{mapper}/truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.base.vcf.gz',
