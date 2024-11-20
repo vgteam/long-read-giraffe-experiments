@@ -2618,6 +2618,23 @@ rule experiment_roc_plot_from_compared:
     shell:
         "Rscript plot-roc.R {input.tsv} {output}"
 
+rule experiment_calling_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/{vartype}_{colname}.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/{vartype}_{colname}.{ext}"
+    wildcard_constraints:
+        vartype="(snp|indel)",
+        colname="(f1|precision|recall|fn|fp)"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} {wildcards.vartype} {wildcards.colname}' --y_label '{wildcards.colname}' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+
 rule experiment_speed_from_log_tsv:
     input:
         lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
