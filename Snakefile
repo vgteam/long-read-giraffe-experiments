@@ -37,9 +37,9 @@ configfile: "lr-config.yaml"
 #
 # hprc-v1.1-mc-chm13.gbz
 #
-# A snarls-only "distance" index will be made if not present:
+# A top-level chains only "distance" index will be made if not present:
 #
-# hprc-v1.1-mc-chm13.di2snarls
+# hprc-v1.1-mc-chm13.tcdist
 #
 # As will the haplotype sampling indexes:
 #
@@ -583,18 +583,20 @@ def r_and_snarl_indexed_graph(wildcards):
     return {
         "gbz": gbz(wildcards),
         "ri": base + ".ri",
-        "snarls": base + ".dist" if os.path.exists(base + ".dist") else base + ".di2snarls"
+        "snarls": base + ".dist" if os.path.exists(base + ".dist") else base + ".tcdist"
     }
 
 def haplotype_indexed_graph(wildcards):
     """
-    Find a GBZ and its snarl/distance, ri, and hapl indexes.
+    Find a GBZ and its hapl index.
 
-    Uses the full distance index if present or the snarls-only one otherwise.
+    Distance and ri indexes are not needed for haplotype sampling.
     """
     base = graph_base(wildcards)
-    result = dict(r_and_snarl_indexed_graph(wildcards))
-    result["hapl"] = base + ".hapl"
+    return {
+        "gbz": gbz(wildcards),
+        "hapl": base + ".hapl"
+    }
     return result
 
 def base_fastq_gz(wildcards):
@@ -1082,21 +1084,21 @@ rule distance_index_graph:
     shell:
         "vg index -t {threads} -j {output.distfile} {input.gbz}"
 
-rule di2snarls_index_graph:
+rule tcdist_index_graph:
     input:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
     output:
-        di2snarlsfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.di2snarls"
+        tcdistfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.tcdist"
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
     resources:
-        # These requirements are for no-Dijkstra indexing. The old version
-        # needs like 800 minutes and 500G memory.
-        mem_mb=120000,
-        runtime=240,
-        slurm_partition=choose_partition(240)
+        # TODO: If we could do no-Dijkstra indexing we'd only need 240 minutes
+        # and 120G memory, but we need top-level chain distances.
+        mem_mb=500000,
+        runtime=2880,
+        slurm_partition=choose_partition(2880)
     shell:
-        "vg index -t {threads} --snarl-limit 0 -j {output.di2snarlsfile} {input.gbz}"
+        "vg index -t {threads} --snarl-limit 1 -j {output.tcdistfile} {input.gbz}"
 
 rule r_index_graph:
     input:
@@ -1119,9 +1121,9 @@ rule haplotype_index_graph:
         haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}.hapl"
     threads: 16
     resources:
-        mem_mb=480000,
-        runtime=240,
-        slurm_partition=choose_partition(240)
+        mem_mb=1000000,
+        runtime=800,
+        slurm_partition=choose_partition(800)
     shell:
         "vg haplotypes -v 2 -t 16 -d {input.snarls} -r {input.ri} {input.gbz} -H {output.haplfile}"
 
@@ -1161,7 +1163,8 @@ rule haplotype_sample_graph:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg haplotypes -v 2 -t {threads} --include-reference --num-haplotypes {params.haplotype_count} {params.diploid_flag} -i {input.hapl} -k {input.kmer_counts} -d {input.snarls} -r {input.ri} {input.gbz} -g {output.sampled_gbz}"
+        "vg haplotypes -v 2 -t {threads} --include-reference --num-haplotypes {params.haplotype_count} {params.diploid_flag} -i {input.hapl} -k {input.kmer_counts} {input.gbz} -g {output.sampled_gbz}"
+
 
 rule minimizer_index_graph:
     input:
