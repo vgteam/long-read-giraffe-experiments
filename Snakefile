@@ -415,7 +415,7 @@ def wdl_cache(wildcards):
     """
     Get a WDL workflow step cache directory path from root.
     """
-    return os.path.join(wildcards["root"], "miniwdl-cache")
+    return os.path.join(os.path.abspath("."), wildcards["root"], "miniwdl-cache")
 
 def truth_vcf_url(wildcards):
     """
