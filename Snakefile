@@ -1790,7 +1790,9 @@ rule inject_bam:
 rule surject_gam:
     input:
         gbz=gbz,
-        reference_dict=reference_dict,
+        # We leave out paths we can't call on, like Y in CHM13 (due to different Ys beign used in different graphs).
+        # TODO: Fix this when we fix chrY somehow. CHM13v2.0 has HG002's Y.
+        reference_path_list_callable=reference_path_list_callable,
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     output:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
@@ -1802,7 +1804,7 @@ rule surject_gam:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg surject -F {input.reference_dict} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {input.gam} > {output.bam}"
+        "vg surject -F {input.reference_path_list_callable} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {input.gam} > {output.bam}"
 
 rule alias_bam_graph:
     # For BAM-generating mappers we can view their BAMs as if they mapped to any reference graph for a reference
