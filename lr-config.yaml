@@ -113,8 +113,8 @@ experiments:
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "hprc-v1.1-mc-d9-unchopped"
           mapper: ["graphaligner-default", "graphaligner-fast"]
-        - refgraph: ["hprc-v1.1-mc-unchopped", "graphaligner-fast"]
-          mapper: ["graphaligner-default"]
+        - refgraph: ["hprc-v1.1-mc-unchopped"]
+          mapper: ["graphaligner-default", "graphaligner-fast"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "hprc-v1.0-minigraph"
@@ -141,8 +141,8 @@ experiments:
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "hprc-v1.1-mc-d9-unchopped"
           mapper: ["graphaligner-default", "graphaligner-fast"]
-        - refgraph: ["hprc-v1.1-mc-unchopped", "graphaligner-fast"]
-          mapper: ["graphaligner-default"]
+        - refgraph: ["hprc-v1.1-mc-unchopped"]
+          mapper: ["graphaligner-default", "graphaligner-fast"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "hprc-v1.0-minigraph"
@@ -166,8 +166,8 @@ experiments:
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "hprc-v1.1-mc-d9-unchopped"
           mapper: ["graphaligner-default", "graphaligner-fast"]
-        - refgraph: ["hprc-v1.1-mc-unchopped", "graphaligner-fast"]
-          mapper: ["graphaligner-default"]
+        - refgraph: ["hprc-v1.1-mc-unchopped"]
+          mapper: ["graphaligner-default", "graphaligner-fast"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "hprc-v1.0-minigraph"
@@ -191,8 +191,8 @@ experiments:
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "hprc-v1.1-mc-d9-unchopped"
           mapper: ["graphaligner-default", "graphaligner-fast"]
-        - refgraph: ["hprc-v1.1-mc-unchopped", "graphaligner-fast"]
-          mapper: ["graphaligner-default"]
+        - refgraph: ["hprc-v1.1-mc-unchopped"]
+          mapper: ["graphaligner-default", "graphaligner-fast"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "hprc-v1.0-minigraph"
