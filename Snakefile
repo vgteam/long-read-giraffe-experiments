@@ -223,7 +223,7 @@ def auto_mapping_threads(wildcards):
     else:
         mapping_threads= 8
 
-    if wildcards["realness"] == "sim" and wildcards.get("mapper", "").startswith("graphaligner"):
+    if wildcards.get("mapper", "").startswith("graphaligner"):
         #Graphaligner is really slow so for simulated reads where we don't care about time
         #double the number of threads
         #At most the number of cores on the phoenix nodes
