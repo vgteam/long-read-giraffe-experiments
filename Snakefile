@@ -1800,7 +1800,7 @@ rule surject_gam:
         mapper="(giraffe.*|graphaligner-.*)"
     threads: 64
     resources:
-        mem_mb=100000,
+        mem_mb=150000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
