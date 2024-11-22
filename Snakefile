@@ -1867,8 +1867,12 @@ rule call_variants:
     threads: 8
     resources:
         mem_mb=60000,
-        runtime=1440,
-        slurm_partition=choose_partition(1440)
+        # Since Toil tasks need to schedule through the cluster again, this
+        # might need to wait a long time.
+        # TODO: Run single machine so Slurm can't plan to run our jobs *after*
+        # the leader finishes?
+        runtime=8640,
+        slurm_partition=choose_partition(8640)
     run:
         import json
         wf_url = "https://raw.githubusercontent.com/vgteam/vg_wdl/1845a89d5bd314e09f364cf48523a3bf546c0c79/workflows/deepvariant.wdl"
