@@ -1132,13 +1132,13 @@ rule xg_index_graph:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
     output:
         xg="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.xg"
-    threads: 16
+    threads: 8
     resources:
         mem_mb=100000,
-        runtime=120,
-        slurm_partition=choose_partition(120)
+        runtime=1440,
+        slurm_partition=choose_partition(1440)
     shell:
-        "vg convert -x --drop-haplotypes {input.gbz} >{output.xg}"
+        "vg convert -t {threads} -x --drop-haplotypes {input.gbz} >{output.xg}"
 
 rule kmer_count_full_sample:
     input:
