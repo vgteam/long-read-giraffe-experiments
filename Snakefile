@@ -1127,6 +1127,19 @@ rule haplotype_index_graph:
     shell:
         "vg haplotypes -v 2 -t 16 -d {input.snarls} -r {input.ri} {input.gbz} -H {output.haplfile}"
 
+rule xg_index_graph:
+    input:
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
+    output:
+        xg="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.xg"
+    threads: 16
+    resources:
+        mem_mb=100000,
+        runtime=120,
+        slurm_partition=choose_partition(120)
+    shell:
+        "vg convert -x --drop-haplotypes {input.gbz} >{output.xg}"
+
 rule kmer_count_full_sample:
     input:
         base_fastq_gz=base_fastq_gz
