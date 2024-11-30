@@ -263,9 +263,9 @@ def auto_mapping_memory(wildcards):
     if wildcards["tech"] == "illumina":
         scale_mb = 50000
     elif wildcards["tech"] == "hifi":
-        scale_mb = 150000
+        scale_mb = 200000
     else:
-        scale_mb = 450000
+        scale_mb = 600000
 
     # Scale down memory with threads
     return scale_mb / MAPPER_THREADS * thread_count + base_mb
@@ -1673,9 +1673,9 @@ rule graphaligner_real_reads:
     params:
         mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
     resources:
-        mem_mb=800000,
-        runtime=8000,
-        slurm_partition=choose_partition(8000),
+        mem_mb=900000,
+        runtime=9000,
+        slurm_partition=choose_partition(9000),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     run:
@@ -4278,6 +4278,19 @@ rule add_mapper_to_plot:
         slurm_partition=choose_partition(10)
     shell:
         "cp {input} {output}"
+
+rule latex_table_from_tsv:
+    input:
+        tsv="{root}/experiments/{expname}/results/{table_name}.tsv",
+    output:
+        tsv="{root}/experiments/{expname}/results/{table_name}.latex.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input.tsv} | sed 's/\t/\t\& /g' > {output.tsv}"
 
 ##########################################################################
 ## Genotyping with vg call
