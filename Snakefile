@@ -4409,12 +4409,12 @@ rule sv_summary_table:
 #TODO: idk what we want for variant calling
 rule all_paper_figures:
     input:
-        mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.tsv", expname=config["real_exps"]),
+        mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.latex.tsv", expname=config["real_exps"]),
         softclipped_plot=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/softclipped_or_unmapped.svg", expname=config["real_exps"]),
         runtime_slow=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_slow_time.svg", expname=config["real_exps"]),
         runtime_fast=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_fast_time.svg", expname=config["real_exps"]),
         memory=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/memory_from_benchmark.svg", expname=config["real_exps"]),
-        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=config["sim_exps"]),
+        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.latex.tsv", expname=config["sim_exps"]),
         qq=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/qq.svg", expname=config["sim_exps"]),
         roc=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/roc.svg", expname=config["sim_exps"]),
         indel_f1=expand(ALL_OUT_DIR + "/experiments/{expname}/results/indel_f1.tsv", expname=config["dv_exps"]),
