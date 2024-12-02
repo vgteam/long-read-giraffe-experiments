@@ -332,7 +332,7 @@ experiments:
       - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-d32", "hprc-v2.prereease-mc-R2-d32", "hprc-v2-90-d9", "hprc-v2.prereease-mc-R2-sampled2d", "hprc-v2.prereease-mc-R2-sampled16"]
         mapper: "giraffe-k31.w50.W-hifi-default-noflags"
 
-  illumina_sim_masking:
+  illumina_sim_samplingparams:
     control:
       subset: 10k
       tech: illumina
@@ -342,9 +342,9 @@ experiments:
       realness: sim
       mapper: "giraffe-k29.w11.W-sr-default-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled4d", "hprc-v1.1-nov.11.2024-d9", "hprc-v1.1-nov.11.2024-sampled2d", "hprc-v1.1-nov.11.2024-sampled4d", "hprc-v1.1-nov.11.2024.masked-d9", "hprc-v1.1-nov.11.2024.masked-sampled2d", "hprc-v1.1-nov.11.2024.masked-sampled4d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled16", "hprc-v1.1-mc-sampled16_jean20241202", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prereease-mc-R2-sampled16_jean20241202"]
 
-  hifi_sim_masking:
+  hifi_sim_samplingparams:
     control:
       subset: 10k
       tech: hifi
@@ -354,7 +354,56 @@ experiments:
       realness: sim
       mapper: "giraffe-k31.w50.W-hifi-default-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled4d", "hprc-v1.1-nov.11.2024-d9", "hprc-v1.1-nov.11.2024-sampled2d", "hprc-v1.1-nov.11.2024-sampled4d", "hprc-v1.1-nov.11.2024.masked-d9", "hprc-v1.1-nov.11.2024.masked-sampled2d", "hprc-v1.1-nov.11.2024.masked-sampled4d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled16", "hprc-v1.1-mc-sampled16_jean20241202", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prereease-mc-R2-sampled16_jean20241202"]
+
+  r10_sim_samplingparams:
+    control:
+      subset: 10k
+      tech: r10
+      reference: chm13
+      trimmedness: ".trimmed"
+      sample: HG002
+      realness: sim
+      mapper: "giraffe-k31.w50.W-r10-default-noflags"
+    vary:
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled16", "hprc-v1.1-mc-sampled16_jean20241202", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prereease-mc-R2-sampled16_jean20241202"]
+
+  illumina_real_samplingparams:
+    control:
+      subset: full
+      tech: illumina
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: real
+      mapper: "giraffe-k29.w11.W-sr-default-noflags"
+    vary:
+      refgraph: ["hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prereease-mc-R2-sampled16_jean20241202"]
+
+  hifi_real_samplingparams:
+    control:
+      subset: full
+      tech: hifi
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: real
+      mapper: "giraffe-k31.w50.W-hifi-default-noflags"
+    vary:
+      refgraph: ["hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prereease-mc-R2-sampled16_jean20241202"]
+
+  r10_real_samplingparams:
+    control:
+      subset: full
+      tech: r10
+      reference: chm13
+      trimmedness: ".trimmed"
+      sample: HG002
+      realness: real
+      mapper: "giraffe-k31.w50.W-r10-default-noflags"
+    vary:
+      refgraph: ["hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prereease-mc-R2-sampled16_jean20241202"]
+
 
   hifi_real_graphs:
     control:

@@ -445,7 +445,7 @@ def graph_base(wildcards):
     """
     Find the base name for a collection of graph files from reference and either refgraph or all of refgraphbase, modifications, and clipping.
 
-    For graphs ending in "-sampled", autodetects the right haplotype-sampled full graph name to use from tech and sample.
+    For graphs ending in "-sampled" and sampling parameters, autodetects the right haplotype-sampled full graph name to use from tech and sample.
 
     For GraphAligner, selects an unchopped version of the graph based on mapper.
     """
@@ -474,7 +474,7 @@ def graph_base(wildcards):
 
         parts = refgraph.split("-")
         last = parts[-1]
-        if re.fullmatch("sampled[0-9]+d?", last):
+        if re.fullmatch("sampled[0-9]+d?(_[^-]*)?", last):
             # We have a generic haplotype sampling flag.
             # Autodetect the right haplotype-sampled graph to use.
 
@@ -590,12 +590,20 @@ def haplotype_indexed_graph(wildcards):
     """
     Find a GBZ and its hapl index.
 
+    Uses samplingparams to get haplotype sampling subchain length.
+
     Distance and ri indexes are not needed for haplotype sampling.
     """
     base = graph_base(wildcards)
+    subchain_length = get_subchain_length(wildcards)
+    if subchain_length != 10000:
+        # If using a non-default subchain length for haplotype sampling we need to put it in the filename.
+        subchain_length_part = f".subchain{subchain_length}"
+    else:
+        subchain_length_part = ""
     return {
         "gbz": gbz(wildcards),
-        "hapl": base + ".hapl"
+        "hapl": base + subchain_length_part + ".hapl"
     }
     return result
 
@@ -1008,6 +1016,63 @@ def get_vg_version(wildcard_vgversion):
     else:
         return "./vg_"+wildcard_vgversion
 
+def get_subchain_length(wildcards):
+    """
+    Get the subchain length for haplotype indexing as an int, from samplingparams.
+    """
+
+    match wildcards["samplingparams"]:
+        case "":
+            # If not set, use default.
+            return 10000
+        case "_jean20241202":
+            # See <https://ucsc-gi.slack.com/archives/CJ2EHEH1A/p1733151257429979>
+            # Jean recommends:
+            return 25000
+        case unknown:
+            raise RuntimeError("Unimplemented named haplotype sampling parameter set " + unknown)
+
+def haplotype_sampling_flags(wildcards):
+    """
+    Return a string of command line flags for haplotype-sampling a GBZ, from hapcount, diploidtag, and samplingparams.
+    """
+    
+    parts = []
+    
+    # Start with the number of haplotypes to sample
+    parts.append("--num-haplotypes")
+    parts.append(wildcards["hapcount"])
+
+    match wildcards["diploidtag"]:
+        case "d":
+            # Use diploid sampling
+            parts.append("--diploid-sampling")
+        case "":
+            # Don't use diploid sampling. Nothing to do.
+            pass
+        case unknown:
+            raise RuntimeError("Unimplemented diploid tag " + unknown)
+
+    match wildcards["samplingparams"]:
+        case "":
+            # If not set, nothing to add.
+            pass
+        case "_jean20241202":
+            # See <https://ucsc-gi.slack.com/archives/CJ2EHEH1A/p1733151257429979>
+            # Jean recommends:
+            # 16 haplotypes, subchain length of 25000, presence 0.87, absence 0.75, het 0.07, without diploid sampling.
+            # We leave count and diploidness up to the reserved fields, and subchain length is in the hapl index, but fill in the other values.
+            parts += ["--present-discount", "0.87", "--absent-score", "0.75", "--het-adjustment", "0.07"]
+        case unknown:
+            raise RuntimeError("Unimplemented named haplotype sampling parameter set " + unknown)
+
+    return " ".join(parts)
+
+    
+
+
+    
+
 
 def param_search_tsvs(wildcards, statname="time_used.mean", realness="real"):
     """
@@ -1127,6 +1192,19 @@ rule haplotype_index_graph:
     shell:
         "vg haplotypes -v 2 -t 16 -d {input.snarls} -r {input.ri} {input.gbz} -H {output.haplfile}"
 
+rule haplotype_index_graph_with_subchain_override:
+    input:
+        unpack(r_and_snarl_indexed_graph),
+    output:
+        haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}.subchain{subchainlength}.hapl"
+    threads: 16
+    resources:
+        mem_mb=1000000,
+        runtime=800,
+        slurm_partition=choose_partition(800)
+    shell:
+        "vg haplotypes -v 2 -t 16 -d {input.snarls} -r {input.ri} {input.gbz} --subchain-length {wildcards.subchainlength} -H {output.haplfile}"
+
 rule xg_index_graph:
     input:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
@@ -1163,20 +1241,20 @@ rule haplotype_sample_graph:
         kmer_counts=kmer_counts
     output:
         # Need to sample back into the graphs directory so e.g. minimizer indexing and mapping can work.
-        sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}-sampled{hapcount}{diploidtag}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.gbz"
+        sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.gbz"
     wildcard_constraints:
         hapcount="[0-9]+",
-        diploidtag="d?"
+        diploidtag="d?",
+        samplingparams="(_[^-]*)?"
     params:
-        haplotype_count=lambda w: int(w["hapcount"]),
-        diploid_flag=lambda w: "--diploid-sampling" if w["diploidtag"] == "d" else ""
+        haplotype_sampling_flags=haplotype_sampling_flags
     threads: 8
     resources:
         mem_mb=60000,
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg haplotypes -v 2 -t {threads} --include-reference --num-haplotypes {params.haplotype_count} {params.diploid_flag} -i {input.hapl} -k {input.kmer_counts} {input.gbz} -g {output.sampled_gbz}"
+        "vg haplotypes -v 2 -t {threads} --include-reference {params.haplotype_sampling_flags} -i {input.hapl} -k {input.kmer_counts} {input.gbz} -g {output.sampled_gbz}"
 
 
 rule minimizer_index_graph:
