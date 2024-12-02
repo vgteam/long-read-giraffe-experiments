@@ -48,6 +48,15 @@ configfile: "lr-config.yaml"
 #
 GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
 
+#
+# For SV calling, we need a truth vcf and a BED file with confident regions
+#
+# giab6_chm13.vcf.gz
+# giab6_chm13.confreg.bed
+#
+
+SV_DATA_DIR = config.get("sv_data_dir", None) or "/private/home/jmonlong/workspace/lreval/data"
+
 # Where are the reads to use?
 #
 # This directory must have "real" and "sim" subdirectories. Within each, there
@@ -183,6 +192,7 @@ wildcard_constraints:
     # We can have multiple versions of graphs with different modifications and clipping regimes
     modifications="(-[^.-]+(.trimmed)?)*",
     clipping="\\.d[0-9]+|",
+    chopping="\\.unchopped|",
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
     basename=".+(?<!\\.trimmed)",
@@ -213,7 +223,7 @@ def auto_mapping_threads(wildcards):
     else:
         mapping_threads= 8
 
-    if wildcards["realness"] == "sim" and wildcards.get("mapper", "").startswith("graphaligner"):
+    if wildcards.get("mapper", "").startswith("graphaligner"):
         #Graphaligner is really slow so for simulated reads where we don't care about time
         #double the number of threads
         #At most the number of cores on the phoenix nodes
@@ -253,9 +263,9 @@ def auto_mapping_memory(wildcards):
     if wildcards["tech"] == "illumina":
         scale_mb = 50000
     elif wildcards["tech"] == "hifi":
-        scale_mb = 150000
+        scale_mb = 200000
     else:
-        scale_mb = 450000
+        scale_mb = 600000
 
     # Scale down memory with threads
     return scale_mb / MAPPER_THREADS * thread_count + base_mb
@@ -349,6 +359,15 @@ def reference_prefix(wildcards):
     return {
         "chm13": "CHM13#0#",
         "grch38": "GRCh38#0#"
+    }[wildcards["reference"]]
+
+def reference_sample(wildcards):
+    """
+    Get the reference as a sample name
+    """
+    return {
+        "chm13": "CHM13",
+        "grch38": "GRCh38"
     }[wildcards["reference"]]
 
 def calling_reference_fasta(wildcards):
@@ -456,11 +475,13 @@ def graph_base(wildcards):
     modifications = []
 
     if "refgraphbase" in wc_keys and "modifications" in wc_keys:
-        # We already have the reference graph base (hprc-v1.1-mc) and clipping (.d9) if allowed cut apart.
+        # We already have the reference graph base (hprc-v1.1-mc) and clipping (.d9) and chopping (.unchopped) if allowed cut apart.
         refgraphbase = wildcards["refgraphbase"]
         modifications.append(wildcards["modifications"])
         if "clipping" in wc_keys:
             modifications.append(wildcards["clipping"])
+        if "chopping" in wc_keys:
+            modifications.append(wildcards["chopping"])
     else:
         assert "refgraph" in wc_keys, f"No refgraph wildcard in: {wc_keys}"
         # We need to handle hprc-v1.1-mc and hprc-v1.1-mc-d9 and hprc-v2.prereease-mc-R2-d32 and hprc-v2.prereease-mc-R2-sampled10d.
@@ -473,6 +494,12 @@ def graph_base(wildcards):
         refgraph = wildcards["refgraph"]
 
         parts = refgraph.split("-")
+        last = parts[-1]
+        if re.fullmatch("unchopped", last):
+            # We have a choppedness modifier, which gets a dot.
+            modifications.append("." + last)
+            parts.pop()
+
         last = parts[-1]
         if re.fullmatch("sampled[0-9]+d?(_[^-]*)?", last):
             # We have a generic haplotype sampling flag.
@@ -504,10 +531,6 @@ def graph_base(wildcards):
         
         # The first 3 or fewer parts are the graph base name.
         refgraphbase = "-".join(parts)
-
-    if wildcards.get("mapper", "").startswith("graphaligner"):
-        # GraphAligner needs the graph un-chopped.
-        modifications.append(".unchopped")
     
     result = os.path.join(GRAPHS_DIR, refgraphbase + "-" + reference + "".join(modifications))
     return result
@@ -529,6 +552,12 @@ def gfa(wildcards):
     Find a graph GFA file from reference.
     """
     return graph_base(wildcards) + ".gfa"
+
+def snarls(wildcards):
+    """
+    Find a graph snarls file from reference.
+    """
+    return graph_base(wildcards) + ".snarls"
 
 def minimizer_k(wildcards):
     """
@@ -1095,9 +1124,9 @@ def param_search_tsvs(wildcards, statname="time_used.mean", realness="real"):
 
 rule hg_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
-        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.hg"
+        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.hg"
     threads: 26
     resources:
         mem_mb=120000,
@@ -1121,11 +1150,11 @@ rule unchop_hg_graph:
 
 rule hg_to_gfa:
     input:
-        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{choppedness}.hg"
+        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.hg"
     output:
-        gfa="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{choppedness}.gfa"
+        gfa="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gfa"
     wildcard_constraints:
-        choppedness="\.unchopped|"
+        chopping="\.unchopped|"
     threads: 26
     resources:
         mem_mb=120000,
@@ -1137,9 +1166,9 @@ rule hg_to_gfa:
 
 rule distance_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
-        distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.dist"
+        distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.dist"
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
     resources:
@@ -1149,9 +1178,21 @@ rule distance_index_graph:
     shell:
         "vg index -t {threads} -j {output.distfile} {input.gbz}"
 
+rule precompute_snarls:
+    input:
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
+    output:
+        snarls="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.snarls"
+    threads: 4
+    resources:
+        mem_mb=120000,
+        runtime=180,
+        slurm_partition=choose_partition(180)
+    shell: "vg snarls -t {threads} -T {input.gbz} > {output.snarls}"
+
 rule tcdist_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
         tcdistfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.tcdist"
     # TODO: Distance indexing only really uses 1 thread
@@ -1261,8 +1302,8 @@ rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
     output:
-        minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.k{k}.w{w}{weightedness}.withzip.min",
-        zipfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.k{k}.w{w}{weightedness}.zipcodes"
+        minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.withzip.min",
+        zipfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.zipcodes"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
@@ -1449,8 +1490,8 @@ rule giraffe_real_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=auto_mapping_memory,
-        runtime=600,
-        slurm_partition=choose_partition(600),
+        runtime=1200,
+        slurm_partition=choose_partition(1200),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     run:
@@ -1543,8 +1584,8 @@ rule winnowmap_real_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
-        runtime=600,
-        slurm_partition=choose_partition(600),
+        runtime=1600,
+        slurm_partition=choose_partition(1600),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
@@ -1594,8 +1635,8 @@ rule minimap2_real_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
-        runtime=600,
-        slurm_partition=choose_partition(600),
+        runtime=1200,
+        slurm_partition=choose_partition(1200),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
@@ -1659,8 +1700,8 @@ rule bwa_real_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=30000,
-        runtime=600,
-        slurm_partition=choose_partition(600),
+        runtime=1200,
+        slurm_partition=choose_partition(1200),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
@@ -1694,7 +1735,7 @@ rule graphaligner_sim_reads:
     wildcard_constraints:
         realness="sim",
         # Need to hint mapper to auto_mapping_threads
-        mapper="graphaligner"
+        mapper="graphaligner.*"
     threads: auto_mapping_threads
     params:
         mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
@@ -1712,19 +1753,19 @@ rule graphaligner_real_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gam="{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam=temp("{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam")
     benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     log: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="real",
-        mapper="graphaligner"
+        mapper="graphaligner.*"
     threads: auto_mapping_threads
     params:
         mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
     resources:
-        mem_mb=300000,
-        runtime=3000,
-        slurm_partition=choose_partition(3000),
+        mem_mb=900000,
+        runtime=9000,
+        slurm_partition=choose_partition(9000),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     run:
@@ -1736,7 +1777,7 @@ rule minigraph_sim_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gaf="{root}/aligned-secsup/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+        gaf=temp("{root}/aligned-secsup/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf")
     wildcard_constraints:
         realness="sim"
     threads: auto_mapping_threads
@@ -1752,7 +1793,7 @@ rule minigraph_real_reads:
         gfa=gfa,
         fastq=fastq
     output:
-        gaf="{root}/aligned-secsup/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf"
+        gaf=temp("{root}/aligned-secsup/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf")
     benchmark: "{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     log: "{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
@@ -1760,8 +1801,10 @@ rule minigraph_real_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
-        runtime=600,
-        slurm_partition=choose_partition(600)
+        runtime=1200,
+        slurm_partition=choose_partition(1200),
+        slurm_extra=auto_mapping_slurm_extra,
+        full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
         "minigraph --vc --secondary=no -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
 
@@ -1796,7 +1839,9 @@ rule panaligner_real_reads:
     resources:
         mem_mb=300000,
         runtime=600,
-        slurm_partition=choose_partition(600)
+        slurm_partition=choose_partition(600),
+        slurm_extra=auto_mapping_slurm_extra,
+        full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
         "PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
 
@@ -3534,9 +3579,9 @@ rule unmapped_ends_by_name:
         unmapped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends_by_name.tsv",
     threads: 5
     resources:
-        mem_mb=2000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        mem_mb=4000,
+        runtime=120,
+        slurm_partition=choose_partition(120)
     run:
         read_to_length = dict()
         with open(input.fastq) as read_file:
@@ -4330,19 +4375,145 @@ rule add_mapper_to_plot:
     shell:
         "cp {input} {output}"
 
+rule latex_table_from_tsv:
+    input:
+        tsv="{root}/experiments/{expname}/results/{table_name}.tsv",
+    output:
+        tsv="{root}/experiments/{expname}/results/{table_name}.latex.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input.tsv} | sed 's/\t/\t\& /g' > {output.tsv}"
+
+##########################################################################
+## Genotyping with vg call
+rule vgpack:
+    input:
+        gam='{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.gam',
+        gbz=gbz
+    output: '{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.pack'
+    benchmark: '{root}/svcall/vgcall/{mapper}/benchmark.call.vgcall_pack.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.tsv'
+    resources:
+        mem_mb=200000,
+        runtime=360,
+        slurm_partition=choose_partition(360)
+    threads: 4
+    shell: "vg pack -e -x {input.gbz} -o {output} -g {input.gam} -Q 5 -t {threads}"
+
+rule vgcall:
+    input:
+        pack='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.pack',
+        graph=gbz,
+        snarls=snarls
+    output: '{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vcf.gz'
+    benchmark: '{root}/svcall/vgcall/{mapper}/benchmark.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.tsv'
+    log: '{root}/svcall/vgcall/{mapper}/log.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.log'
+    threads: 4
+    params:
+        reference_sample=reference_sample
+    resources:
+        mem_mb=160000,
+        runtime=360,
+        slurm_partition=choose_partition(360)
+    shell: "vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k {input.pack} -t {threads} {input.graph} | gzip > {output} 2> {log}"
+
+rule truvari:
+    input:
+        truth_vcf=SV_DATA_DIR+'/{truthset}.vcf.gz',
+        sample_vcf='{root}/svcall/{caller}/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vcf.gz',
+        confreg=SV_DATA_DIR+'/{truthset}.confreg.bed',
+        ref=calling_reference_fasta
+    output:
+        summary="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.summary.json",
+        refine_var="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json",
+        refine_reg="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.region_summary.json"
+    resources:
+        mem_mb=12000,
+        runtime=360,
+        slurm_partition=choose_partition(360)
+    params:
+        odir='{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}',
+        bvcf='{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.base.vcf.gz',
+        cvcf_temp='{root}/temp/{caller}.{mapper}.temp.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.vcf.gz',
+        cvcf='{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.nomulti.vcf.gz'
+    container: 'docker://quay.io/jmonlong/truvari:v4.3.1'
+    threads: 4
+    shell:
+        """
+        export TMPDIR={wildcards.root}/temp
+
+        rm -rf {params.odir}
+        
+        bcftools norm -m -both {input.truth_vcf} -O z -o {params.bvcf}
+        tabix -p vcf  {params.bvcf}
+        zcat {input.sample_vcf} | bgzip > {params.cvcf_temp}
+        tabix -p vcf {params.cvcf_temp}
+        bcftools norm -m -both {params.cvcf_temp} -O z -o {params.cvcf}
+        tabix -p vcf  {params.cvcf}
+        
+        truvari bench -b {params.bvcf} -c {params.cvcf} -o {params.odir} --pick ac --passonly -r 2000 -C 5000 --includebed {input.confreg}
+
+        truvari refine --recount --use-region-coords --use-original-vcfs --align mafft --reference {input.ref} --regions {params.odir}/candidate.refine.bed {params.odir}
+
+        cp {params.odir}/summary.json {output.summary}
+        cp {params.odir}/refine.variant_summary.json {output.refine_var}
+        cp {params.odir}/refine.region_summary.json {output.refine_reg}
+
+        rm -r {params.odir}*
+        """
+
+#Print summary statistics from sv calling with the format:
+# condition f1 FN FP
+#The input json also has "TP-base", "TP-comp", "precision", "recall", "base cnt", "comp cnt"
+rule sv_summary_by_condition:
+    input:
+        json="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json"
+    output:
+        tsv="{root}/experiments/{expname}/svcall/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    params:
+        condition_name=condition_name
+    shell:
+        "echo \"{params.condition_name}\t$(jq -r '[.f1,.FN,.FP] | @tsv' {input.json})\" >{output.tsv}"
+rule sv_summary_table:
+    input:
+        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/svcall/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv")
+    output:
+        tsv="{root}/experiments/{expname}/svcall/results/sv_calling_summary.tsv"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "cat {input.tsv} >>{output.tsv}"
+
+
+
+
+
+
 #Make the figures we want for the paper
 #Experiments are specified in the config file
 #TODO: idk what we want for variant calling
 rule all_paper_figures:
     input:
-        mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.tsv", expname=config["real_exps"]),
+        mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.latex.tsv", expname=config["real_exps"]),
         softclipped_plot=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/softclipped_or_unmapped.svg", expname=config["real_exps"]),
         runtime_slow=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_slow_time.svg", expname=config["real_exps"]),
         runtime_fast=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_fast_time.svg", expname=config["real_exps"]),
         memory=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/memory_from_benchmark.svg", expname=config["real_exps"]),
-        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=config["sim_exps"]),
+        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.latex.tsv", expname=config["sim_exps"]),
         qq=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/qq.svg", expname=config["sim_exps"]),
         roc=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/roc.svg", expname=config["sim_exps"]),
         indel_f1=expand(ALL_OUT_DIR + "/experiments/{expname}/results/indel_f1.tsv", expname=config["dv_exps"]),
-        snp_f1=expand(ALL_OUT_DIR + "/experiments/{expname}/results/snp_f1.tsv", expname=config["dv_exps"])
+        snp_f1=expand(ALL_OUT_DIR + "/experiments/{expname}/results/snp_f1.tsv", expname=config["dv_exps"]),
+        svs=expand(ALL_OUT_DIR + "/experiments/{expname}/svcall/results/sv_calling_summary.tsv", expname=config["sv_exps"])
 
