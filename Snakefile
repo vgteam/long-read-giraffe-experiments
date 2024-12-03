@@ -4444,7 +4444,7 @@ rule vgcall:
         snarls_path = os.path.abspath(input.snarls)
         out_path = os.path.abspath(output.vcf)
         log_path = os.path.abspath(log.logfile)
-        shell("cd {LARGE_TEMP_DIR} && vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k " + pack_path + " -r " + snarls_file + " -t {threads} " + graph_path + " | gzip > " + out_path + " 2> " + log_path)
+        shell("cd {LARGE_TEMP_DIR} && vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k " + pack_path + " -r " + snarls_path + " -t {threads} " + graph_path + " | gzip > " + out_path + " 2> " + log_path)
 
 rule truvari:
     input:
