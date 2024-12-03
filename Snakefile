@@ -171,7 +171,7 @@ MAPPER_THREADS=64
 
 PARAM_SEARCH = parameter_search.ParameterSearch()
 
-# Where is a large temo directory?
+# Where is a large temp directory?
 LARGE_TEMP_DIR = config.get("large_temp_dir", "/data/tmp")
 
 #Different phoenix nodes seem to run at different speeds, so we can specify which node to run
@@ -187,6 +187,7 @@ EXCLUSIVE_TIMING = config.get("exclusive_timing", True)
 IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["speed_from_log", "softclipped_or_unmapped", "accuracy", "indel_f1", "snp_f1"])
 
 wildcard_constraints:
+    expname="[^/]+",
     refgraphbase="[^/]+?",
     reference="chm13|grch38",
     # We can have multiple versions of graphs with different modifications and clipping regimes
@@ -874,19 +875,28 @@ def matches_all_constraint_passes(condition, passes):
 
 def wildcards_to_condition(all_wildcards):
     """
-    Filter dowen wildcards to just the condition parameters for the experiment in expname.
+    Filter down wildcards to just the condition parameters for the experiment in expname.
     
-    Raises an error if any variable in the experiment cannot be determined.
+    Raises an error if any varied variable in the experiment cannot be determined.
     """
 
     exp_dict = config.get("experiments", {}).get(all_wildcards["expname"], {})
     base_condition = exp_dict.get("control", {})
     to_vary = exp_dict.get("vary", {})
-    all_vars = list(base_condition.keys()) + list(to_vary.keys())
+    
+    # For membership testing, we need a set of wildcard keys
+    wc_keys = set(all_wildcards.keys())
 
     condition = {}
 
-    for var in all_vars:
+    for var in base_condition.keys():
+        if var in wc_keys:
+            # Constant variables across the whole experiment don't need to
+            # actually be in the consition name unless we actually have them
+            # available.
+            condition[var] = all_wildcards[var]
+
+    for var in to_vary.keys():
         condition[var] = all_wildcards[var]
 
     return condition
@@ -1058,6 +1068,9 @@ def get_subchain_length(wildcards):
             # See <https://ucsc-gi.slack.com/archives/CJ2EHEH1A/p1733151257429979>
             # Jean recommends:
             return 25000
+        case "_jean20241203":
+            # Jean didn't actually apply an override though, he just thought he did.
+            return 10000
         case unknown:
             raise RuntimeError("Unimplemented named haplotype sampling parameter set " + unknown)
 
@@ -1086,7 +1099,7 @@ def haplotype_sampling_flags(wildcards):
         case "":
             # If not set, nothing to add.
             pass
-        case "_jean20241202":
+        case "_jean20241202" | "_jean20241203":
             # See <https://ucsc-gi.slack.com/archives/CJ2EHEH1A/p1733151257429979>
             # Jean recommends:
             # 16 haplotypes, subchain length of 25000, presence 0.87, absence 0.75, het 0.07, without diploid sampling.
@@ -1194,7 +1207,7 @@ rule tcdist_index_graph:
     input:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
-        tcdistfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.tcdist"
+        tcdistfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.tcdist"
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
     resources:
@@ -4401,7 +4414,7 @@ rule vgpack:
         runtime=360,
         slurm_partition=choose_partition(360)
     threads: 4
-    shell: "vg pack -e -x {input.gbz} -o {output} -g {input.gam} -Q 5 -t {threads}"
+    shell: "cd {LARGE_TEMP_DIR} && vg pack -e -x {input.gbz} -o {output} -g {input.gam} -Q 5 -t {threads}"
 
 rule vgcall:
     input:
@@ -4418,11 +4431,12 @@ rule vgcall:
         mem_mb=160000,
         runtime=360,
         slurm_partition=choose_partition(360)
-    shell: "vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k {input.pack} -t {threads} {input.graph} | gzip > {output} 2> {log}"
+    shell: "cd {LARGE_TEMP_DIR} && vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k {input.pack} -t {threads} {input.graph} | gzip > {output} 2> {log}"
 
 rule truvari:
     input:
         truth_vcf=SV_DATA_DIR+'/{truthset}.vcf.gz',
+        # TODO: Rename caller to svcaller to avoid confusing it with the point variant caller (always DV)
         sample_vcf='{root}/svcall/{caller}/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vcf.gz',
         confreg=SV_DATA_DIR+'/{truthset}.confreg.bed',
         ref=calling_reference_fasta
@@ -4443,6 +4457,7 @@ rule truvari:
     threads: 4
     shell:
         """
+        # TODO: Use LARGE_TEMP_DIR?
         export TMPDIR={wildcards.root}/temp
 
         rm -rf {params.odir}

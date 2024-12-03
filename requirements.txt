@@ -1,1 +1,2 @@
 bidict==0.23.1
+truvari==4.3.1
