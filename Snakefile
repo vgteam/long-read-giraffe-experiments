@@ -4414,7 +4414,9 @@ rule vgpack:
         runtime=360,
         slurm_partition=choose_partition(360)
     threads: 4
-    shell: "OUTPATH=$(realpath -m {output}); cd {LARGE_TEMP_DIR} && vg pack -e -x {input.gbz} -o \"$OUTPATH\" -g {input.gam} -Q 5 -t {threads}"
+    run:
+        out_path = os.path.abspath(output)
+        shell("cd {LARGE_TEMP_DIR} && vg pack -e -x {input.gbz} -o " + out_path + " -g {input.gam} -Q 5 -t {threads}")
 
 rule vgcall:
     input:
@@ -4431,7 +4433,10 @@ rule vgcall:
         mem_mb=160000,
         runtime=360,
         slurm_partition=choose_partition(360)
-    shell: "OUTPATH=$(realpath -m {output}); LOGPATH=$(realpath -m {log}); cd {LARGE_TEMP_DIR} && vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k {input.pack} -t {threads} {input.graph} | gzip > $OUTPATH 2> $LOGPATH"
+    run:
+        out_path = os.path.abspath(output)
+        log_path = os.path.abspath(log)
+        shell("cd {LARGE_TEMP_DIR} && vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k {input.pack} -t {threads} {input.graph} | gzip > " + out_path + " 2> " + log_path)
 
 rule truvari:
     input:
