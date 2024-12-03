@@ -4407,7 +4407,8 @@ rule vgpack:
     input:
         gam='{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.gam',
         gbz=gbz
-    output: '{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.pack'
+    output:
+        pack='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.pack'
     benchmark: '{root}/svcall/vgcall/{mapper}/benchmark.call.vgcall_pack.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.tsv'
     resources:
         mem_mb=200000,
@@ -4415,7 +4416,7 @@ rule vgpack:
         slurm_partition=choose_partition(360)
     threads: 4
     run:
-        out_path = os.path.abspath(output)
+        out_path = os.path.abspath(output.pack)
         shell("cd {LARGE_TEMP_DIR} && vg pack -e -x {input.gbz} -o " + out_path + " -g {input.gam} -Q 5 -t {threads}")
 
 rule vgcall:
@@ -4423,9 +4424,11 @@ rule vgcall:
         pack='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.pack',
         graph=gbz,
         snarls=snarls
-    output: '{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vcf.gz'
+    output:
+        vcf='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vcf.gz'
     benchmark: '{root}/svcall/vgcall/{mapper}/benchmark.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.tsv'
-    log: '{root}/svcall/vgcall/{mapper}/log.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.log'
+    log:
+        logfile='{root}/svcall/vgcall/{mapper}/log.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.log'
     threads: 4
     params:
         reference_sample=reference_sample
@@ -4434,8 +4437,8 @@ rule vgcall:
         runtime=360,
         slurm_partition=choose_partition(360)
     run:
-        out_path = os.path.abspath(output)
-        log_path = os.path.abspath(log)
+        out_path = os.path.abspath(output.vcf)
+        log_path = os.path.abspath(log.logfile)
         shell("cd {LARGE_TEMP_DIR} && vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k {input.pack} -t {threads} {input.graph} | gzip > " + out_path + " 2> " + log_path)
 
 rule truvari:
