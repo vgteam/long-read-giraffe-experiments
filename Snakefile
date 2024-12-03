@@ -4416,8 +4416,10 @@ rule vgpack:
         slurm_partition=choose_partition(360)
     threads: 4
     run:
+        gam_path = os.path.abspath(input.gam)
+        gbz_path = os.path.abspath(input.gbz)
         out_path = os.path.abspath(output.pack)
-        shell("cd {LARGE_TEMP_DIR} && vg pack -e -x {input.gbz} -o " + out_path + " -g {input.gam} -Q 5 -t {threads}")
+        shell("cd {LARGE_TEMP_DIR} && vg pack -e -x " + gbz_path + " -o " + out_path + " -g " + gam_path + " -Q 5 -t {threads}")
 
 rule vgcall:
     input:
@@ -4437,9 +4439,12 @@ rule vgcall:
         runtime=360,
         slurm_partition=choose_partition(360)
     run:
+        pack_path = os.path.abspath(input.pack)
+        graph_path = os.path.abspath(input.graph)
+        snarls_path = os.path.abspath(input.snarls)
         out_path = os.path.abspath(output.vcf)
         log_path = os.path.abspath(log.logfile)
-        shell("cd {LARGE_TEMP_DIR} && vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k {input.pack} -t {threads} {input.graph} | gzip > " + out_path + " 2> " + log_path)
+        shell("cd {LARGE_TEMP_DIR} && vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k " + pack_path + " -r " + snarls_file + " -t {threads} " + graph_path + " | gzip > " + out_path + " 2> " + log_path)
 
 rule truvari:
     input:
