@@ -1949,7 +1949,7 @@ rule surject_gam:
         mapper="(giraffe.*|graphaligner-.*)"
     threads: 64
     resources:
-        mem_mb=lambda w: 300000 if w["tech"] == "r10" else 150000,
+        mem_mb=lambda w: 600000 if w["tech"] == "r10" else 150000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
