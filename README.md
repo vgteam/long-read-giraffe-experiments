@@ -64,6 +64,8 @@ To run all the rules, you will need to have installations of:
 * samtools
 * Java
 * Picard (as `picard.jar` in the current directory)
+* [Truvari](https://github.com/ACEnglish/truvari)
+* [mafft](https://mafft.cbrc.jp/alignment/software/installation_without_root.html) for Truvari to call
 
 ## Available Experiment Outputs:
 
