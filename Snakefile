@@ -4456,16 +4456,19 @@ rule truvari:
     output:
         summary="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.summary.json",
         refine_var="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json",
-        refine_reg="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.region_summary.json"
+        refine_reg="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.region_summary.json",
+        # These aren't actual outputs but are scratch files which we rely on Snakemake to manage cleanup for
+        odir=temp(directory('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}')),
+        bvcf=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.base.vcf.gz'),
+        bvcf_index=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.base.vcf.gz.tbi'),
+        cvcf_temp=temp('{root}/temp/{caller}.{mapper}.temp.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.vcf.gz'),
+        cvcf_temp_index=temp('{root}/temp/{caller}.{mapper}.temp.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.vcf.gz.tbi'),
+        cvcf=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.nomulti.vcf.gz'),
+        cvcf_index=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.nomulti.vcf.gz.tbi')
     resources:
         mem_mb=12000,
         runtime=360,
         slurm_partition=choose_partition(360)
-    params:
-        odir='{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}',
-        bvcf='{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.base.vcf.gz',
-        cvcf_temp='{root}/temp/{caller}.{mapper}.temp.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.vcf.gz',
-        cvcf='{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.nomulti.vcf.gz'
     container: 'docker://quay.io/jmonlong/truvari:v4.3.1'
     threads: 4
     shell:
@@ -4473,24 +4476,20 @@ rule truvari:
         # TODO: Use LARGE_TEMP_DIR?
         export TMPDIR={wildcards.root}/temp
 
-        rm -rf {params.odir}
+        bcftools norm -m -both {input.truth_vcf} -O z -o {output.bvcf}
+        tabix -p vcf {output.bvcf}
+        zcat {input.sample_vcf} | bgzip > {output.cvcf_temp}
+        tabix -p vcf {output.cvcf_temp}
+        bcftools norm -m -both {output.cvcf_temp} -O z -o {output.cvcf}
+        tabix -p vcf {output.cvcf}
         
-        bcftools norm -m -both {input.truth_vcf} -O z -o {params.bvcf}
-        tabix -p vcf  {params.bvcf}
-        zcat {input.sample_vcf} | bgzip > {params.cvcf_temp}
-        tabix -p vcf {params.cvcf_temp}
-        bcftools norm -m -both {params.cvcf_temp} -O z -o {params.cvcf}
-        tabix -p vcf  {params.cvcf}
-        
-        truvari bench -b {params.bvcf} -c {params.cvcf} -o {params.odir} --pick ac --passonly -r 2000 -C 5000 --includebed {input.confreg}
+        truvari bench -b {output.bvcf} -c {output.cvcf} -o {output.odir} --pick ac --passonly -r 2000 -C 5000 --includebed {input.confreg}
 
-        truvari refine --recount --use-region-coords --use-original-vcfs --align mafft --reference {input.ref} --regions {params.odir}/candidate.refine.bed {params.odir}
+        truvari refine --recount --use-region-coords --use-original-vcfs --align mafft --reference {input.ref} --regions {output.odir}/candidate.refine.bed {output.odir}
 
-        cp {params.odir}/summary.json {output.summary}
-        cp {params.odir}/refine.variant_summary.json {output.refine_var}
-        cp {params.odir}/refine.region_summary.json {output.refine_reg}
-
-        rm -r {params.odir}*
+        cp {output.odir}/summary.json {output.summary}
+        cp {output.odir}/refine.variant_summary.json {output.refine_var}
+        cp {output.odir}/refine.region_summary.json {output.refine_reg}
         """
 
 #Print summary statistics from sv calling with the format:
