@@ -1949,7 +1949,7 @@ rule surject_gam:
         mapper="(giraffe.*|graphaligner-.*)"
     threads: 64
     resources:
-        mem_mb=150000,
+        mem_mb=lambda w: 300000 if w["tech"] == "r10" else 150000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
@@ -4412,8 +4412,8 @@ rule vgpack:
     benchmark: '{root}/svcall/vgcall/{mapper}/benchmark.call.vgcall_pack.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.tsv'
     resources:
         mem_mb=200000,
-        runtime=360,
-        slurm_partition=choose_partition(360)
+        runtime=1400,
+        slurm_partition=choose_partition(1400)
     threads: 4
     run:
         gam_path = os.path.abspath(input.gam)
