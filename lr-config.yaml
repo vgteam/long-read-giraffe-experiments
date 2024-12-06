@@ -250,7 +250,7 @@ experiments:
       reference: chm13
       sample: HG002
       realness: real
-      truthset: giab6
+      truthset: giab6_chm13
       caller: vgcall
     vary:
       tech: ["hifi", "r10"]
@@ -456,7 +456,7 @@ experiments:
       mapper: "giraffe-k29.w11.W-sr-default-noflags"
       # SV specific parameters with generic names
       caller: vgcall
-      truthset: giab6
+      truthset: giab6_chm13
     vary:
       refgraph: ["hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prereease-mc-R2-sampled16_jean20241203"]
 
@@ -471,7 +471,7 @@ experiments:
       mapper: "giraffe-k31.w50.W-hifi-default-noflags"
       # SV specific parameters with generic names
       caller: vgcall
-      truthset: giab6
+      truthset: giab6_chm13
     vary:
       refgraph: ["hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prereease-mc-R2-sampled16_jean20241203"]
 
@@ -486,7 +486,7 @@ experiments:
       mapper: "giraffe-k31.w50.W-r10-default-noflags"
       # SV specific parameters with generic names
       caller: vgcall
-      truthset: giab6
+      truthset: giab6_chm13
     vary:
       refgraph: ["hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prereease-mc-R2-sampled16_jean20241203"]
 
