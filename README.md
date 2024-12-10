@@ -66,6 +66,7 @@ To run all the rules, you will need to have installations of:
 * Picard (as `picard.jar` in the current directory)
 * [Truvari](https://github.com/ACEnglish/truvari)
 * [mafft](https://mafft.cbrc.jp/alignment/software/installation_without_root.html) for Truvari to call
+* [toil](https://github.com/DataBiosphere/toil) for DeepVariant
 
 ## Available Experiment Outputs:
 
