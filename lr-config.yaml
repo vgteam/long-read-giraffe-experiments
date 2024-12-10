@@ -400,14 +400,97 @@ experiments:
       trimmedness: ""
       sample: HG002
       realness: sim
+      mapper: "giraffe-k31.w50.W-hifi-default-noflags"
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "minimap2-lr:hq", "minimap2-map-hifi"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-d32", "hprc-v2.prereease-mc-R2-d32", "hprc-v2-90-d9", "hprc-v2.prereease-mc-R2-sampled2d", "hprc-v2.prereease-mc-R2-sampled16"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prerelease.2-mc-eval-nov22-d39", "hprc-v2.prerelease.2-mc-eval-nov22-sampled16"]
+
+  hifi_sim_graphs_small:
+    control:
+      subset: 10k
+      tech: hifi
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: sim
+      mapper: "giraffe-k31.w50.W-hifi-default-noflags"
+    vary:
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prerelease.2-mc-eval-nov22-d39"]
+
+  hifi_real_graphs:
+    control:
+      subset: full
+      tech: hifi
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: real
+      mapper: "giraffe-k31.w50.W-hifi-default-noflags"
+      # SV specific parameters with generic names
+      caller: vgcall
+      truthset: giab6_chm13
+    vary:
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prerelease.2-mc-eval-nov22-d39", "hprc-v2.prerelease.2-mc-eval-nov22-sampled16"]
+
+  r10_sim_graphs:
+    control:
+      subset: 10k
+      tech: r10
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: sim
+      mapper: "giraffe-k31.w50.W-r10-default-noflags"
+    vary:
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prerelease.2-mc-eval-nov22-d39", "hprc-v2.prerelease.2-mc-eval-nov22-sampled16"]
+
+  r10_real_graphs:
+    control:
+      subset: full
+      tech: r10
+      reference: chm13
+      trimmedness: ".trimmed"
+      sample: HG002
+      realness: real
+      mapper: "giraffe-k31.w50.W-r10-default-noflags"
+      # SV specific parameters with generic names
+      caller: vgcall
+      truthset: giab6_chm13
+    vary:
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prerelease.2-mc-eval-nov22-d39", "hprc-v2.prerelease.2-mc-eval-nov22-sampled16"]
+
+
+  illumina_sim_graphs:
+    control:
+      subset: 10k
+      tech: illumina
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: sim
+      mapper: "giraffe-k29.w11.W-sr-default-noflags"
+    vary:
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prerelease.2-mc-eval-nov22-d39", "hprc-v2.prerelease.2-mc-eval-nov22-sampled16"]
+
+  illumina_real_graphs:
+    control:
+      subset: full
+      tech: illumina
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: real
+      # SV specific parameters with generic names
+      caller: vgcall
+      truthset: giab6_chm13
+    vary:
+      mapper: ["giraffe-k29.w11.W-srold-default-noflags", "bwa-pe"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.2-mc-eval-nov22-d39"]
     constrain:
-      - refgraph: "hprc-v1.1-mc-d9"
-        mapper: ["minimap2-lr:hq", "minimap2-map-hifi"]
-      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-d32", "hprc-v2.prereease-mc-R2-d32", "hprc-v2-90-d9", "hprc-v2.prereease-mc-R2-sampled2d", "hprc-v2.prereease-mc-R2-sampled16"]
-        mapper: "giraffe-k31.w50.W-hifi-default-noflags"
+      -
+        mapper: "giraffe-k29.w11.W-srold-default-noflags"
+      - 
+        mapper: "bwa-pe"
+        refgraph: "hprc-v1.1-mc-d9"
 
   illumina_sim_samplingparams:
     control:
@@ -438,7 +521,7 @@ experiments:
       subset: 10k
       tech: r10
       reference: chm13
-      trimmedness: ".trimmed"
+      trimmedness: ""
       sample: HG002
       realness: sim
       mapper: "giraffe-k31.w50.W-r10-default-noflags"
@@ -489,31 +572,6 @@ experiments:
       truthset: giab6_chm13
     vary:
       refgraph: ["hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prereease-mc-R2-sampled16_jean20241203"]
-
-
-  hifi_real_graphs:
-    control:
-      subset: full
-      tech: hifi
-      reference: chm13
-      trimmedness: ""
-      sample: HG002
-      realness: real
-      mapper: "giraffe-k31.w50.W-hifi-default-noflags"
-    vary:
-      refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v2.prereease-mc-R2-sampled2d", "hprc-v2.prereease-mc-R2-d32"]
-
-  illumina_sim_graphs:
-    control:
-      subset: 10k
-      tech: illumina
-      reference: chm13
-      trimmedness: ""
-      sample: HG002
-      realness: sim
-      mapper: "giraffe-k29.w11.W-sr-default-noflags"
-    vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled4d", "hprc-v1.1-mc-sampled16", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled2d", "hprc-v2.prereease-mc-R2-sampled4d", "hprc-v2.prereease-mc-R2-sampled16"]
 
   hifi_speed:
     control:

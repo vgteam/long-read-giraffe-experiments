@@ -1510,8 +1510,9 @@ rule giraffe_real_reads:
     run:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
+        pairing_flag="-i" if wildcards.preset == "srold" else ""
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq_gz} " + flags + " >{output.gam} 2>{log}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq_gz} " + flags + " " + pairing_flag + " >{output.gam} 2>{log}")
 
 rule giraffe_sim_reads:
     input:
@@ -1947,13 +1948,16 @@ rule surject_gam:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
         mapper="(giraffe.*|graphaligner-.*)"
+    params:
+        # The srold preset is paired
+        paired_flag=lambda w: "-i" if re.match("giraffe-[^-]*-srold-[^-]*-[^-]*", w["mapper"]) else ""
     threads: 64
     resources:
         mem_mb=lambda w: 600000 if w["tech"] == "r10" else 150000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg surject -F {input.reference_path_list_callable} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {input.gam} > {output.bam}"
+        "vg surject -F {input.reference_path_list_callable} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
 
 rule alias_bam_graph:
     # For BAM-generating mappers we can view their BAMs as if they mapped to any reference graph for a reference
