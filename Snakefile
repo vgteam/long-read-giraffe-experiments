@@ -82,7 +82,13 @@ SV_DATA_DIR = config.get("sv_data_dir", None) or "/private/home/jmonlong/workspa
 # of reads.
 #
 # Simulated reads should be made with the "make_pbsim_reads.sh" script in this
-# repository.
+# repository, or, for paired-end read simulation for Illumina reads:
+#
+# vg sim -r -n 2500000 -a -s 12345 -p 570 -v 165 -i 0.00029 --multi-position
+#
+# Using an XG and a GBWT for the target sample-and-reference graph,
+# --sample-name with the target sample's name, and the full real read set for
+# the training FASTQ.
 #
 # A fully filled out reads directory might look like:
 #.
