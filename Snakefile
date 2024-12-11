@@ -67,7 +67,7 @@ SV_DATA_DIR = config.get("sv_data_dir", None) or "/private/home/jmonlong/workspa
 # The name of the file must contain the sample name. If the directory is not
 # writable, and you want to trim adapters off nanopore reads, there must also
 # be a ".trimmed.fq.gz" or ".trimmed.fastq.gz" version of this file, with the
-# first 100 and last 10 bases trimmed off. Thw workflow will generate
+# first 100 and last 10 bases trimmed off. The workflow will generate
 # "{basename}.{subset}.fq.gz" files for each subset size in reads ("1k", "1m:,
 # etc.) that you want to work with.
 #
@@ -1439,6 +1439,19 @@ rule extract_fastq_from_gam:
     shell:
         "vg view --fastq-out --threads {threads} {input.gam} >{output.fastq}"
 
+rule extract_fastq_gz_from_gam:
+    input:
+        gam="{reads_dir}/sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"
+    output:
+        fastq_gz="{reads_dir}/sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.fq.gz"
+    threads: 24
+    resources:
+        mem_mb=10000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg view --fastq-out --threads 16 {input.gam} | pigz -p 8 -c >{output.fastq_gz}"
+
 rule extract_fastq_from_full_gam:
     input:
         gam="{reads_dir}/sim/{tech}/{sample}/{sample}-sim-{tech}.gam"
@@ -1451,6 +1464,19 @@ rule extract_fastq_from_full_gam:
         slurm_partition=choose_partition(60)
     shell:
         "vg view --fastq-out --threads {threads} {input.gam} >{output.fastq}"
+
+rule extract_fastq_gz_from_full_gam:
+    input:
+        gam="{reads_dir}/sim/{tech}/{sample}/{sample}-sim-{tech}.gam"
+    output:
+        fastq_gz="{reads_dir}/sim/{tech}/{sample}/{sample}-sim-{tech}.fq.gz"
+    threads: 24
+    resources:
+        mem_mb=10000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg view --fastq-out --threads 16 {input.gam} | pigz -p 8 -c >{output.fastq_gz}"
 
 rule dict_index_reference:
     input:
