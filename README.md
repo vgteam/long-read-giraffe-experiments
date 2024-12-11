@@ -8,7 +8,25 @@ The general flow for using this repository is:
 
 1. Obtain some real long reads for your sequencing technologies.
 
-2. Use `make_pbsim_reads.sh` to simulate reads with similar base qualities for a sample with set genotypes.
+2. Use `make_pbsim_reads.sh` to simulate reads with similar base qualities for a sample with set genotypes. For Illumina reads, you should simulate paired-end reads manually with `vg sim` like this:
+
+```
+GRAPH_DIR=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs
+READ_DIR=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads
+mkdir -p ${READ_DIR}/sim/illumina/HG002"
+# Prepare a separete GBWT
+vg gbwt -o"${GRAPH_DIR}/hprc-chm-hg002-2024-03-25-mc.full.gbwt" -g "${GRAPH_DIR}/hprc-chm-hg002-2024-03-25-mc.full.gg" -Z "${GRAPH_DIR}/hprc-chm-hg002-2024-03-25-mc.full.gbz"
+# Prepare an xg graph
+vg convert --drop-haplotypes --xg-out "${GRAPH_DIR}//hprc-chm-hg002-2024-03-25-mc.full.gbz" >"${GRAPH_DIR}//hprc-chm-hg002-2024-03-25-mc.full.xg"
+# Simulate reads
+vg sim -r -n 2500000 -a -s 12345 -p 570 -v 165 -i 0.00029 -x "${GRAPH_DIR}//hprc-chm-hg002-2024-03-25-mc.full.xg" -g "${GRAPH_DIR}//hprc-chm-hg002-2024-03-25-mc.full.gbwt" --sample-name HG002 -F "${READ_DIR}/real/illumina/HG002/hpp_HG002_NA24385_son_v1.3m.fq" --multi-position > "${READ_DIR}/sim/illumina/HG002/HG002-sim-illumina.gam"
+# Subset reads
+for READ_COUNT in 100 1000 10000 100000 1000000 ; do
+    vg filter --interleaved -t1 --max-reads "${READ_COUNT}" "${READ_DIR}/sim/illumina/HG002/HG002-sim-illumina.gam" >"${READ_DIR}/sim/illumina/HG002/HG002-sim-illumina-${READ_COUNT}.gam"
+done
+```
+
+Note that the Illumina read subsets made like this won't be uniformly sampled from the full set.
 
 3. Lay out your input files in the expected format, including a GBZ graph and distance index, the reads, a linear reference FASTA, and Winnowmap indexes, and any Minimap2 indexes. See `Snakefile` for a description of the required layout for input data.
 

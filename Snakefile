@@ -1439,6 +1439,19 @@ rule extract_fastq_from_gam:
     shell:
         "vg view --fastq-out --threads {threads} {input.gam} >{output.fastq}"
 
+rule extract_fastq_from_full_gam:
+    input:
+        gam="{reads_dir}/sim/{tech}/{sample}/{sample}-sim-{tech}.gam"
+    output:
+        fastq="{reads_dir}/sim/{tech}/{sample}/{sample}-sim-{tech}.fq"
+    threads: 16
+    resources:
+        mem_mb=10000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg view --fastq-out --threads {threads} {input.gam} >{output.fastq}"
+
 rule dict_index_reference:
     input:
         reference_fasta=reference_fasta
