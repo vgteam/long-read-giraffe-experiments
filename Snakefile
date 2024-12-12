@@ -268,7 +268,7 @@ def auto_mapping_memory(wildcards):
     base_mb = 60000
 
     if wildcards["tech"] == "illumina":
-        scale_mb = 50000
+        scale_mb = 200000
     elif wildcards["tech"] == "hifi":
         scale_mb = 300000
     else:
