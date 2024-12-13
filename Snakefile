@@ -2142,9 +2142,9 @@ rule stat_from_happy_summary:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.{vartype}_{colname}.tsv"
     wildcard_constraints:
         vartype="(snp|indel)",
-        colname="(f1|precision|recall|fn|fp)"
+        colname="(f1|precision|recall|fn|fp|tp)"
     params:
-        colnum=lambda w: {"f1": 14, "precision": 12, "recall": 11, "fn": 5, "fp": 7}[w["colname"]]
+        colnum=lambda w: {"f1": 14, "precision": 12, "recall": 11, "fn": 5, "fp": 7, "tp":4}[w["colname"]]
     threads: 1
     resources:
         mem_mb=1000,
@@ -2152,6 +2152,43 @@ rule stat_from_happy_summary:
         slurm_partition=choose_partition(5)
     run:
         shell("cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].upper() + ",PASS' | cut -f{params.colnum} -d',' >{output.tsv}")
+
+rule dv_summary_by_condition:
+    input:
+        happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.eval.summary.csv"
+    output:
+        tsv="{root}/experiments/{expname}/stats/deepvariant/{mapper}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.dv_{vartype}_summary.tsv"
+    wildcard_constraints:
+        vartype="(snp|indel)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    params:
+        condition_name=condition_name
+    run:
+        shell("echo \"{params.condition_name}\t$(cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].upper() + ",PASS' | cut -f 4,5,7,11,12,14 -d',' | sed 's/,/\\t/g')\" >{output.tsv}")
+
+rule dv_summary_table:
+    input:
+        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/deepvariant/{mapper}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.dv_{vartype}_summary.tsv")
+    output:
+        tsv="{root}/experiments/{expname}/results/dv_{vartype}_summary.tsv"
+    wildcard_constraints:
+        vartype="(snp|indel)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        """
+        printf "condition\tTP\tFN\tFP\trecall\tprecision\tF1\n" >> {output.tsv}
+        cat {input} >>{output.tsv}
+        """
+
+
 
 rule compare_alignments:
     input:
