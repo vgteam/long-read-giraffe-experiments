@@ -2695,6 +2695,8 @@ rule experiment_stat_table:
     shell:
         "cat {input} >{output.table}"
 
+ruleorder: dv_summary_table > experiment_stat_table
+
 rule experiment_important_stats_table:
     input:
         lambda w: expand("{{root}}/experiments/{{expname}}/results/{stat}.tsv", stat=IMPORTANT_STATS_TABLE_COLUMNS)
