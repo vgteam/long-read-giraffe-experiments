@@ -1203,7 +1203,7 @@ rule precompute_snarls:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
         snarls="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.snarls"
-    benchmark: "{graphs_dir}indexing_benchmarks/snarls_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark"
+    benchmark: "{graphs_dir}/indexing_benchmarks/snarls_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark"
     threads: 4
     resources:
         mem_mb=120000,
@@ -3125,7 +3125,7 @@ rule experiment_memory_from_benchmark_tsv:
         slurm_partition=choose_partition(60)
     shell:
         "cat {input} >>{output.tsv}"
-ruleorder:experiment_memory_from_benchmark_tsv > experiment_stat_table
+ruleorder: experiment_memory_from_benchmark_tsv > experiment_stat_table
 
 
 rule experiment_memory_from_benchmark_plot:
@@ -3199,7 +3199,7 @@ rule experiment_mapping_stats_real_tsv_from_stats:
     shell:
         """
         echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.startup_time} | cut -f 2)\t$(cat {input.sampling_time} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_or_unmapped} | cut -f 2)" >>{output.tsv}
-         """
+        """
 
 
 #Get the speed, memory use, and softclips from real reads
