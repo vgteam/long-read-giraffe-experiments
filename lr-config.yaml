@@ -450,7 +450,7 @@ experiments:
       refgraph: "hprc-v1.1-mc"
       sample: HG002
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k29.w11.W-srold-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2-lr:hqae", "minimap2-sr", "winnowmap"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2-lr:hqae", "minimap2-sr", "winnowmap"]
       tech: ["r10", "hifi", "illumina"]
       trimmedness: ["", ".trimmed"]
       realness: ["sim", "real"]
@@ -480,7 +480,7 @@ experiments:
           tech: "hifi"
         - mapper: "winnowmap"
           tech: ["r10", "hifi"]
-        - mapper: ["giraffe-k29.w11.W-srold-default-noflags", "giraffe-k29.w11.W-default-default-noflags"]
+        - mapper: ["giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11.W-default-default-noflags"]
           tech: "illumina"
         - mapper: "minimap2-lr:hqae"
           tech: ["r10", "hifi"]
@@ -619,11 +619,11 @@ experiments:
       sample: HG002
       realness: sim
     vary:
-      mapper: ["giraffe-k29.w11.W-srold-default-noflags", "bwa-pe"]
+      mapper: ["giraffe-k29.w11.W-default-default-noflags", "bwa-pe"]
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.2-mc-eval-nov22-d39"]
     constrain:
       -
-        mapper: "giraffe-k29.w11.W-srold-default-noflags"
+        mapper: "giraffe-k29.w11.W-default-default-noflags"
       - 
         mapper: "bwa-pe"
         refgraph: "hprc-v1.1-mc-d9"
@@ -640,11 +640,11 @@ experiments:
       caller: vgcall
       truthset: giab6_chm13
     vary:
-      mapper: ["giraffe-k29.w11.W-srold-default-noflags", "bwa-pe"]
+      mapper: ["giraffe-k29.w11.W-default-default-noflags", "bwa-pe"]
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.2-mc-eval-nov22-d39"]
     constrain:
       -
-        mapper: "giraffe-k29.w11.W-srold-default-noflags"
+        mapper: "giraffe-k29.w11.W-default-default-noflags"
       - 
         mapper: "bwa-pe"
         refgraph: "hprc-v1.1-mc-d9"
@@ -657,7 +657,7 @@ experiments:
       trimmedness: ""
       sample: HG002
       realness: sim
-      mapper: "giraffe-k29.w11.W-srold-default-noflags"
+      mapper: "giraffe-k29.w11.W-default-default-noflags"
     vary:
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled16", "hprc-v1.1-mc-sampled16_jean20241203", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prereease-mc-R2-sampled16_jean20241203"]
 
@@ -693,7 +693,7 @@ experiments:
       trimmedness: ""
       sample: HG002
       realness: real
-      mapper: "giraffe-k29.w11.W-srold-default-noflags"
+      mapper: "giraffe-k29.w11.W-default-default-noflags"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6_chm13
@@ -795,15 +795,15 @@ experiments:
       sample: HG002
     vary:
       realness: ["sim", "real"]
-      mapper: ["giraffe-k29.w11.W-srold-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11-srold-default-noflags", "giraffe-k29.w11-default-default-noflags"]
+      mapper: ["giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11-default-default-noflags", "giraffe-k29.w11-default-default-noflags"]
       refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled-HG002-illumina", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc"
-          mapper: ["giraffe-k29.w11.W-srold-default-noflags", "giraffe-k29.w11.W-default-default-noflags"]
+          mapper: ["giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11.W-default-default-noflags"]
         - refgraph: "hprc-v1.1-mc-sampled-HG002-illumina"
-          mapper: ["giraffe-k29.w11-srold-default-noflags", "giraffe-k29.w11-default-default-noflags"]
+          mapper: ["giraffe-k29.w11-default-default-noflags", "giraffe-k29.w11-default-default-noflags"]
         - refgraph: "primary"          
-          mapper: ["giraffe-k29.w11.W-srold-default-noflags", "giraffe-k29.w11.W-default-default-noflags"]
+          mapper: ["giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11.W-default-default-noflags"]
   illumina_test_small:
     control:
       realness: sim
@@ -814,4 +814,4 @@ experiments:
       trimmedness: ""
       sample: HG002
     vary:
-      mapper: ["giraffe-k29.w11.W-srold-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2"]
+      mapper: ["giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2"]

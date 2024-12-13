@@ -155,6 +155,9 @@ ALL_OUT_DIR = config.get("all_out_dir", None) or "/private/groups/patenlab/proje
 # What stages does the Giraffe mapper report times for?
 STAGES = ["minimizer", "seed", "tree", "fragment", "chain", "align", "winner"]
 
+# What stages does the Giraffe mapper report times for on the non-chainign codepath?
+NON_CHAINING_STAGES = ["minimizer", "seed", "cluster", "extend", "align", "pairing", "winner"]
+
 # What aligner and read part combinations does Giraffe report statistics for?
 ALIGNER_PARTS = ["wfa_tail", "dozeu_tail", "wfa_middle", "bga_middle"]
 
@@ -739,6 +742,23 @@ def kmer_counts(wildcards):
     result = re.sub("\\.f.*?q.gz$", ".kff", fastq_gz(wildcards))
     assert result.endswith(".kff")
     return result
+
+def mapper_stages(wildcards):
+    """
+    Find the list of mapping stages from mapper.
+    """
+
+    if wildcards["mapper"].startswith("giraffe"):
+        parts = wildcards["mapper"].split("-")
+        assert len(parts) >= 3
+        # Should be giraffe, then the minimizer parameters, then the parameter preset.
+        if parts[3] == "default":
+            # Default mapping preset is non-chaining
+            return NON_CHAINING_STAGES
+        else:
+            return STAGES
+    else:
+        return []
 
 def all_experiment_conditions(expname, filter_function=None, debug=False):
     """
@@ -1555,7 +1575,7 @@ rule giraffe_real_reads:
     run:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
-        pairing_flag="-i" if wildcards.preset == "srold" else ""
+        pairing_flag="-i" if wildcards.preset == "default" else ""
 
         shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq_gz} " + flags + " " + pairing_flag + " >{output.gam} 2>{log}")
 
@@ -1576,7 +1596,7 @@ rule giraffe_sim_reads:
     run:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
-        pairing_flag="-i" if wildcards.preset == "srold" else ""
+        pairing_flag="-i" if wildcards.preset == "default" else ""
 
         shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " " + pairing_flag + " >{output.gam} 2>{log}")
 
@@ -1597,7 +1617,7 @@ rule giraffe_sim_reads_with_correctness:
     run:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
-        pairing_flag="-i" if wildcards.preset == "srold" else ""
+        pairing_flag="-i" if wildcards.preset == "default" else ""
 
         shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " " + pairing_flag + " >{output.gam} 2>{log}")
 
@@ -1996,8 +2016,8 @@ rule surject_gam:
     wildcard_constraints:
         mapper="(giraffe.*|graphaligner-.*)"
     params:
-        # The srold preset is paired
-        paired_flag=lambda w: "-i" if re.match("giraffe-[^-]*-srold-[^-]*-[^-]*", w["mapper"]) else ""
+        # The default preset is paired
+        paired_flag=lambda w: "-i" if re.match("giraffe-[^-]*-default-[^-]*-[^-]*", w["mapper"]) else ""
     threads: 64
     resources:
         mem_mb=lambda w: 600000 if w["tech"] == "r10" else 150000,
@@ -3943,10 +3963,12 @@ rule wfa_portion:
 
 rule average_stage_time_table:
     input:
-        # Input files must be in the same order as STAGES
-        expand("{{root}}/stats/{{reference}}/{{refgraph}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.stage_{stage}_time.mean.tsv", stage=STAGES)
+        # Input files must be in the same order as stages, which is dynamic. But we can't use params here.
+        lambda w: expand("{{root}}/stats/{{reference}}/{{refgraph}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.stage_{stage}_time.mean.tsv", stage=mapper_stages(w))
     output:
         "{root}/tables/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_stage_time.tsv"
+    params:
+        mapper_stages=mapper_stages
     threads: 1
     resources:
         mem_mb=512,
@@ -3955,7 +3977,7 @@ rule average_stage_time_table:
     run:
         # Make a TSV of stage name and its average value
         with open(output[0], "w") as out_stream:
-            for (stage, filename) in zip(STAGES, input):
+            for (stage, filename) in zip(params.mapper_stages, input):
                 out_stream.write(f"{stage}\t{open(filename).read().strip()}\n")
 
 rule combine_aligner_stat_table:
@@ -4036,13 +4058,15 @@ rule average_stage_time_barchart:
         tsv="{root}/tables/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_stage_time.tsv"
     output:
         "{root}/plots/{reference}/{refgraph}/{mapper}/average_stage_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    params:
+        mapper_stages=mapper_stages
     threads: 1
     resources:
         mem_mb=512,
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "python3 barchart.py {input.tsv} --categories {STAGES} --title '{wildcards.tech} {wildcards.realness} Mean Stage Times' --y_label 'Time (s)' --x_label 'Stage' --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --categories {params.mapper_stages} --title '{wildcards.tech} {wildcards.realness} Mean Stage Times' --y_label 'Time (s)' --x_label 'Stage' --no_n --save {output}"
 
 rule average_aligner_time_barchart:
     input:
