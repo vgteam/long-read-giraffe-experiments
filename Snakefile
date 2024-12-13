@@ -2668,6 +2668,63 @@ rule index_load_time_from_log_graphaligner:
         echo "{params.condition_name}\t0" >{output.tsv}
         """
 
+#empty time for anything not haplotype sampled
+rule haplotype_sampling_time_empty:
+    output:
+        tsv="{root}/experiments/{expname}/haplotype_sampling_times/{mapper}/{graphname}-sampled-for-realness-tech-sample.basename-subset.haplotype_sampling_time.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        graphname=".*(?!sampled).*"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        shell("echo \"{params.condition_name}\t0\" >{output.tsv}")
+rule haplotype_sampling_time_giraffe:
+    input:
+        kmer_counting="{root}/indexing_benchmarks/kmer_counting_{realness}.{tech}.{sample}.{basename}{trimmedness}.benchmark"
+        haplotype_sampling="{root}/indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{modifications}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"
+        distance_indexing="{root}/indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark"
+        minimizer_indexing="{root}/indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.benchmark"
+    output:
+        tsv="{root}/experiments/{expname}/haplotype_sampling_times/giraffe-k{k}.w{w}{weightedness}-{preset}-{vgversion}-{vgflag}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}.{basename}{trimmedness}-{subset}.haplotype_sampling_time.tsv"
+    params:
+        condition_name=condition_name
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        runtime = 0
+        for infile in [input.kmer_counting, input.haplotype_sampling, input.distance_indexing, input.minimizer_indexing]:
+            f = open(infile)
+            assert(f.readline().split("\t")[1] == "h:m:s")
+            runtime_list = f.readline().split("\t")[1].split()
+            hms_list = runtime_list[-1].split(":")
+            days = 0 if len(runtime_list) == 1 else int(runtime_list[0])
+            runtime = (int(hms_list[0]) * 60) + int(hms_list[1]) + (int(hms_list[2]) / 60)
+            runtime += 24 * 60 * days
+            f.close()
+        shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
+
+rule experiment_haplotype_sampling_time_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/haplotype_sampling_times/{mapper}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}.{basename}{trimmedness}-{subset}.haplotype_sampling_time.tsv")
+    output:
+        tsv="{root}/experiments/{expname}/haplotype_sampling_times/haplotype_sampling_time.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input} >>{output.tsv}"
+
+
 # Some experiment stats can come straight from stats for the individual conditions
 rule condition_experiment_stat:
     input:
@@ -3117,6 +3174,7 @@ rule experiment_mapping_stats_sim_tsv:
 rule experiment_mapping_stats_real_tsv_from_stats:
     input:
         startup_time="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv",
+        sampling_time="{root}/experiments/{expname}/haplotype_sampling_times/{mapper}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}.{basename}{trimmedness}-{subset}.haplotype_sampling_time.tsv"
         runtime_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv",
         memory_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv",
         softclipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
@@ -3134,7 +3192,7 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         slurm_partition=choose_partition(60)
     shell:
         """
-        echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.startup_time} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_or_unmapped} | cut -f 2)" >>{output.tsv}
+        echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.startup_time} | cut -f 2)\t$(cat {input.sampling_time} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_or_unmapped} | cut -f 2)" >>{output.tsv}
         """
 
 #Get the speed, memory use, and softclips from real reads
