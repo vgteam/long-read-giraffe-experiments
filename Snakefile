@@ -1188,6 +1188,7 @@ rule distance_index_graph:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
         distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.dist"
+    benchmark: "{root}/indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark"
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
     resources:
@@ -1285,6 +1286,7 @@ rule kmer_count_full_sample:
         kmer_counts="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.kff"
     params:
         output_basename="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}"
+    benchmark: "{root}/indexing_benchmarks/kmer_counting_{realness}.{tech}.{sample}.{basename}{trimmedness}.benchmark"
     threads: 8
     resources:
         mem_mb=160000,
@@ -1302,6 +1304,7 @@ rule haplotype_sample_graph:
     output:
         # Need to sample back into the graphs directory so e.g. minimizer indexing and mapping can work.
         sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.gbz"
+    benchmark: "{root}/indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{modifications}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"
     wildcard_constraints:
         hapcount="[0-9]+",
         diploidtag="d?",
@@ -1323,6 +1326,7 @@ rule minimizer_index_graph:
     output:
         minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.withzip.min",
         zipfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.zipcodes"
+    benchmark: "{root}/indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.benchmark"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
