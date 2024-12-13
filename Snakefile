@@ -3112,6 +3112,7 @@ rule experiment_mapping_stats_sim_tsv:
 #Get the speed, memory use, and softclips from real reads for each condition
 rule experiment_mapping_stats_real_tsv_from_stats:
     input:
+        startup_time="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv",
         runtime_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv",
         memory_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv",
         softclipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
@@ -3129,7 +3130,7 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         slurm_partition=choose_partition(60)
     shell:
         """
-        echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_or_unmapped} | cut -f 2)" >>{output.tsv}
+        echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.startup_time} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_or_unmapped} | cut -f 2)" >>{output.tsv}
         """
 
 #Get the speed, memory use, and softclips from real reads
@@ -4503,10 +4504,10 @@ rule vgpack:
         pack='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.pack'
     benchmark: '{root}/svcall/vgcall/{mapper}/benchmark.call.vgcall_pack.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.tsv'
     resources:
-        mem_mb=200000,
+        mem_mb=300000,
         runtime=1400,
         slurm_partition=choose_partition(1400)
-    threads: 4
+    threads: 8
     run:
         gam_path = os.path.abspath(input.gam)
         gbz_path = os.path.abspath(input.gbz)
@@ -4600,7 +4601,7 @@ rule sv_summary_by_condition:
     params:
         condition_name=condition_name
     shell:
-        "echo \"{params.condition_name}\t$(jq -r '[.f1,.FN,.FP] | @tsv' {input.json})\" >{output.tsv}"
+        "echo \"{params.condition_name}\t$(jq -r '[.f1,.FN,.FP,.precision,.recall] | @tsv' {input.json})\" >{output.tsv}"
 rule sv_summary_table:
     input:
         tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/svcall/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv")
@@ -4612,7 +4613,10 @@ rule sv_summary_table:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "cat {input.tsv} >>{output.tsv}"
+        """
+        printf "condition\tF1\tFN\tFP\tprecision\trecall\n" >> {output.tsv}
+        cat {input} >>{output.tsv}
+        """
 
 
 
@@ -4632,7 +4636,7 @@ rule all_paper_figures:
         mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.latex.tsv", expname=config["sim_exps"]),
         qq=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/qq.pdf", expname=config["headline_sim_exps"]),
         roc=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/roc.pdf", expname=config["headline_sim_exps"]),
-        indel_f1=expand(ALL_OUT_DIR + "/experiments/{expname}/results/indel_f1.tsv", expname=config["dv_exps"]),
-        snp_f1=expand(ALL_OUT_DIR + "/experiments/{expname}/results/snp_f1.tsv", expname=config["dv_exps"]),
+        dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_indel_summary.tsv", expname=config["dv_exps"]),
+        dv_snp=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_snp_summary.tsv", expname=config["dv_exps"]),
         svs=expand(ALL_OUT_DIR + "/experiments/{expname}/svcall/results/sv_calling_summary.tsv", expname=config["sv_exps"])
 
