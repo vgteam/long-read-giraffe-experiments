@@ -1629,7 +1629,7 @@ rule winnowmap_real_reads:
     input:
         reference_fasta=reference_fasta,
         repetitive_kmers=repetitive_kmers,
-        fastq=fastq
+        fastq_gz=fastq_gz
     params:
         mode=minimap_derivative_mode,
     output:
@@ -1650,7 +1650,7 @@ rule winnowmap_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "winnowmap -t {threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam} 2>{log}"
+        "winnowmap -t {threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq_gz} >{output.sam} 2>{log}"
 
 rule minimap2_index_reference:
     input:
@@ -1686,7 +1686,7 @@ rule minimap2_sim_reads:
 rule minimap2_real_reads:
     input:
         minimap2_index=minimap2_index,
-        fastq=fastq
+        fastq_gz=fastq_gz
     output:
         sam=temp("{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     benchmark: "{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
@@ -1701,7 +1701,7 @@ rule minimap2_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
+        "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq_gz} >{output.sam} 2> {log}"
 
 
 #TODO this doesn't have an output file and bwa doesn't take the index as an input so idk how to include it
@@ -1812,7 +1812,7 @@ rule graphaligner_sim_reads:
 rule graphaligner_real_reads:
     input:
         gfa=gfa,
-        fastq=fastq
+        fastq_gz=fastq_gz
     output:
         gam=temp("{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam")
     benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
@@ -1831,7 +1831,7 @@ rule graphaligner_real_reads:
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     run:
         flags=get_graphaligner_flags(wildcards.graphalignerflag)
-        shell("GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} " + flags + " -a {output.gam} 2> {log}")
+        shell("GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq_gz} " + flags + " -a {output.gam} 2> {log}")
 
 rule minigraph_sim_reads:
     input:
@@ -1852,7 +1852,7 @@ rule minigraph_sim_reads:
 rule minigraph_real_reads:
     input:
         gfa=gfa,
-        fastq=fastq
+        fastq_gz=fastq_gz
     output:
         gaf=temp("{root}/aligned-secsup/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf")
     benchmark: "{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
@@ -1867,7 +1867,7 @@ rule minigraph_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "minigraph --vc --secondary=no -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
+        "minigraph --vc --secondary=no -cx lr -t {threads} {input.gfa} {input.fastq_gz} >{output.gaf} 2>{log}"
 
 
 rule panaligner_sim_reads:
