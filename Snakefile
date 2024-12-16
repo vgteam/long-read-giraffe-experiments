@@ -1243,7 +1243,7 @@ rule tcdist_index_graph:
         runtime=2880,
         slurm_partition=choose_partition(2880)
     shell:
-        "vg index -t {threads} --snarl-limit 1 -j {output.tcdistfile} {input.gbz}"
+        "vg index -t {threads} --no-nested-distance -j {output.tcdistfile} {input.gbz}"
 
 rule r_index_graph:
     input:
