@@ -1208,6 +1208,7 @@ rule distance_index_graph:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
         distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.dist"
+    benchmark: "{root}/indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark"
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
     resources:
@@ -1305,6 +1306,7 @@ rule kmer_count_full_sample:
         kmer_counts="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.kff"
     params:
         output_basename="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}"
+    benchmark: "{root}/indexing_benchmarks/kmer_counting_{realness}.{tech}.{sample}.{basename}{trimmedness}.benchmark"
     threads: 8
     resources:
         mem_mb=160000,
@@ -1322,6 +1324,7 @@ rule haplotype_sample_graph:
     output:
         # Need to sample back into the graphs directory so e.g. minimizer indexing and mapping can work.
         sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.gbz"
+    benchmark: "{root}/indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{modifications}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"
     wildcard_constraints:
         hapcount="[0-9]+",
         diploidtag="d?",
@@ -1343,6 +1346,7 @@ rule minimizer_index_graph:
     output:
         minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.withzip.min",
         zipfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.zipcodes"
+    benchmark: "{root}/indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.benchmark"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
@@ -1649,7 +1653,7 @@ rule winnowmap_real_reads:
     input:
         reference_fasta=reference_fasta,
         repetitive_kmers=repetitive_kmers,
-        fastq=fastq
+        fastq_gz=fastq_gz
     params:
         mode=minimap_derivative_mode,
     output:
@@ -1670,7 +1674,7 @@ rule winnowmap_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "winnowmap -t {threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} >{output.sam} 2>{log}"
+        "winnowmap -t {threads} -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq_gz} >{output.sam} 2>{log}"
 
 rule minimap2_index_reference:
     input:
@@ -1706,7 +1710,7 @@ rule minimap2_sim_reads:
 rule minimap2_real_reads:
     input:
         minimap2_index=minimap2_index,
-        fastq=fastq
+        fastq_gz=fastq_gz
     output:
         sam=temp("{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     benchmark: "{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
@@ -1721,7 +1725,7 @@ rule minimap2_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
+        "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq_gz} >{output.sam} 2> {log}"
 
 
 #TODO this doesn't have an output file and bwa doesn't take the index as an input so idk how to include it
@@ -1832,7 +1836,7 @@ rule graphaligner_sim_reads:
 rule graphaligner_real_reads:
     input:
         gfa=gfa,
-        fastq=fastq
+        fastq_gz=fastq_gz
     output:
         gam=temp("{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam")
     benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
@@ -1851,7 +1855,7 @@ rule graphaligner_real_reads:
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     run:
         flags=get_graphaligner_flags(wildcards.graphalignerflag)
-        shell("GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} " + flags + " -a {output.gam} 2> {log}")
+        shell("GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq_gz} " + flags + " -a {output.gam} 2> {log}")
 
 rule minigraph_sim_reads:
     input:
@@ -1872,7 +1876,7 @@ rule minigraph_sim_reads:
 rule minigraph_real_reads:
     input:
         gfa=gfa,
-        fastq=fastq
+        fastq_gz=fastq_gz
     output:
         gaf=temp("{root}/aligned-secsup/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.gaf")
     benchmark: "{root}/aligned/{reference}/{refgraph}/minigraph/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
@@ -1887,7 +1891,7 @@ rule minigraph_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "minigraph --vc --secondary=no -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
+        "minigraph --vc --secondary=no -cx lr -t {threads} {input.gfa} {input.fastq_gz} >{output.gaf} 2>{log}"
 
 
 rule panaligner_sim_reads:
@@ -2162,9 +2166,9 @@ rule stat_from_happy_summary:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.{vartype}_{colname}.tsv"
     wildcard_constraints:
         vartype="(snp|indel)",
-        colname="(f1|precision|recall|fn|fp)"
+        colname="(f1|precision|recall|fn|fp|tp)"
     params:
-        colnum=lambda w: {"f1": 14, "precision": 12, "recall": 11, "fn": 5, "fp": 7}[w["colname"]]
+        colnum=lambda w: {"f1": 14, "precision": 12, "recall": 11, "fn": 5, "fp": 7, "tp":4}[w["colname"]]
     threads: 1
     resources:
         mem_mb=1000,
@@ -2172,6 +2176,43 @@ rule stat_from_happy_summary:
         slurm_partition=choose_partition(5)
     run:
         shell("cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].upper() + ",PASS' | cut -f{params.colnum} -d',' >{output.tsv}")
+
+rule dv_summary_by_condition:
+    input:
+        happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.eval.summary.csv"
+    output:
+        tsv="{root}/experiments/{expname}/stats/deepvariant/{mapper}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.dv_{vartype}_summary.tsv"
+    wildcard_constraints:
+        vartype="(snp|indel)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    params:
+        condition_name=condition_name
+    run:
+        shell("echo \"{params.condition_name}\t$(cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].upper() + ",PASS' | cut -f 4,5,7,11,12,14 -d',' | sed 's/,/\\t/g')\" >{output.tsv}")
+
+rule dv_summary_table:
+    input:
+        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/deepvariant/{mapper}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.dv_{vartype}_summary.tsv")
+    output:
+        tsv="{root}/experiments/{expname}/results/dv_{vartype}_summary.tsv"
+    wildcard_constraints:
+        vartype="(snp|indel)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        """
+        printf "condition\tTP\tFN\tFP\trecall\tprecision\tF1\n" >> {output.tsv}
+        cat {input} >>{output.tsv}
+        """
+
+
 
 rule compare_alignments:
     input:
@@ -2678,6 +2719,8 @@ rule experiment_stat_table:
     shell:
         "cat {input} >{output.table}"
 
+ruleorder: dv_summary_table > experiment_stat_table
+
 rule experiment_important_stats_table:
     input:
         lambda w: expand("{{root}}/experiments/{{expname}}/results/{stat}.tsv", stat=IMPORTANT_STATS_TABLE_COLUMNS)
@@ -3093,6 +3136,7 @@ rule experiment_mapping_stats_sim_tsv:
 #Get the speed, memory use, and softclips from real reads for each condition
 rule experiment_mapping_stats_real_tsv_from_stats:
     input:
+        startup_time="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv",
         runtime_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv",
         memory_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv",
         softclipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
@@ -3110,7 +3154,7 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         slurm_partition=choose_partition(60)
     shell:
         """
-        echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_or_unmapped} | cut -f 2)" >>{output.tsv}
+        echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.startup_time} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_or_unmapped} | cut -f 2)" >>{output.tsv}
         """
 
 #Get the speed, memory use, and softclips from real reads
@@ -4488,10 +4532,10 @@ rule vgpack:
         pack='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.pack'
     benchmark: '{root}/svcall/vgcall/{mapper}/benchmark.call.vgcall_pack.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.tsv'
     resources:
-        mem_mb=200000,
+        mem_mb=300000,
         runtime=1400,
         slurm_partition=choose_partition(1400)
-    threads: 4
+    threads: 8
     run:
         gam_path = os.path.abspath(input.gam)
         gbz_path = os.path.abspath(input.gbz)
@@ -4585,7 +4629,7 @@ rule sv_summary_by_condition:
     params:
         condition_name=condition_name
     shell:
-        "echo \"{params.condition_name}\t$(jq -r '[.f1,.FN,.FP] | @tsv' {input.json})\" >{output.tsv}"
+        "echo \"{params.condition_name}\t$(jq -r '[.f1,.FN,.FP,.precision,.recall] | @tsv' {input.json})\" >{output.tsv}"
 rule sv_summary_table:
     input:
         tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/svcall/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv")
@@ -4597,7 +4641,10 @@ rule sv_summary_table:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "cat {input.tsv} >>{output.tsv}"
+        """
+        printf "condition\tF1\tFN\tFP\tprecision\trecall\n" >> {output.tsv}
+        cat {input} >>{output.tsv}
+        """
 
 
 
@@ -4617,7 +4664,7 @@ rule all_paper_figures:
         mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.latex.tsv", expname=config["sim_exps"]),
         qq=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/qq.pdf", expname=config["headline_sim_exps"]),
         roc=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/roc.pdf", expname=config["headline_sim_exps"]),
-        indel_f1=expand(ALL_OUT_DIR + "/experiments/{expname}/results/indel_f1.tsv", expname=config["dv_exps"]),
-        snp_f1=expand(ALL_OUT_DIR + "/experiments/{expname}/results/snp_f1.tsv", expname=config["dv_exps"]),
+        dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_indel_summary.tsv", expname=config["dv_exps"]),
+        dv_snp=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_snp_summary.tsv", expname=config["dv_exps"]),
         svs=expand(ALL_OUT_DIR + "/experiments/{expname}/svcall/results/sv_calling_summary.tsv", expname=config["sv_exps"])
 
