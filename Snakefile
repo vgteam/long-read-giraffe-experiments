@@ -740,6 +740,11 @@ def kmer_counts(wildcards):
     assert result.endswith(".kff")
     return result
 
+def kmer_counts_benchmark(wildcards):
+
+    return re.sub(".kff", ".kmer_counting.benchmark", kmer_counts(wildcards))
+
+
 def all_experiment_conditions(expname, filter_function=None, debug=False):
     """
     Yield dictionaries of all conditions for the given experiment.
@@ -903,7 +908,28 @@ def wildcards_to_condition(all_wildcards):
             condition[var] = all_wildcards[var]
 
     for var in to_vary.keys():
-        condition[var] = all_wildcards[var]
+        if len(all_wildcards.get(var, "")) != 0:
+            condition[var] = all_wildcards[var]
+        elif var == "mapper":
+            #If we haven't defined a mapper, but we have the components of a giraffe mapper
+            minimizer_params = all_wildcards.get("minparams", "k"+all_wildcards["k"]+".w"+all_wildcards["w"]+all_wildcards["weightedness"])
+            condition[var] = "giraffe-" + minimizer_params + "-" + all_wildcards["preset"] + "-" + all_wildcards["vgversion"] + "-" + all_wildcards["vgflag"]
+        elif var == "refgraph" and len(all_wildcards.get("refgraphbase", "")) != 0:
+            #If we haven't defined refgraph, but we have the components
+            #TODO: This isn't great but it works in the one case I need it to
+            graph = all_wildcards.get("refgraphbase")
+            if len(all_wildcards.get("sampling", "")) != 0:
+                graph += "-"
+                graph += all_wildcards.get("sampling")
+            graph += all_wildcards.get("clipping","")
+            graph += all_wildcards.get("chopping","")
+
+            condition[var] = graph
+        else:
+            #Catch any case where it fails
+            condition[var] = all_wildcards[var]
+
+
 
     return condition
 
@@ -1289,7 +1315,7 @@ rule kmer_count_full_sample:
         kmer_counts="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.kff"
     params:
         output_basename="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}"
-    benchmark: "{reads_dir}/indexing_benchmarks/kmer_counting_{realness}.{tech}.{sample}.{basename}{trimmedness}.benchmark"
+    benchmark: "{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.kmer_counting.benchmark"
     threads: 8
     resources:
         mem_mb=160000,
@@ -2674,11 +2700,9 @@ rule index_load_time_from_log_graphaligner:
 #empty time for anything not haplotype sampled
 rule haplotype_sampling_time_empty:
     output:
-        tsv="{root}/experiments/{expname}/haplotype_sampling_times/{mapper}/{refgraph}.haplotype_sampling_time.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmednes}.{subset}.haplotype_sampling_time.tsv"
     params:
         condition_name=condition_name
-    wildcard_constraints:
-        graphname=".*(?!sampled).*"
     threads: 1
     resources:
         mem_mb=200,
@@ -2689,12 +2713,17 @@ rule haplotype_sampling_time_empty:
 
 rule haplotype_sampling_time_giraffe:
     input:
-        kmer_counting="{reads_dir}/indexing_benchmarks/kmer_counting_{realness}.{tech}.{sample}.{basename}{trimmedness}.benchmark",
-        haplotype_sampling="{graphs_dir}/indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{modifications}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark",
-        distance_indexing="{graphs_dir}/indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark",
-        minimizer_indexing="{graphs_dir}/indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.benchmark"
+        kmer_counting=kmer_counts_benchmark,
+        haplotype_sampling=os.path.join(GRAPHS_DIR, "indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}-{sampling}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
+        distance_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}-{sampling}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
+        minimizer_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}-{sampling}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.k{k}.w{w}{weightedness}.benchmark")
     output:
-        tsv="{root}/experiments/{expname}/haplotype_sampling_times/giraffe-k{k}.w{w}{weightedness}-{preset}-{vgversion}-{vgflag}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}.{basename}{trimmedness}-{subset}.haplotype_sampling_time.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraphbase}-{sampling}{clipping}{chopping}/giraffe-k{k}.w{w}{weightedness}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv"
+    wildcard_constraints:
+        sampling="sampled[0-9]+d?",
+        weightedness="\\.W|",
+        k="[0-9]+",
+        w="[0-9]+"
     params:
         condition_name=condition_name
     threads: 1
@@ -2715,20 +2744,7 @@ rule haplotype_sampling_time_giraffe:
             f.close()
         shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
 
-rule experiment_haplotype_sampling_time_tsv:
-    input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/haplotype_sampling_times/{mapper}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}.{basename}{trimmedness}-{subset}.haplotype_sampling_time.tsv")
-    output:
-        tsv="{root}/experiments/{expname}/haplotype_sampling_times/haplotype_sampling_time.tsv"
-    threads: 1
-    resources:
-        mem_mb=1000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
-    shell:
-        "cat {input} >>{output.tsv}"
-
-
+ruleorder: haplotype_sampling_time_giraffe > haplotype_sampling_time_empty
 
 # Some experiment stats can come straight from stats for the individual conditions
 rule condition_experiment_stat:
@@ -3180,7 +3196,7 @@ rule experiment_mapping_stats_sim_tsv:
 rule experiment_mapping_stats_real_tsv_from_stats:
     input:
         startup_time="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv",
-        sampling_time="{root}/experiments/{expname}/haplotype_sampling_times/{mapper}/{refgraph}.haplotype_sampling_time.tsv",
+        sampling_time="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv",
         runtime_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv",
         memory_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv",
         softclipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
