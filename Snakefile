@@ -3731,9 +3731,9 @@ rule length_by_mapping:
                         name = line.split()[0][1:]
                     elif name != "": 
                         if name in mapped_names:
-                            out_file.write("mapped\t"+str(len(line))+"\n")
+                            out_file.write("mapped\t"+str(len(line.strip()))+"\n")
                         else:
-                            out_file.write("unmapped\t"+str(len(line))+"\n")
+                            out_file.write("unmapped\t"+str(len(line.strip()))+"\n")
                         name = ""
                     else:
                         name = ""
@@ -3800,7 +3800,7 @@ rule unmapped_ends_by_name:
                 if (not line == "") and line[0] == "@":
                     name = line.split()[0][1:]
                 elif name != "": 
-                    read_to_length[name] = len(line)
+                    read_to_length[name] = len(line.strip())
                     name = ""
                 else:
                     name = ""
