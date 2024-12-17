@@ -743,6 +743,9 @@ def kmer_counts(wildcards):
     assert result.endswith(".kff")
     return result
 
+def kmer_counts_benchmark(wildcards):
+    return re.sub(".kff", ".kmer_counting.benchmark", kmer_counts(wildcards))
+
 def mapper_stages(wildcards):
     """
     Find the list of mapping stages from mapper.
@@ -759,6 +762,7 @@ def mapper_stages(wildcards):
             return STAGES
     else:
         return []
+
 
 def all_experiment_conditions(expname, filter_function=None, debug=False):
     """
@@ -923,7 +927,28 @@ def wildcards_to_condition(all_wildcards):
             condition[var] = all_wildcards[var]
 
     for var in to_vary.keys():
-        condition[var] = all_wildcards[var]
+        if len(all_wildcards.get(var, "")) != 0:
+            condition[var] = all_wildcards[var]
+        elif var == "mapper":
+            #If we haven't defined a mapper, but we have the components of a giraffe mapper
+            minimizer_params = all_wildcards.get("minparams", "k"+all_wildcards["k"]+".w"+all_wildcards["w"]+all_wildcards["weightedness"])
+            condition[var] = "giraffe-" + minimizer_params + "-" + all_wildcards["preset"] + "-" + all_wildcards["vgversion"] + "-" + all_wildcards["vgflag"]
+        elif var == "refgraph" and len(all_wildcards.get("refgraphbase", "")) != 0:
+            #If we haven't defined refgraph, but we have the components
+            #TODO: This isn't great but it works in the one case I need it to
+            graph = all_wildcards.get("refgraphbase")
+            if len(all_wildcards.get("sampling", "")) != 0:
+                graph += "-"
+                graph += all_wildcards.get("sampling")
+            graph += all_wildcards.get("clipping","")
+            graph += all_wildcards.get("chopping","")
+
+            condition[var] = graph
+        else:
+            #Catch any case where it fails
+            condition[var] = all_wildcards[var]
+
+
 
     return condition
 
@@ -1208,7 +1233,7 @@ rule distance_index_graph:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
         distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.dist"
-    benchmark: "{root}/indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark"
+    benchmark: "{graphs_dir}/indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark"
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
     resources:
@@ -1223,6 +1248,7 @@ rule precompute_snarls:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
         snarls="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.snarls"
+    benchmark: "{graphs_dir}/indexing_benchmarks/snarls_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark"
     threads: 4
     resources:
         mem_mb=120000,
@@ -1235,6 +1261,8 @@ rule tcdist_index_graph:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
         tcdistfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.tcdist"
+    benchmark: "{graphs_dir}indexing_benchmarks/tcdistance_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark"
+
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
     resources:
@@ -1306,7 +1334,7 @@ rule kmer_count_full_sample:
         kmer_counts="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.kff"
     params:
         output_basename="{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}"
-    benchmark: "{root}/indexing_benchmarks/kmer_counting_{realness}.{tech}.{sample}.{basename}{trimmedness}.benchmark"
+    benchmark: "{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.kmer_counting.benchmark"
     threads: 8
     resources:
         mem_mb=160000,
@@ -1324,7 +1352,7 @@ rule haplotype_sample_graph:
     output:
         # Need to sample back into the graphs directory so e.g. minimizer indexing and mapping can work.
         sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.gbz"
-    benchmark: "{root}/indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{modifications}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"
+    benchmark: "{graphs_dir}/indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{modifications}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"
     wildcard_constraints:
         hapcount="[0-9]+",
         diploidtag="d?",
@@ -1346,7 +1374,7 @@ rule minimizer_index_graph:
     output:
         minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.withzip.min",
         zipfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.zipcodes"
-    benchmark: "{root}/indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.benchmark"
+    benchmark: "{graphs_dir}/indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.benchmark"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
@@ -2688,6 +2716,55 @@ rule index_load_time_from_log_graphaligner:
         echo "{params.condition_name}\t0" >{output.tsv}
         """
 
+#empty time for anything not haplotype sampled
+rule haplotype_sampling_time_empty:
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmednes}.{subset}.haplotype_sampling_time.tsv"
+    params:
+        condition_name=condition_name
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        shell("echo \"{params.condition_name}\t0\" >{output.tsv}")
+
+rule haplotype_sampling_time_giraffe:
+    input:
+        kmer_counting=kmer_counts_benchmark,
+        haplotype_sampling=os.path.join(GRAPHS_DIR, "indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}-{sampling}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
+        distance_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}-{sampling}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
+        minimizer_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}-{sampling}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.k{k}.w{w}{weightedness}.benchmark")
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraphbase}-{sampling}{clipping}{chopping}/giraffe-k{k}.w{w}{weightedness}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv"
+    wildcard_constraints:
+        sampling="sampled[0-9]+d?",
+        weightedness="\\.W|",
+        k="[0-9]+",
+        w="[0-9]+"
+    params:
+        condition_name=condition_name
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        runtime = 0
+        for infile in [input.kmer_counting, input.haplotype_sampling, input.distance_indexing, input.minimizer_indexing]:
+            f = open(infile)
+            assert(f.readline().split("\t")[1] == "h:m:s")
+            runtime_list = f.readline().split("\t")[1].split()
+            hms_list = runtime_list[-1].split(":")
+            days = 0 if len(runtime_list) == 1 else int(runtime_list[0])
+            runtime = (int(hms_list[0]) * 60) + int(hms_list[1]) + (int(hms_list[2]) / 60)
+            runtime += 24 * 60 * days
+            f.close()
+        shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
+
+ruleorder: haplotype_sampling_time_giraffe > haplotype_sampling_time_empty
+
 # Some experiment stats can come straight from stats for the individual conditions
 rule condition_experiment_stat:
     input:
@@ -3083,6 +3160,7 @@ rule experiment_memory_from_benchmark_tsv:
         slurm_partition=choose_partition(60)
     shell:
         "cat {input} >>{output.tsv}"
+ruleorder: experiment_memory_from_benchmark_tsv > experiment_stat_table
 
 
 rule experiment_memory_from_benchmark_plot:
@@ -3137,6 +3215,7 @@ rule experiment_mapping_stats_sim_tsv:
 rule experiment_mapping_stats_real_tsv_from_stats:
     input:
         startup_time="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv",
+        sampling_time="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv",
         runtime_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv",
         memory_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv",
         softclipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
@@ -3154,8 +3233,9 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         slurm_partition=choose_partition(60)
     shell:
         """
-        echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.startup_time} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_or_unmapped} | cut -f 2)" >>{output.tsv}
+        echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.startup_time} | cut -f 2)\t$(cat {input.sampling_time} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_or_unmapped} | cut -f 2)" >>{output.tsv}
         """
+
 
 #Get the speed, memory use, and softclips from real reads
 rule experiment_mapping_stats_real_tsv:
