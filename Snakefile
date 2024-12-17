@@ -2149,7 +2149,7 @@ rule call_variants:
             "DeepVariant.MIN_MAPQ": 0,
             # TODO: Should we use legacy AC like in the paper?
             "DeepVariant.DV_KEEP_LEGACY_AC": False,
-            "DeepVariant.DV_NORM_READS": True, # TODO: should this be off for R10 or Illunina?
+            "DeepVariant.DV_NORM_READS": False, # TODO: should this be off for R10 or Illunina?
             # TODO: When we get a DV with a trained model that can also run everything, plug it in here.
             "DeepVariant.DV_GPU_DOCKER": "google/deepvariant:1.6.1-gpu",
             "DeepVariant.DV_NO_GPU_DOCKER": "google/deepvariant:1.6.1",
