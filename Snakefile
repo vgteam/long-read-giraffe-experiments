@@ -27,6 +27,11 @@ configfile: "lr-config.yaml"
 # hprc-v1.1-mc-chm13.d9.k31.w50.W.withzip.min
 # hprc-v1.1-mc-chm13.d9.k31.w50.W.zipcodes
 #
+# For comparing against old vg versions, it must also ber writable or have a
+# non-zipcode-based minimizer index for each graph:
+#
+# hprc-v1.1-mc-chm13.d9.k31.w50.W.nozip.min
+#
 # It must also either be writable or contain an unchopped hg and gfa file
 # for running GraphAligner, named like:
 #
@@ -194,6 +199,9 @@ EXCLUSIVE_TIMING = config.get("exclusive_timing", True)
 # Figure out what columns to put in a table comparing all the conditions in an experiment.
 # TODO: Make this be per-experiment and let multiple tables be defined
 IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["speed_from_log", "softclipped_or_unmapped", "accuracy", "indel_f1", "snp_f1"])
+
+# What versions of Giraffe should be run with the old, non-zipcode-aware indexes
+NON_ZIPCODE_GIRAFFE_VERSIONS = set(config.get("non_zipcode_giraffe_versions")) if "non_zipcode_giraffe_versions" in config else set()
 
 wildcard_constraints:
     expname="[^/]+",
@@ -602,13 +610,24 @@ def dist_indexed_graph(wildcards):
 def indexed_graph(wildcards):
     """
     Find an indexed graph and all its indexes from reference and minparams.
+
+    Also checks vgversion to see if we need a no-zipcodes index for old vg.
     """
     base = graph_base(wildcards)
     indexes = dist_indexed_graph(wildcards)
-    new_indexes = {
-        "minfile": base + "." + wildcards["minparams"] + ".withzip.min",
-        "zipfile": base + "." + wildcards["minparams"] + ".zipcodes"
-    }
+    # Some versions of Giraffe can't use zipcodes. But all the Giraffe versions
+    # we test can use the same distance indexes.
+    if "vgversion" in dict(wildcards).keys() and wildcards["vgversion"] in NON_ZIPCODE_GIRAFFE_VERSIONS:
+        # Don't use zipcodes
+        new_indexes = {
+            "minfile": base + "." + wildcards["minparams"] + ".nozip.min",
+        }
+    else:
+        # Use zipcodes
+        new_indexes = {
+            "minfile": base + "." + wildcards["minparams"] + ".withzip.min",
+            "zipfile": base + "." + wildcards["minparams"] + ".zipcodes"
+        }
     new_indexes.update(indexes)
     return new_indexes
 
@@ -1389,6 +1408,39 @@ rule minimizer_index_graph:
     shell:
         "vg minimizer --progress -k {wildcards.k} -w {wildcards.w} {params.weighting_option} -t {threads} -p -d {input.dist} -z {output.zipfile} -o {output.minfile} {input.gbz}"
 
+rule non_zipcode_minimizer_index_graph:
+    input:
+        unpack(dist_indexed_graph),
+        non_zipcode_vg="vg_v1.62.0"
+    output:
+        minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.nozip.min",
+    wildcard_constraints:
+        weightedness="\\.W|",
+        k="[0-9]+",
+        w="[0-9]+"
+    params:
+        weighting_option=lambda w: "--weighted" if w["weightedness"] == ".W" else ""
+    threads: 16
+    resources:
+        mem_mb=lambda w: 600000 if ("hprc-v2" in w["refgraphbase"]  or "hprc-v1.1-nov.11.2024" in w["refgraphbase"]) else 320000 if w["weightedness"] == ".W" else 80000,
+        runtime=240,
+        slurm_partition=choose_partition(240)
+    shell:
+        "{input.non_zipcode_vg} minimizer --progress -k {wildcards.k} -w {wildcards.w} {params.weighting_option} -t {threads} -p -d {input.dist} -o {output.minfile} {input.gbz}"
+
+rule get_release_vg:
+    output:
+        "vg_{releaseversion}"
+    wildcard_constraints:
+        releaseversion=r"v[0-9]+\.[0-9]+\.[0-9]+"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "wget https://github.com/vgteam/vg/releases/download/{wildcards.releaseversion}/vg -O {output} && chmod +x {output}"
+
 rule alias_gam_k:
     input:
         gam="{reads_dir}/sim/{tech}/{sample}/{sample}-sim-{tech}-{part_subset}000.gam"
@@ -1608,8 +1660,9 @@ rule giraffe_real_reads:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
         pairing_flag="-i" if wildcards.preset == "default" else ""
+        zipcodes_flag=f"-z {input.zipfile}" if "zipfile" in dict(input).keys() else ""
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq_gz} " + flags + " " + pairing_flag + " >{output.gam} 2>{log}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress -Z {input.gbz} -d {input.dist} -m {input.minfile} -f {input.fastq_gz} " + zipcodes_flag + " " + flags + " " + pairing_flag + " >{output.gam} 2>{log}")
 
 rule giraffe_sim_reads:
     input:
@@ -1629,8 +1682,9 @@ rule giraffe_sim_reads:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
         pairing_flag="-i" if wildcards.preset == "default" else ""
+        zipcodes_flag=f"-z {input.zipfile}" if "zipfile" in dict(input).keys() else ""
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " " + pairing_flag + " >{output.gam} 2>{log}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -G {input.gam} " + zipcodes_flag + " " + flags + " " + pairing_flag + " >{output.gam} 2>{log}")
 
 rule giraffe_sim_reads_with_correctness:
     input:
@@ -1650,8 +1704,9 @@ rule giraffe_sim_reads_with_correctness:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
         pairing_flag="-i" if wildcards.preset == "default" else ""
+        zipcodes_flag=f"-z {input.zipfile}" if "zipfile" in dict(input).keys() else ""
 
-        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} " + flags + " " + pairing_flag + " >{output.gam} 2>{log}")
+        shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -G {input.gam} " + zipcodes_flag + " " + flags + " " + pairing_flag + " >{output.gam} 2>{log}")
 
 rule winnowmap_sim_reads:
     input:

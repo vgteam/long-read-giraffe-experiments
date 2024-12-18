@@ -92,6 +92,8 @@ headline_real_exps: ["hifi_real_full_headline", "r10_real_full_headline"]
 dv_exps: ["dv_calling"]
 sv_exps: ["sv_calling"]
 
+non_zipcode_giraffe_versions: ["230872", "v1.62.0"]
+
 experiments:
 
   #This is used to test different mappers on r10 reads
@@ -645,6 +647,27 @@ experiments:
     constrain:
       -
         mapper: "giraffe-k29.w11.W-default-default-noflags"
+      - 
+        mapper: "bwa-pe"
+        refgraph: "hprc-v1.1-mc-d9"
+
+  illumina_real_vgversion:
+    control:
+      subset: full
+      tech: illumina
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: real
+      # SV specific parameters with generic names
+      caller: vgcall
+      truthset: giab6_chm13
+    vary:
+      mapper: ["giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11.W-default-230872-noflags", "bwa-pe"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.2-mc-eval-nov22-d39"]
+    constrain:
+      -
+        mapper: ["giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11.W-default-230872-noflags"]
       - 
         mapper: "bwa-pe"
         refgraph: "hprc-v1.1-mc-d9"
