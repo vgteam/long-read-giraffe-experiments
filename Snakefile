@@ -1426,7 +1426,7 @@ rule non_zipcode_minimizer_index_graph:
         runtime=240,
         slurm_partition=choose_partition(240)
     shell:
-        "{input.non_zipcode_vg} minimizer --progress -k {wildcards.k} -w {wildcards.w} {params.weighting_option} -t {threads} -p -d {input.dist} -o {output.minfile} {input.gbz}"
+        "./{input.non_zipcode_vg} minimizer --progress -k {wildcards.k} -w {wildcards.w} {params.weighting_option} -t {threads} -p -d {input.dist} -o {output.minfile} {input.gbz}"
 
 rule get_release_vg:
     output:
