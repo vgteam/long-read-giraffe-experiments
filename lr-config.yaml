@@ -659,18 +659,12 @@ experiments:
       trimmedness: ""
       sample: HG002
       realness: real
+      refgraph: "hprc-v2.prerelease.2-mc-eval-nov22-d39"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6_chm13
     vary:
-      mapper: ["giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11.W-default-230872-noflags", "bwa-pe"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.2-mc-eval-nov22-d39"]
-    constrain:
-      -
-        mapper: ["giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11.W-default-230872-noflags"]
-      - 
-        mapper: "bwa-pe"
-        refgraph: "hprc-v1.1-mc-d9"
+      mapper: ["giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11.W-default-230872-noflags"]
 
   illumina_sim_samplingparams:
     control:
