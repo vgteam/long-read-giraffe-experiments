@@ -1280,7 +1280,7 @@ rule tcdist_index_graph:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
     output:
         tcdistfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.tcdist"
-    benchmark: "{graphs_dir}indexing_benchmarks/tcdistance_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark"
+    benchmark: "{graphs_dir}/indexing_benchmarks/tcdistance_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark"
 
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
