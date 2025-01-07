@@ -154,7 +154,11 @@ READS_DIR = config.get("reads_dir", None) or "/private/groups/patenlab/anovak/pr
 #
 REFS_DIR = config.get("refs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references"
 
-# Wen we "snakemake all_paper_figures", where should the results go?
+# Where are variant call truth set files kept (for when there isn't a handy hosted URL somewhere).
+# These are organized by reference and then sample
+TRUTH_DIR = config.get("truth_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/truth-sets"
+
+# When we "snakemake all_paper_figures", where should the results go?
 ALL_OUT_DIR = config.get("all_out_dir", None) or "/private/groups/patenlab/project-lrg"
 
 # What stages does the Giraffe mapper report times for?
@@ -456,16 +460,22 @@ def wdl_cache(wildcards):
 
 def truth_vcf_url(wildcards):
     """
-    Find the URL for the variant calling truth VCF, from reference.
+    Find the URL for the variant calling truth VCF, from reference and sample.
     """
-    return {
-        "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1.vcf.gz",
-        "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark.vcf.gz"
-    }[wildcards["reference"]]
+
+    if wildcards["sample"] == "HG002":
+        # These are available online directly
+        return  {
+            "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1.vcf.gz",
+            "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark.vcf.gz"
+        }[wildcards["reference"]]
+
+    # Otherwise report a path in our truth set directory and hope we know how to make it
+    return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".dip.vcf.gz")
 
 def truth_vcf_index_url(wildcards):
     """
-    Find the URL for the variant calling truth VCF index, from reference.
+    Find the URL for the variant calling truth VCF index, from reference and sample.
     """
     return truth_vcf_url(wildcards) + ".tbi"
 
@@ -1440,6 +1450,26 @@ rule get_release_vg:
         slurm_partition=choose_partition(10)
     shell:
         "wget https://github.com/vgteam/vg/releases/download/{wildcards.releaseversion}/vg -O {output} && chmod +x {output}"
+
+# See https://github.com/Platinum-Pedigree-Consortium/Platinum-Pedigree-Datasets and https://www.biorxiv.org/content/10.1101/2024.10.02.616333v1.full.pdf
+rule get_truth_vcf:
+    output:
+        vcf=TRUTH_DIR + "/{reference}/{sample}/{sample}.dip.vcf.gz",
+        index=TRUTH_DIR + "/{reference}/{sample}/{sample}.dip.vcf.gz.tbi"
+    wildcard_constraints:
+        sample="HG001",
+        reference="(chm13|grch38)"
+    params:
+        cap_reference=lambda w: {"chm13": "CHM13", "grch38": "GRCh38"}[w["reference"]],
+        na_sample=lambda w: {"HG001": "NA12878"}[w["sample"]]
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "curl https://platinum-pedigree-data.s3.amazonaws.com/variants/assembly-based/dipcall/{params.cap_reference}/{params.na_sample}.dip.vcf.gz | bcftools reheader --samples <(echo {wildcards.sample}) | bcftools sort -O z >{output.vcf} && tabix -p vcf {output.vcf}"
+
 
 rule alias_gam_k:
     input:

@@ -75,6 +75,8 @@ Note that the Illumina read subsets made like this won't be uniformly sampled fr
 
 To run all the rules, you will need to have installations of:
 
+* wget
+* curl
 * vg
 * minimap2
 * winnowmap
@@ -82,6 +84,7 @@ To run all the rules, you will need to have installations of:
 * samtools
 * Java
 * Picard (as `picard.jar` in the current directory)
+* bcftools
 * [Truvari](https://github.com/ACEnglish/truvari)
 * [mafft](https://mafft.cbrc.jp/alignment/software/installation_without_root.html) for Truvari to call
 * [toil](https://github.com/DataBiosphere/toil) for DeepVariant
