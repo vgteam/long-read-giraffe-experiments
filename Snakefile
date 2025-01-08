@@ -9,9 +9,6 @@ import tempfile
 import os
 import numpy as np
 
-from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
-HTTP = HTTPRemoteProvider()
-
 # Set a default config file. This can be overridden with --configfile.
 # See the config file for how to define experiments.
 configfile: "lr-config.yaml"
@@ -240,19 +237,75 @@ wildcard_constraints:
     realnessx="(real|sim)",
     realnessy="(real|sim)",
 
-def remote_or_local(url):
-    """
-    Wrap a URL as a Snakemake "remote file", but pass a local path through.
-    """
+import snakemake
+if int(snakemake.__version__.split(".")[0]) >= 8:
+    # Remote providers have been replaced with storage plugins.
 
-    if url.startswith("https://"):
-        # Looks like a remote.
-        # Use keep_local to hopefully cache.
-        # TODO: If we use AUTO.remote here it never actually downloads the HTTP
-        # files and then throws MissingInputException (at least during dry runs).
-        return HTTP.remote(url[8:], keep_local=True)
-    else:
-        return url
+    # TODO: test this on Snakemake 8
+    # TODO: Really depend on snakemake-storage-plugin-http
+
+    def remote_or_local(url):
+        """
+        Wrap a URL as a Snakemake "remote file", but pass a local path through.
+        """
+
+        if url.startswith("https://"):
+            # Looks like a remote.
+            return storage.http(url)
+        else:
+            return url
+
+    def to_local(possibly_remote_file):
+        """
+        Given a result of remote_or_local, turn it into a local filesystem path.
+
+        Snakemake must have already downloaded it for us if needed.
+        """
+
+        # TODO: Do we still have the list problem in Python code with storage
+        # plugins?
+
+        if isinstance(possibly_remote_file, list):
+            return possibly_remote_file[0]
+        else:
+            return possibly_remote_file
+
+else:
+    # This is for Snakemake 7 and below and uses remote providers. Snakemake 8
+    # replaces this with storage plugins, which aren't available in Snakemake
+    # 7.
+
+    from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
+    HTTP = HTTPRemoteProvider()
+
+    def remote_or_local(url):
+        """
+        Wrap a URL as a Snakemake "remote file", but pass a local path through.
+        """
+
+        if url.startswith("https://"):
+            # Looks like a remote.
+            # Use keep_local to hopefully cache.
+            # TODO: If we use AUTO.remote here it never actually downloads the HTTP
+            # files and then throws MissingInputException (at least during dry runs).
+            return HTTP.remote(url[8:], keep_local=True)
+        else:
+            return url
+
+    def to_local(possibly_remote_file):
+        """
+        Given a result of remote_or_local, turn it into a local filesystem path.
+
+        Snakemake must have already downloaded it for us if needed.
+        """
+
+        # In Python code a remote file will look like a list of a string and
+        # won't JSON-ify right. So we need to unpack it.
+
+        if isinstance(possibly_remote_file, list):
+            return possibly_remote_file[0]
+        else:
+            return possibly_remote_file
 
 def auto_mapping_threads(wildcards):
     """
@@ -2311,8 +2364,7 @@ rule call_variants:
         truth_vcf_index=lambda w: remote_or_local(truth_vcf_index_url(w)),
         truth_bed=lambda w: remote_or_local(truth_bed_url(w))
     output:
-        wdl_input_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.input.json",
-        wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.json",
+       wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.json",
         # TODO: make this temp so we can delete it?
         wdl_output_directory=directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.wdlrun"),
         # Treat the job store as an output so it can live on the right filesystem.
@@ -2327,6 +2379,7 @@ rule call_variants:
         reference_prefix=reference_prefix,
         haploid_contigs=haploid_contigs,
         wdl_cache=wdl_cache,
+        wdl_input_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.input.json"
     threads: 8
     resources:
         mem_mb=60000,
@@ -2363,9 +2416,9 @@ rule call_variants:
             "DeepVariant.DV_GPU_DOCKER": "google/deepvariant:1.6.1-gpu",
             "DeepVariant.DV_NO_GPU_DOCKER": "google/deepvariant:1.6.1",
             "DeepVariant.DV_IS_1_7_OR_NEWER": False,
-            "DeepVariant.TRUTH_VCF": input.truth_vcf,
-            "DeepVariant.TRUTH_VCF_INDEX": input.truth_vcf_index,
-            "DeepVariant.EVALUATION_REGIONS_BED": input.truth_bed,
+            "DeepVariant.TRUTH_VCF": to_local(input.truth_vcf),
+            "DeepVariant.TRUTH_VCF_INDEX": to_local(input.truth_vcf_index),
+            "DeepVariant.EVALUATION_REGIONS_BED": to_local(input.truth_bed),
             "DeepVariant.RESTRICT_REGIONS_BED": input.calling_reference_restrict_bed,
             "DeepVariant.PAR_REGIONS_BED_FILE": input.calling_reference_par_bed,
             "DeepVariant.HAPLOID_CONTIGS": params.haploid_contigs,
@@ -2376,8 +2429,11 @@ rule call_variants:
             "DeepVariant.OUTPUT_CALLING_BAMS": False,
             "DeepVariant.CALL_CORES": 32,
         }
-        json.dump(wf_inputs, open(output["wdl_input_file"], "w"))
-        shell("MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT=true MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner " + wf_url + " {output.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False --logFile={log.logfile} 2>/dev/null")
+        json.dump(wf_inputs, open(params["wdl_input_file"], "w"))
+        # Run and keep the first manageable amount of logs not sent to the log
+        # file in case we can't start. Don't stop when we hit the log limit.
+        # See https://superuser.com/a/1531706
+        shell("MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT=true MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner " + wf_url + " {params.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False --logFile={log.logfile} 2>&1 | (head -c1000000; cat >/dev/null)")
         wdl_result=json.load(open(output.wdl_output_file))
         shell("cp " + wdl_result["DeepVariant.output_vcf"] + " {output.vcf}")
         shell("cp " + wdl_result["DeepVariant.output_vcf_index"] + " {output.vcf_index}")
