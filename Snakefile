@@ -449,6 +449,8 @@ def calling_reference_par_bed(wildcards):
 def uncallable_contig_regex(wildcards):
     """
     Get a grep regex matching a substring in all uncallable contigs in the calling or PanSN reference, from reference.
+
+    This will be a regec compatible with non-E grep.
     """
     match wildcards["reference"]:
         case "chm13":
@@ -459,7 +461,7 @@ def uncallable_contig_regex(wildcards):
         case "grch38":
             # We don't want to try and call on the _random/Un/EBV contigs that
             # probably aren't in the graph at all.
-            return "(chrM|.*_random|chrUn|chrEBV)"
+            return "chrM\\|.*_random\\|chrUn\\|chrEBV"
         case _:
             return "chrM"
 
