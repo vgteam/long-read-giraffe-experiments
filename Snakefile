@@ -2290,6 +2290,7 @@ rule stat_from_happy_summary:
     run:
         shell("cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].upper() + ",PASS' | cut -f{params.colnum} -d',' >{output.tsv}")
 
+#This outputs a tsv of: tp, fn, fp, recall, precision, f1
 rule dv_summary_by_condition:
     input:
         happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.eval.summary.csv"
@@ -4779,8 +4780,9 @@ rule truvari:
         """
 
 #Print summary statistics from sv calling with the format:
-# condition f1 FN FP
-#The input json also has "TP-base", "TP-comp", "precision", "recall", "base cnt", "comp cnt"
+#This outputs a tsv of: tp, fn, fp, recall, precision, f1
+#The input json has "TP-base", "TP-comp", "FP", "FN", "precision", "recall", "f1", "base cnt", "comp cnt"
+# This uses TP-base, the number of matching variants as counted by the truth set
 rule sv_summary_by_condition:
     input:
         json="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json"
@@ -4794,7 +4796,7 @@ rule sv_summary_by_condition:
     params:
         condition_name=condition_name
     shell:
-        "echo \"{params.condition_name}\t$(jq -r '[.f1,.FN,.FP,.precision,.recall] | @tsv' {input.json})\" >{output.tsv}"
+        "echo \"{params.condition_name}\t$(jq -r '[.TP-base,.FN,.FP,.recall,.precision,.f1] | @tsv' {input.json})\" >{output.tsv}"
 rule sv_summary_table:
     input:
         tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/svcall/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv")
@@ -4807,7 +4809,7 @@ rule sv_summary_table:
         slurm_partition=choose_partition(10)
     shell:
         """
-        printf "condition\tF1\tFN\tFP\tprecision\trecall\n" >> {output.tsv}
+        printf "condition\tTP\tFN\tFP\trecall\tprecision\tf1\n" >> {output.tsv}
         cat {input} >>{output.tsv}
         """
 
