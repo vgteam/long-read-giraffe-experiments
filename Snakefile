@@ -59,6 +59,7 @@ GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/
 # giab6_chm13.vcf.gz
 # giab6_chm13.confreg.bed
 #
+# TODO: For HG001 we might need https://platinum-pedigree-data.s3.amazonaws.com/variants/merged_sv_truthset/GRCh38/merged_hg38.svs.sort.oa.vcf.gz
 
 SV_DATA_DIR = config.get("sv_data_dir", None) or "/private/home/jmonlong/workspace/lreval/data"
 
@@ -149,6 +150,10 @@ READS_DIR = config.get("reads_dir", None) or "/private/groups/patenlab/anovak/pr
 # 
 # A Winnowmap repetitive kmers file:
 # chm13-pansn.repetitive_k15.txt
+#
+# For the calling references (chm13v2.0 and grch38) we also need a plain .fa
+# and .fa.fai without pansn names, and _PAR.bed files with the pseudo-autosomal
+# regions.
 #
 # TODO: Right now these indexes must be manually generated.
 #
@@ -470,8 +475,17 @@ def truth_vcf_url(wildcards):
             "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark.vcf.gz"
         }[wildcards["reference"]]
 
-    # Otherwise report a path in our truth set directory and hope we know how to make it
-    return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".dip.vcf.gz")
+    # Otherwise report a path in our truth set directory and hope we know how to make it.
+
+    if wildcards["reference"] == "chm13":
+        # On CHM13 we don't have a real benchmark set, so we have to use the raw Platinum Pedigree dipcall calls.
+        return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".dip.vcf.gz")
+    elif wildcards["reference"] == "grch38":
+        # On GRCh38 we can use the Platinum Pedigree pedigree consistent merged small variant calls
+        return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".family-truthset.ov.vcf.gz")
+    else:
+        raise RuntimeError("Unsupported reference: " + wildcards["reference"])
+
 
 def truth_vcf_index_url(wildcards):
     """
@@ -482,11 +496,59 @@ def truth_vcf_index_url(wildcards):
 def truth_bed_url(wildcards):
     """
     Find the URL for the variant calling truth high confidence BED, from reference.
+
+    If compressed, must end in ".gz".
     """
-    return {
-        "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
-        "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed"
-    }[wildcards["reference"]]
+
+    if wildcards["sample"] == "HG002" or wildcards["reference"] == "chm13":
+        # For HG002, these are available online directly.
+        # On CHM13 we don't have Platinum Pedigree high-confidence regions, so
+        # we need to just use the HG002 ones for other samples and hope they're close enough.
+        return {
+            "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
+            "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed"
+        }[wildcards["reference"]]
+
+    if wildcards["reference"] == "grch38":
+        # On GRCh38 we can use the Platinum Pedigree pedigree consistent merged
+        # small variant calls, which all use a single BED. The BED doesn't
+        # depend on sample name at all, and is online.
+        return "https://platinum-pedigree-data.s3.amazonaws.com/variants/small_variant_truthset/GRCh38/hq_regions_final.bed.gz"
+    else:
+        raise RuntimeError("Unsupported reference: " + wildcards["reference"])
+
+# TODO: Plug this in when finding GAMs and benchmark files and aligned and
+# aligned-secsup files for Giraffe and GraphAligner and Minigraph where the
+# alignments don't really depend on the target reference.
+def get_mapping_graph_base_reference(refgraph_or_refgraphbase, reference):
+    """
+    Given the base name or full (but reference-less) name for the graph (like
+    "hrpc-v1.1-mc") and the ultimate target linear reference (like "grch38"),
+    get the reference that the graph should have been constructed on (which
+    might not be the same one).
+    """
+
+    # For some graphs (like HPRC v2 variants), we don't build a separate
+    # GRCh38-based graph and we instead let you use GRCh38 in the CHM13-based
+    # graph. Find and fix them.
+    if refgraph_or_refgraphbase.startswith("hprc-v2") and reference == "grch38":
+        # TODO: How do we stop this from happening without the user noticing?
+        print("Fulfilling GRCh38 reference with GRCh38 paths in CHM13-based graph")
+        reference = "chm13"
+
+    return reference
+
+def get_surjectable_gam(wildcards):
+    """
+    Find a GAM mapped to a graph built on a reference that we can use to
+    surject to the reference we're interested in.
+    """
+    # TODO: Make similar redirects for the benchmarks!
+
+    format_data = dict(wildcards)
+    format_data["reference"] = get_mapping_graph_base_reference(wildcards["refgraph"], wildcards["reference"])
+
+    return "{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam".format(**format_data)
 
 def graph_base(wildcards):
     """
@@ -560,6 +622,9 @@ def graph_base(wildcards):
         # The first 3 or fewer parts are the graph base name.
         refgraphbase = "-".join(parts)
     
+    # See if we need a graph not actually based on our target reference
+    reference = get_mapping_graph_base_reference(refgraphbase, reference)
+
     result = os.path.join(GRAPHS_DIR, refgraphbase + "-" + reference + "".join(modifications))
     return result
 
@@ -1687,6 +1752,8 @@ rule giraffe_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     run:
+        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
+            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
         pairing_flag="-i" if wildcards.preset == "default" else ""
@@ -1709,6 +1776,8 @@ rule giraffe_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     run:
+        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
+            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
         pairing_flag="-i" if wildcards.preset == "default" else ""
@@ -1731,6 +1800,8 @@ rule giraffe_sim_reads_with_correctness:
         runtime=600,
         slurm_partition=choose_partition(600)
     run:
+        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
+            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
         pairing_flag="-i" if wildcards.preset == "default" else ""
@@ -1942,6 +2013,8 @@ rule graphaligner_sim_reads:
         runtime=3000,
         slurm_partition=choose_partition(3000)
     run:
+        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
+            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
         flags=get_graphaligner_flags(wildcards.graphalignerflag)
         shell("GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} " + flags + " -a {output.gam}")
 
@@ -1967,6 +2040,8 @@ rule graphaligner_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     run:
+        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
+            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
         flags=get_graphaligner_flags(wildcards.graphalignerflag)
         shell("GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq_gz} " + flags + " -a {output.gam} 2> {log}")
 
@@ -2003,8 +2078,10 @@ rule minigraph_real_reads:
         slurm_partition=choose_partition(1200),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
-    shell:
-        "minigraph --vc --secondary=no -cx lr -t {threads} {input.gfa} {input.fastq_gz} >{output.gaf} 2>{log}"
+    run:
+        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
+            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
+        shell("minigraph --vc --secondary=no -cx lr -t {threads} {input.gfa} {input.fastq_gz} >{output.gaf} 2>{log}")
 
 
 rule panaligner_sim_reads:
@@ -2020,8 +2097,10 @@ rule panaligner_sim_reads:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
-    shell:
-        "PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
+    run:
+        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
+            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
+        shell("PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}")
 
 rule panaligner_real_reads:
     input:
@@ -2040,8 +2119,11 @@ rule panaligner_real_reads:
         slurm_partition=choose_partition(600),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
-    shell:
-        "PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
+    run:
+        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
+            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
+        
+        shell("PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}")
 
 rule gaf_to_gam:
     input:
@@ -2124,10 +2206,10 @@ rule inject_bam:
 rule surject_gam:
     input:
         gbz=gbz,
-        # We leave out paths we can't call on, like Y in CHM13 (due to different Ys beign used in different graphs).
+        # We leave out paths we can't call on, like Y in CHM13 (due to different Ys being used in different graphs).
         # TODO: Fix this when we fix chrY somehow. CHM13v2.0 has HG002's Y.
         reference_path_list_callable=reference_path_list_callable,
-        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam=get_surjectable_gam
     output:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
