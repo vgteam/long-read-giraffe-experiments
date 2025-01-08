@@ -9,6 +9,9 @@ import tempfile
 import os
 import numpy as np
 
+from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
+HTTP = HTTPRemoteProvider()
+
 # Set a default config file. This can be overridden with --configfile.
 # See the config file for how to define experiments.
 configfile: "lr-config.yaml"
@@ -237,6 +240,20 @@ wildcard_constraints:
     realnessx="(real|sim)",
     realnessy="(real|sim)",
 
+def remote_or_local(url):
+    """
+    Wrap a URL as a Snakemake "remote file", but pass a local path through.
+    """
+
+    if url.startswith("https://"):
+        # Looks like a remote.
+        # Use keep_local to hopefully cache.
+        # TODO: If we use AUTO.remote here it never actually downloads the HTTP
+        # files and then throws MissingInputException (at least during dry runs).
+        return HTTP.remote(url[8:], keep_local=True)
+    else:
+        return url
+
 def auto_mapping_threads(wildcards):
     """
     Choose the number of threads to use map reads, from subset.
@@ -439,6 +456,10 @@ def uncallable_contig_regex(wildcards):
             # not the same Y as CHM13v2.0, where the truth set is and where we
             # will do the calling.
             return "chr[YM]"
+        case "grch38":
+            # We don't want to try and call on the _random/Un/EBV contigs that
+            # probably aren't in the graph at all.
+            return "(chrM|.*_random|chrUn|chrEBV)"
         case _:
             return "chrM"
 
@@ -465,7 +486,7 @@ def wdl_cache(wildcards):
 
 def truth_vcf_url(wildcards):
     """
-    Find the URL for the variant calling truth VCF, from reference and sample.
+    Find the URL or local file for the variant calling truth VCF, from reference and sample.
     """
 
     if wildcards["sample"] == "HG002":
@@ -489,13 +510,13 @@ def truth_vcf_url(wildcards):
 
 def truth_vcf_index_url(wildcards):
     """
-    Find the URL for the variant calling truth VCF index, from reference and sample.
+    Find the URL or local file for the variant calling truth VCF index, from reference and sample.
     """
     return truth_vcf_url(wildcards) + ".tbi"
 
 def truth_bed_url(wildcards):
     """
-    Find the URL for the variant calling truth high confidence BED, from reference.
+    Find the URL or local file for the variant calling truth high confidence BED, from reference.
 
     If compressed, must end in ".gz".
     """
@@ -538,7 +559,7 @@ def get_mapping_graph_base_reference(refgraph_or_refgraphbase, reference):
 
     return reference
 
-def get_surjectable_gam(wildcards):
+def surjectable_gam(wildcards):
     """
     Find a GAM mapped to a graph built on a reference that we can use to
     surject to the reference we're interested in.
@@ -1517,7 +1538,7 @@ rule get_release_vg:
         "wget https://github.com/vgteam/vg/releases/download/{wildcards.releaseversion}/vg -O {output} && chmod +x {output}"
 
 # See https://github.com/Platinum-Pedigree-Consortium/Platinum-Pedigree-Datasets and https://www.biorxiv.org/content/10.1101/2024.10.02.616333v1.full.pdf
-rule get_truth_vcf:
+rule get_dipcall_truth_vcf:
     output:
         vcf=TRUTH_DIR + "/{reference}/{sample}/{sample}.dip.vcf.gz",
         index=TRUTH_DIR + "/{reference}/{sample}/{sample}.dip.vcf.gz.tbi"
@@ -1534,6 +1555,25 @@ rule get_truth_vcf:
         slurm_partition=choose_partition(10)
     shell:
         "curl https://platinum-pedigree-data.s3.amazonaws.com/variants/assembly-based/dipcall/{params.cap_reference}/{params.na_sample}.dip.vcf.gz | bcftools reheader --samples <(echo {wildcards.sample}) | bcftools sort -O z >{output.vcf} && tabix -p vcf {output.vcf}"
+
+rule get_pedigree_truth_vcf:
+    output:
+        vcf=TRUTH_DIR + "/{reference}/{sample}/{sample}.family-truthset.ov.vcf.gz",
+        index=TRUTH_DIR + "/{reference}/{sample}/{sample}.family-truthset.ov.vcf.gz.tbi"
+    wildcard_constraints:
+        sample="HG001",
+        reference="grch38"
+    params:
+        cap_reference=lambda w: {"chm13": "CHM13", "grch38": "GRCh38"}[w["reference"]],
+        na_sample=lambda w: {"HG001": "NA12878"}[w["sample"]]
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "curl https://platinum-pedigree-data.s3.amazonaws.com/variants/small_variant_truthset/{params.cap_reference}/CEPH1463.GRCh38.family-truthset.ov.vcf.gz | bcftools view --samples {params.na_sample} | bcftools reheader --samples <(echo {wildcards.sample}) | bcftools sort -O z >{output.vcf} && tabix -p vcf {output.vcf}"
+
 
 
 rule alias_gam_k:
@@ -2209,7 +2249,7 @@ rule surject_gam:
         # We leave out paths we can't call on, like Y in CHM13 (due to different Ys being used in different graphs).
         # TODO: Fix this when we fix chrY somehow. CHM13v2.0 has HG002's Y.
         reference_path_list_callable=reference_path_list_callable,
-        gam=get_surjectable_gam
+        gam=surjectable_gam
     output:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
@@ -2265,6 +2305,9 @@ rule call_variants:
         calling_reference_fasta_index=calling_reference_fasta_index,
         calling_reference_restrict_bed=calling_reference_restrict_bed,
         calling_reference_par_bed=calling_reference_par_bed,
+        truth_vcf=lambda w: remote_or_local(truth_vcf_url(w)),
+        truth_vcf_index=lambda w: remote_or_local(truth_vcf_index_url(w)),
+        truth_bed=lambda w: remote_or_local(truth_bed_url(w))
     output:
         wdl_input_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.input.json",
         wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.json",
@@ -2279,9 +2322,6 @@ rule call_variants:
     log:
         logfile="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.log"
     params:
-        truth_vcf_url=truth_vcf_url,
-        truth_vcf_index_url=truth_vcf_index_url,
-        truth_bed_url=truth_bed_url,
         reference_prefix=reference_prefix,
         haploid_contigs=haploid_contigs,
         wdl_cache=wdl_cache,
@@ -2321,9 +2361,9 @@ rule call_variants:
             "DeepVariant.DV_GPU_DOCKER": "google/deepvariant:1.6.1-gpu",
             "DeepVariant.DV_NO_GPU_DOCKER": "google/deepvariant:1.6.1",
             "DeepVariant.DV_IS_1_7_OR_NEWER": False,
-            "DeepVariant.TRUTH_VCF": params.truth_vcf_url,
-            "DeepVariant.TRUTH_VCF_INDEX": params.truth_vcf_index_url,
-            "DeepVariant.EVALUATION_REGIONS_BED": params.truth_bed_url,
+            "DeepVariant.TRUTH_VCF": input.truth_vcf,
+            "DeepVariant.TRUTH_VCF_INDEX": input.truth_vcf_index,
+            "DeepVariant.EVALUATION_REGIONS_BED": input.truth_bed,
             "DeepVariant.RESTRICT_REGIONS_BED": input.calling_reference_restrict_bed,
             "DeepVariant.PAR_REGIONS_BED_FILE": input.calling_reference_par_bed,
             "DeepVariant.HAPLOID_CONTIGS": params.haploid_contigs,
