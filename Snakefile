@@ -4847,7 +4847,7 @@ rule all_paper_figures:
         mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.latex.tsv", expname=config["sim_exps"]),
         qq=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/qq.pdf", expname=config["headline_sim_exps"]),
         roc=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/roc.pdf", expname=config["headline_sim_exps"]),
-        dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_indel_summary.tsv", expname=config["dv_exps"]),
-        dv_snp=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_snp_summary.tsv", expname=config["dv_exps"]),
-        svs=expand(ALL_OUT_DIR + "/experiments/{expname}/results/sv_summary.tsv", expname=config["sv_exps"])
+        dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_indel_summary.pdf", expname=config["dv_exps"]),
+        dv_snp=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_snp_summary.pdf", expname=config["dv_exps"]),
+        svs=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/sv_summary.pdf", expname=config["sv_exps"])
 
