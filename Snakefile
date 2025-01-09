@@ -448,6 +448,14 @@ def reference_path_list_callable(wildcards):
     """
     return reference_fasta(wildcards) + ".paths" + wildcards.get("region", "") + ".callable.txt"
 
+def reference_path_dict_callable(wildcards):
+    """
+    Find the path dict file for a linear reference that we can actually call on, from reference and region.
+   
+    We need this because when surjecting to a non-base reference we can't infer path lengths from the graph.
+    """
+    return reference_fasta(wildcards) + ".paths" + wildcards.get("region", "") + ".callable.dict"
+
 def reference_prefix(wildcards):
     """
     Find the PanSN prefix we need to remove to convert form PanSN names to
@@ -1813,6 +1821,41 @@ rule callable_paths_index_reference:
         slurm_partition=choose_partition(5)
     shell: "cat {input.paths} | grep -v '{params.uncallable_contig_regex}' > {output.paths}"
 
+rule callable_paths_dict_reference:
+    input:
+        paths=REFS_DIR + "/{reference}-pansn.fa.paths{region}.callable.txt",
+        reference_dict=reference_dict
+    output:
+        callable_dict=REFS_DIR + "/{reference}-pansn.fa.paths{region}.callable.dict",
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        wanted_paths = set((line.strip() for line in open(input.paths) if line.strip()))
+        with open(output.callable_dict, "w") as out:
+            for line in open(input.reference_dict):
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split("\t")
+                if parts[0] == "@HD":
+                    out.write(line)
+                    out.write("\n")
+                elif parts[0] == "@SQ":
+                    # Retain only @SQ lines from the dict for callable paths
+                    keep = False
+                    for part in parts:
+                        if part.startswith("SN:"):
+                            name = part[3:]
+                            if name in wanted_paths:
+                                keep = True
+                                break
+                    if keep:
+                        out.write(line)
+                        out.write("\n")
+
 rule callable_bed_index_calling_reference:
     input:
         # First two columns of FAI are name and length
@@ -2303,7 +2346,7 @@ rule surject_gam:
         gbz=gbz,
         # We leave out paths we can't call on, like Y in CHM13 (due to different Ys being used in different graphs).
         # TODO: Fix this when we fix chrY somehow. CHM13v2.0 has HG002's Y.
-        reference_path_list_callable=reference_path_list_callable,
+        reference_path_dict_callable=reference_path_dict_callable,
         gam=surjectable_gam
     output:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
@@ -2318,7 +2361,7 @@ rule surject_gam:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg surject -F {input.reference_path_list_callable} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
+        "vg surject -F {input.reference_path_dict_callable} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
 
 rule alias_bam_graph:
     # For BAM-generating mappers we can view their BAMs as if they mapped to any reference graph for a reference
