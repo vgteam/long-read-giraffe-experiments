@@ -237,76 +237,6 @@ wildcard_constraints:
     realnessx="(real|sim)",
     realnessy="(real|sim)",
 
-import snakemake
-if int(snakemake.__version__.split(".")[0]) >= 8:
-    # Remote providers have been replaced with storage plugins.
-
-    # TODO: test this on Snakemake 8
-    # TODO: Really depend on snakemake-storage-plugin-http
-
-    def remote_or_local(url):
-        """
-        Wrap a URL as a Snakemake "remote file", but pass a local path through.
-        """
-
-        if url.startswith("https://"):
-            # Looks like a remote.
-            return storage.http(url)
-        else:
-            return url
-
-    def to_local(possibly_remote_file):
-        """
-        Given a result of remote_or_local, turn it into a local filesystem path.
-
-        Snakemake must have already downloaded it for us if needed.
-        """
-
-        # TODO: Do we still have the list problem in Python code with storage
-        # plugins?
-
-        if isinstance(possibly_remote_file, list):
-            return possibly_remote_file[0]
-        else:
-            return possibly_remote_file
-
-else:
-    # This is for Snakemake 7 and below and uses remote providers. Snakemake 8
-    # replaces this with storage plugins, which aren't available in Snakemake
-    # 7.
-
-    from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
-    HTTP = HTTPRemoteProvider()
-
-    def remote_or_local(url):
-        """
-        Wrap a URL as a Snakemake "remote file", but pass a local path through.
-        """
-
-        if url.startswith("https://"):
-            # Looks like a remote.
-            # Use keep_local to hopefully cache.
-            # TODO: If we use AUTO.remote here it never actually downloads the HTTP
-            # files and then throws MissingInputException (at least during dry runs).
-            return HTTP.remote(url[8:], keep_local=True)
-        else:
-            return url
-
-    def to_local(possibly_remote_file):
-        """
-        Given a result of remote_or_local, turn it into a local filesystem path.
-
-        Snakemake must have already downloaded it for us if needed.
-        """
-
-        # In Python code a remote file will look like a list of a string and
-        # won't JSON-ify right. So we need to unpack it.
-
-        if isinstance(possibly_remote_file, list):
-            return possibly_remote_file[0]
-        else:
-            return possibly_remote_file
-
 def auto_mapping_threads(wildcards):
     """
     Choose the number of threads to use map reads, from subset.
@@ -378,6 +308,83 @@ def choose_partition(minutes):
         if minutes <= limit:
             return name
     raise ValueError(f"No Slurm partition accepts jobs that run for {minutes} minutes")
+
+import snakemake
+if int(snakemake.__version__.split(".")[0]) >= 8:
+    # Remote providers have been replaced with storage plugins.
+
+    # TODO: test this on Snakemake 8
+    # TODO: Really depend on snakemake-storage-plugin-http
+
+    def remote_or_local(url):
+        """
+        Wrap a URL as a Snakemake "remote file", but pass a local path through.
+        """
+
+        if url.startswith("https://"):
+            # Looks like a remote.
+            return storage.http(url)
+        else:
+            return url
+
+    def to_local(possibly_remote_file):
+        """
+        Given a result of remote_or_local, turn it into a local filesystem path.
+
+        Snakemake must have already downloaded it for us if needed.
+        """
+
+        # TODO: Do we still have the list problem in Python code with storage
+        # plugins?
+
+        if isinstance(possibly_remote_file, list):
+            return possibly_remote_file[0]
+        else:
+            return possibly_remote_file
+
+else:
+    # This is for Snakemake 7 and below. Snakemake 8 replaces Snakemake 7
+    # remote providers with storage plugins, which aren't available in
+    # Snakemake 7.
+
+    # Also, Snakemake remote providers are terrible, and can fail a successful job with something like:
+    # Error recording metadata for finished job (HTTPSConnectionPool(host='ftp-trace.ncbi.nlm.nih.gov', port=443): Max retries exceeded with url: /ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1007)')))). Please ensure write permissions for the directory /private/home/anovak/workspace/lr-giraffe/.snakemake
+    # Because for some reason they want to run web requests at the end of a job.
+
+    # So we just use a magic local "remote_cache_https" directory
+
+    rule remote_cache_https:
+        output:
+            "remote_cache_https/{host}/{path}"
+        wildcard_constraints:
+            host="[^/]*"
+        threads: 1
+        resources:
+            mem_mb=2000,
+            runtime=30,
+            slurm_partition=choose_partition(30)
+        shell:
+            "wget https://{wildcards.host}/{wildcards.path} -O {output}"
+
+    def remote_or_local(url):
+        """
+        Wrap a URL as a usable Snakemake input, but pass a local path through.
+        """
+
+        if url.startswith("https://"):
+            # Looks like a remote.
+            return  "remote_cache_https/" + url[8:]
+        else:
+            return url
+
+    def to_local(possibly_remote_file):
+        """
+        Given a result of remote_or_local, turn it into a local filesystem path.
+
+        Snakemake must have already downloaded it for us if needed.
+        """
+
+        return possibly_remote_file
 
 def subset_to_number(subset):
     """
