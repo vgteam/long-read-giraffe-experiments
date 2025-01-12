@@ -3198,6 +3198,8 @@ rule experiment_runtime_from_benchmark_tsv:
     shell:
         "cat {input} >>{output.tsv}"
 
+ruleorder: experiment_runtime_from_benchmark_tsv > experiment_stat_table
+
 rule experiment_runtime_from_benchmark_plot:
     input:
         tsv=rules.experiment_runtime_from_benchmark_tsv.output.tsv
@@ -3402,7 +3404,7 @@ rule experiment_mapping_stats_real_tsv:
         slurm_partition=choose_partition(60)
     shell:
         """
-        printf "condition\truntime(min)\tmemory(GB)\tsoftclipped_or_unmapped\n" >> {output.tsv} 
+        printf "condition\truntime(min)\tstartup_time(min)\tsampling_time(min)\tmemory(GB)\tsoftclipped_or_unmapped\n" >> {output.tsv} 
         cat {input} >>{output.tsv}
         """
 ruleorder: experiment_mapping_stats_real_tsv > experiment_stat_table
@@ -3851,8 +3853,8 @@ rule length_by_name:
     threads: 5
     resources:
         mem_mb=2000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        runtime=120,
+        slurm_partition=choose_partition(120)
     shell:
         "vg filter -t {threads} -T \"name;length\" {input.gam} | grep -v \"#\" >{output}"
 
@@ -3865,8 +3867,8 @@ rule length_by_mapping:
     threads: 2
     resources:
         mem_mb=16000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        runtime=360,
+        slurm_partition=choose_partition(360)
     run:
         mapped_names = set()
         with open(input.lengths) as in_file:
@@ -3909,8 +3911,8 @@ rule length_by_correctness:
     threads: 5
     resources:
         mem_mb=2000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        runtime=120,
+        slurm_partition=choose_partition(120)
     shell:
         "vg filter -t {threads} -T \"correctness;sequence\" {input.gam} | grep -v \"#\" | awk -v OFS='\t' '{{print $1, length($2)}}' > {output}"
 
@@ -3940,8 +3942,8 @@ rule unmapped_ends_by_name:
     threads: 5
     resources:
         mem_mb=4000,
-        runtime=120,
-        slurm_partition=choose_partition(120)
+        runtime=360,
+        slurm_partition=choose_partition(360)
     run:
         read_to_length = dict()
         with open(input.fastq) as read_file:
