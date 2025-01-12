@@ -248,8 +248,8 @@ def auto_mapping_threads(wildcards):
     if wildcards.get("mapper", "").startswith("graphaligner"):
         #Graphaligner is really slow so for simulated reads where we don't care about time
         #double the number of threads
-        #At most the number of cores on the phoenix nodes
-        return min(mapping_threads * 2, 254) 
+        #At most 128 because it errors with too many threads sometimes
+        return min(mapping_threads * 2, 128) 
     else:
         return mapping_threads
 
@@ -1648,6 +1648,7 @@ rule merge_graphaligner_gams:
     wildcard_constraints:
         realness="real",
         mapper="graphaligner.*",
+        subset="full",
         refgraph="hprc-v1.1-mc"
     threads: 1
     resources:
