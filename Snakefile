@@ -3117,6 +3117,22 @@ rule experiment_calling_plot:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} {wildcards.vartype} {wildcards.colname}' --y_label '{wildcards.colname}' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 
+rule experiment_calling_summary_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/{vartype}_summary.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/{vartype}_summary.{ext}"
+    wildcard_constraints:
+        vartype="(dv_snp|dv_indel|sv)",
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "Rscript plot-calling-results.R {input.tsv} {output}"
+
+
 rule experiment_speed_from_log_tsv:
     input:
         lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
@@ -4847,9 +4863,9 @@ rule sv_summary_by_condition:
         "echo \"{params.condition_name}\t$(jq -r '[.TP-base,.FN,.FP,.recall,.precision,.f1] | @tsv' {input.json})\" >{output.tsv}"
 rule sv_summary_table:
     input:
-        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/svcall/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv")
+        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv")
     output:
-        tsv="{root}/experiments/{expname}/svcall/results/sv_calling_summary.tsv"
+        tsv="{root}/experiments/{expname}/results/sv_summary.tsv"
     threads: 1
     resources:
         mem_mb=200,
@@ -4857,7 +4873,7 @@ rule sv_summary_table:
         slurm_partition=choose_partition(10)
     shell:
         """
-        printf "condition\tTP\tFN\tFP\trecall\tprecision\tf1\n" >> {output.tsv}
+        printf "condition\tTP\tFN\tFP\trecall\tprecision\tF1\n" >> {output.tsv}
         cat {input} >>{output.tsv}
         """
 
@@ -4879,7 +4895,7 @@ rule all_paper_figures:
         mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.latex.tsv", expname=config["sim_exps"]),
         qq=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/qq.pdf", expname=config["headline_sim_exps"]),
         roc=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/roc.pdf", expname=config["headline_sim_exps"]),
-        dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_indel_summary.tsv", expname=config["dv_exps"]),
-        dv_snp=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_snp_summary.tsv", expname=config["dv_exps"]),
-        svs=expand(ALL_OUT_DIR + "/experiments/{expname}/svcall/results/sv_calling_summary.tsv", expname=config["sv_exps"])
+        dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_indel_summary.pdf", expname=config["dv_exps"]),
+        dv_snp=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_snp_summary.pdf", expname=config["dv_exps"]),
+        svs=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/sv_summary.pdf", expname=config["sv_exps"])
 
