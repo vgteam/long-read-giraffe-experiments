@@ -721,8 +721,12 @@ def fastq_finder(wildcards, compressed = False):
 
     extra_ext = ".gz" if compressed else ""
 
+    #If we chunked the reads, we need to add it. Otherwise there isn't a chunk
+    if "readchunk" not in wildcards:
+        wildcards["readchunk"] = ""
+
     import glob
-    fastq_by_sample_pattern = os.path.join(READS_DIR, ("{realness}/{tech}/{sample}/*{sample}*{trimmedness}[._-]{subset}.f*q" + extra_ext).format(**wildcards))
+    fastq_by_sample_pattern = os.path.join(READS_DIR, ("{realness}/{tech}/{sample}/*{sample}*{trimmedness}[._-]{subset}{readchunk}.f*q" + extra_ext).format(**wildcards))
     results = glob.glob(fastq_by_sample_pattern)
     if wildcards["trimmedness"] != ".trimmed":
         # Don't match trimmed files when not trimmed.
@@ -734,12 +738,12 @@ def fastq_finder(wildcards, compressed = False):
             # And compute the subset name
             without_gz = os.path.splitext(full_file)[0]
             without_fq = os.path.splitext(without_gz)[0]
-            return without_fq + (".{subset}.fq" + extra_ext).format(**wildcards)
+            return without_fq + (".{subset}{readchunk}.fq" + extra_ext).format(**wildcards)
         elif wildcards["realness"] == "sim":
             # Assume we can get this FASTQ.
             # For simulated reads we assume the right subset GAM is there. We
             # don't want to deal with the 1k/1000 difference here.
-            return os.path.join(READS_DIR, ("{realness}/{tech}/{sample}/{sample}-{realness}-{tech}{trimmedness}-{subset}.fq" + extra_ext).format(**wildcards))
+            return os.path.join(READS_DIR, ("{realness}/{tech}/{sample}/{sample}-{realness}-{tech}{trimmedness}-{subset}{readchunk}.fq" + extra_ext).format(**wildcards))
         else:
             raise FileNotFoundError(f"No files found matching {fastq_by_sample_pattern}")
     elif len(results) > 1:
@@ -1612,6 +1616,49 @@ rule extract_fastq_gz_from_full_gam:
     shell:
         "vg view --fastq-out --threads 16 {input.gam} | pigz -p 8 -c >{output.fastq_gz}"
 
+
+# From Jean, chunk and unchunk reads, because graphaligner takes too long and errors when given too many threads
+# number of read chunks (for GraphAligner)
+if 'n_read_chunk' not in config:
+    config['n_read_chunk'] = 20
+READ_CHUNKS = list(range(config['n_read_chunk']))
+
+#Split read fq.gz file into chunks
+rule split_reads:
+    input: "{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.{subset}.fq.gz"
+    output: temp(expand('{{reads_dir}}/{{realness}}/{{tech}}/{{sample}}/{{basename}}{{trimmedness}}.{{subset}}.chunk{chunk}.fq.gz', chunk=READ_CHUNKS))
+    threads: 4
+    resources:
+        mem_mb=12000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    container: 'docker://quay.io/biocontainers/fastqsplitter:1.2.0--py312hf67a6ed_6'
+    params:
+        outfiles=lambda wildcards, output: '-o ' + ' -o '.join(output)
+    shell:
+        """
+        fastqsplitter -i {input} {params.outfiles}
+        """
+
+# Put mapped chunks of reads back together
+rule merge_graphaligner_gams:
+    input: expand('{{root}}/aligned-secsup/{{reference}}/{{refgraph}}/{{mapper}}-{{graphalignerflag}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.chunk{chunk}.gam', chunk=CHUNKS)
+    output:
+        gam=temp("{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam")
+    wildcard_constraints:
+        realness="real",
+        mapper="graphaligner.*",
+        refgraph="hprc-v1.1-mc"
+    threads: 1
+    resources:
+        mem_mb=8000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell: "cat {input} > {output}"
+
+# Prefer to chunk gams for graphaligner, but only works for real reads on the full hprc graph
+ruleorder: merge_graphaligner_gams > graphaligner_real_reads
+
 rule dict_index_reference:
     input:
         reference_fasta=reference_fasta
@@ -1951,9 +1998,9 @@ rule graphaligner_real_reads:
         gfa=gfa,
         fastq_gz=fastq_gz
     output:
-        gam=temp("{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam")
-    benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
-    log: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        gam=temp("{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}{readchunk}.gam")
+    benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}{readchunk}.benchmark"
+    log: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}{readchunk}.log"
     wildcard_constraints:
         realness="real",
         mapper="graphaligner.*"
