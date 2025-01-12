@@ -722,11 +722,10 @@ def fastq_finder(wildcards, compressed = False):
     extra_ext = ".gz" if compressed else ""
 
     #If we chunked the reads, we need to add it. Otherwise there isn't a chunk
-    if "readchunk" not in wildcards:
-        wildcards["readchunk"] = ""
+    readchunk = wildcards.get("readchunk", "")
 
     import glob
-    fastq_by_sample_pattern = os.path.join(READS_DIR, ("{realness}/{tech}/{sample}/*{sample}*{trimmedness}[._-]{subset}{readchunk}.f*q" + extra_ext).format(**wildcards))
+    fastq_by_sample_pattern = os.path.join(READS_DIR, ("{realness}/{tech}/{sample}/*{sample}*{trimmedness}[._-]{subset}" + readchunk+ ".f*q" + extra_ext).format(**wildcards))
     results = glob.glob(fastq_by_sample_pattern)
     if wildcards["trimmedness"] != ".trimmed":
         # Don't match trimmed files when not trimmed.
@@ -738,12 +737,12 @@ def fastq_finder(wildcards, compressed = False):
             # And compute the subset name
             without_gz = os.path.splitext(full_file)[0]
             without_fq = os.path.splitext(without_gz)[0]
-            return without_fq + (".{subset}{readchunk}.fq" + extra_ext).format(**wildcards)
+            return without_fq + (".{subset}" + readchunk+ ".fq" + extra_ext).format(**wildcards)
         elif wildcards["realness"] == "sim":
             # Assume we can get this FASTQ.
             # For simulated reads we assume the right subset GAM is there. We
             # don't want to deal with the 1k/1000 difference here.
-            return os.path.join(READS_DIR, ("{realness}/{tech}/{sample}/{sample}-{realness}-{tech}{trimmedness}-{subset}{readchunk}.fq" + extra_ext).format(**wildcards))
+            return os.path.join(READS_DIR, ("{realness}/{tech}/{sample}/{sample}-{realness}-{tech}{trimmedness}-{subset}" + readchunk+ ".fq" + extra_ext).format(**wildcards))
         else:
             raise FileNotFoundError(f"No files found matching {fastq_by_sample_pattern}")
     elif len(results) > 1:
@@ -1642,7 +1641,7 @@ rule split_reads:
 
 # Put mapped chunks of reads back together
 rule merge_graphaligner_gams:
-    input: expand('{{root}}/aligned-secsup/{{reference}}/{{refgraph}}/{{mapper}}-{{graphalignerflag}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.chunk{chunk}.gam', chunk=CHUNKS)
+    input: expand('{{root}}/aligned-secsup/{{reference}}/{{refgraph}}/{{mapper}}-{{graphalignerflag}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.chunk{chunk}.gam', chunk=READ_CHUNKS)
     output:
         gam=temp("{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam")
     wildcard_constraints:
@@ -4853,7 +4852,7 @@ rule sv_summary_by_condition:
     input:
         json="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json"
     output:
-        tsv="{root}/experiments/{expname}/svcall/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv"
+        tsv="{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv"
     threads: 1
     resources:
         mem_mb=200,
@@ -4878,7 +4877,7 @@ rule sv_summary_table:
         printf "condition\tTP\tFN\tFP\trecall\tprecision\tF1\n" >> {output.tsv}
         cat {input} >>{output.tsv}
         """
-
+ruleorder: sv_summary_table > experiment_stat_table
 
 
 
