@@ -608,27 +608,6 @@ def truth_bed_url(wildcards):
     else:
         raise RuntimeError("Unsupported reference: " + wildcards["reference"])
 
-# TODO: Plug this in when finding GAMs and benchmark files and aligned and
-# aligned-secsup files for Giraffe and GraphAligner and Minigraph where the
-# alignments don't really depend on the target reference.
-def get_mapping_graph_base_reference(refgraph_or_refgraphbase, reference):
-    """
-    Given the base name or full (but reference-less) name for the graph (like
-    "hrpc-v1.1-mc") and the ultimate target linear reference (like "grch38"),
-    get the reference that the graph should have been constructed on (which
-    might not be the same one).
-    """
-
-    # For some graphs (like HPRC v2 variants), we don't build a separate
-    # GRCh38-based graph and we instead let you use GRCh38 in the CHM13-based
-    # graph. Find and fix them.
-    if refgraph_or_refgraphbase.startswith("hprc-v2") and reference == "grch38":
-        # TODO: How do we stop this from happening without the user noticing?
-        print("Fulfilling GRCh38 reference with GRCh38 paths in CHM13-based graph")
-        reference = "chm13"
-
-    return reference
-
 def surjectable_gam(wildcards):
     """
     Find a GAM mapped to a graph built on a reference that we can use to
@@ -637,7 +616,6 @@ def surjectable_gam(wildcards):
     # TODO: Make similar redirects for the benchmarks!
 
     format_data = dict(wildcards)
-    format_data["reference"] = get_mapping_graph_base_reference(wildcards["refgraph"], wildcards["reference"])
 
     return "{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam".format(**format_data)
 
@@ -713,9 +691,6 @@ def graph_base(wildcards):
         # The first 3 or fewer parts are the graph base name.
         refgraphbase = "-".join(parts)
     
-    # See if we need a graph not actually based on our target reference
-    reference = get_mapping_graph_base_reference(refgraphbase, reference)
-
     result = os.path.join(GRAPHS_DIR, refgraphbase + "-" + reference + "".join(modifications))
     return result
 
@@ -1897,8 +1872,6 @@ rule giraffe_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     run:
-        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
-            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
         pairing_flag="-i" if wildcards.preset == "default" else ""
@@ -1921,8 +1894,6 @@ rule giraffe_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     run:
-        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
-            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
         pairing_flag="-i" if wildcards.preset == "default" else ""
@@ -1945,8 +1916,6 @@ rule giraffe_sim_reads_with_correctness:
         runtime=600,
         slurm_partition=choose_partition(600)
     run:
-        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
-            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
         pairing_flag="-i" if wildcards.preset == "default" else ""
@@ -2219,10 +2188,8 @@ rule minigraph_real_reads:
         slurm_partition=choose_partition(1200),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
-    run:
-        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
-            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
-        shell("minigraph --vc --secondary=no -cx lr -t {threads} {input.gfa} {input.fastq_gz} >{output.gaf} 2>{log}")
+    shell:
+        "minigraph --vc --secondary=no -cx lr -t {threads} {input.gfa} {input.fastq_gz} >{output.gaf} 2>{log}"
 
 
 rule panaligner_sim_reads:
@@ -2238,10 +2205,8 @@ rule panaligner_sim_reads:
         mem_mb=300000,
         runtime=600,
         slurm_partition=choose_partition(600)
-    run:
-        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
-            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
-        shell("PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}")
+    shell:
+        "PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf}"
 
 rule panaligner_real_reads:
     input:
@@ -2260,11 +2225,8 @@ rule panaligner_real_reads:
         slurm_partition=choose_partition(600),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
-    run:
-        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
-            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
-        
-        shell("PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}")
+    shell:
+        "PanAligner --vc -cx lr -t {threads} {input.gfa} {input.fastq} >{output.gaf} 2>{log}"
 
 rule gaf_to_gam:
     input:
