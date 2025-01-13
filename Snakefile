@@ -2158,8 +2158,6 @@ rule graphaligner_sim_reads:
         runtime=3000,
         slurm_partition=choose_partition(3000)
     run:
-        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
-            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
         flags=get_graphaligner_flags(wildcards.graphalignerflag)
         shell("GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} " + flags + " -a {output.gam}")
 
@@ -2185,8 +2183,6 @@ rule graphaligner_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     run:
-        if get_mapping_graph_base_reference(wildcards.refgraph, wildcards.reference) != wildcards.reference:
-            raise RuntimeError("Should not map to graph based on reference we think is already in another graph")
         flags=get_graphaligner_flags(wildcards.graphalignerflag)
         shell("GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq_gz} " + flags + " -a {output.gam} 2> {log}")
 
