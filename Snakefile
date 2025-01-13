@@ -820,9 +820,12 @@ def base_fastq_gz(wildcards):
     if wildcards["trimmedness"] != ".trimmed":
         # Don't match trimmed files when not trimmed.
         results = [r for r in results if ".trimmed" not in r]
-    subset_regex = re.compile("([0-9]+[km]?|full)")
     # Skip any subset files
+    subset_regex = re.compile("([0-9]+[km]?|full)")
     results = [r for r in results if not subset_regex.fullmatch(r.split(".")[-3])]
+    # Skip any chunk files
+    chunk_regex = re.compile("chunk[0-9]*")
+    results = [r for r in results if not chunk_regex.fullmatch(r.split(".")[-3])]
     if len(results) == 0:
         # Can't find it
         if wildcards["trimmedness"] == ".trimmed":
@@ -837,9 +840,9 @@ def base_fastq_gz(wildcards):
                 without_fq, fq_ext = os.path.splitext(without_gz)
                 trimmed_base = without_fq + ".trimmed" + fq_ext + ".gz"
                 return trimmed_base
-        raise FileNotFoundError(f"No files found matching {full_gz_pattern}")
+        raise FileNotFoundError(f"No  non-chunk, non-subset files found matching {full_gz_pattern}")
     elif len(results) > 1:
-        raise RuntimeError("Multiple files matched " + full_gz_pattern)
+        raise RuntimeError("Multiple non-chunk, non-subset files matched " + full_gz_pattern)
     return results[0]
 
 def fastq_finder(wildcards, compressed = False):
