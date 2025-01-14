@@ -1640,7 +1640,7 @@ rule get_andrew_truth_vcf:
         na_sample=lambda w: {"HG001": "NA12878"}[w["sample"]]
     threads: 1
     resources:
-        mem_mb=1000,
+        mem_mb=4000,
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
