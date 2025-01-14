@@ -574,8 +574,8 @@ def truth_vcf_url(wildcards):
     elif wildcards["reference"] == "grch38":
         if wildcards["sample"] == "HG001":
             # Use Andrew Carroll's magic PP-derived truth set
-            # It says "NA12878" in there but hopefully hap.py will figure that out
-            return "https://storage.googleapis.com/brain-genomics/awcarroll/share/ucsc/platinum_truth/HG001.platinum_hq_truthset.vcf.gz"
+            # It doesn't have an index on the server so we need to run though a rule to make one
+            return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".andrew.platinum_hq_truthset.vcf.gz")
         # On GRCh38 we can use the Platinum Pedigree pedigree consistent merged small variant calls
         return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".family-truthset.ov.vcf.gz")
     else:
@@ -1628,6 +1628,23 @@ rule get_pedigree_truth_vcf:
         slurm_partition=choose_partition(10)
     shell:
         "curl https://platinum-pedigree-data.s3.amazonaws.com/variants/small_variant_truthset/{params.cap_reference}/CEPH1463.GRCh38.family-truthset.ov.vcf.gz | bcftools view --samples {params.na_sample} | bcftools reheader --samples <(echo {wildcards.sample}) | bcftools sort -O z >{output.vcf} && tabix -p vcf {output.vcf}"
+
+rule get_andrew_truth_vcf:
+    output:
+        vcf=TRUTH_DIR + "/{reference}/{sample}/{sample}.andrew.platinum_hq_truthset.vcf.gz",
+        index=TRUTH_DIR + "/{reference}/{sample}/{sample}.andrew.platinum_hq_truthset.vcf.gz.tbi"
+    wildcard_constraints:
+        sample="HG001",
+        reference="grch38"
+    params:
+        na_sample=lambda w: {"HG001": "NA12878"}[w["sample"]]
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "curl https://storage.googleapis.com/brain-genomics/awcarroll/share/ucsc/platinum_truth/HG001.platinum_hq_truthset.vcf.gz | bcftools view --samples {params.na_sample} | bcftools reheader --samples <(echo {wildcards.sample}) | bcftools sort -O z >{output.vcf} && tabix -p vcf {output.vcf}"
 
 
 
