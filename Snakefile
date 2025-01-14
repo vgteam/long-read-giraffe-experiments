@@ -163,6 +163,10 @@ REFS_DIR = config.get("refs_dir", None) or "/private/groups/patenlab/anovak/proj
 # These are organized by reference and then sample
 TRUTH_DIR = config.get("truth_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/truth-sets"
 
+# For HG001 on GRCh38, should we use Andrew Carroll's truth set instead of the
+# official Platinum Pedigree truth set?
+USE_ANDREW_TRUTH = False
+
 # When we "snakemake all_paper_figures", where should the results go?
 ALL_OUT_DIR = config.get("all_out_dir", None) or "/private/groups/patenlab/project-lrg"
 
@@ -572,7 +576,7 @@ def truth_vcf_url(wildcards):
         # On CHM13 we don't have a real benchmark set, so we have to use the raw Platinum Pedigree dipcall calls.
         return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".dip.vcf.gz")
     elif wildcards["reference"] == "grch38":
-        if wildcards["sample"] == "HG001":
+        if wildcards["sample"] == "HG001" and USE_ANDREW_TRUTH:
             # Use Andrew Carroll's magic PP-derived truth set
             # It doesn't have an index on the server so we need to run though a rule to make one
             return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".andrew.platinum_hq_truthset.vcf.gz")
@@ -605,7 +609,7 @@ def truth_bed_url(wildcards):
         }[wildcards["reference"]]
 
     if wildcards["reference"] == "grch38":
-        if wildcards["sample"] == "HG001":
+        if wildcards["sample"] == "HG001" and USE_ANDREW_TRUTH:
             # Use Andrew Carroll's magic PP-derived truth set
             return "https://storage.googleapis.com/brain-genomics/awcarroll/share/ucsc/platinum_truth/HG001.platinum_hq_truthset.confident.bed"
         # On GRCh38 we can use the Platinum Pedigree pedigree consistent merged
