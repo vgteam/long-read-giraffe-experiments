@@ -572,6 +572,10 @@ def truth_vcf_url(wildcards):
         # On CHM13 we don't have a real benchmark set, so we have to use the raw Platinum Pedigree dipcall calls.
         return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".dip.vcf.gz")
     elif wildcards["reference"] == "grch38":
+        if wildcards["sample"] == "HG001":
+            # Use Andrew Carroll's magic PP-derived truth set
+            # It says "NA12878" in there but hopefully hap.py will figure that out
+            return "https://storage.googleapis.com/brain-genomics/awcarroll/share/ucsc/platinum_truth/HG001.platinum_hq_truthset.vcf.gz"
         # On GRCh38 we can use the Platinum Pedigree pedigree consistent merged small variant calls
         return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".family-truthset.ov.vcf.gz")
     else:
@@ -601,6 +605,9 @@ def truth_bed_url(wildcards):
         }[wildcards["reference"]]
 
     if wildcards["reference"] == "grch38":
+        if wildcards["sample"] == "HG001":
+            # Use Andrew Carroll's magic PP-derived truth set
+            return "https://storage.googleapis.com/brain-genomics/awcarroll/share/ucsc/platinum_truth/HG001.platinum_hq_truthset.confident.bed"
         # On GRCh38 we can use the Platinum Pedigree pedigree consistent merged
         # small variant calls, which all use a single BED. The BED doesn't
         # depend on sample name at all, and is online.
