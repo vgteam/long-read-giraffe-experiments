@@ -2135,7 +2135,7 @@ rule select_first_duplicate_read_gam:
         runtime=1600,
         slurm_partition=choose_partition(1600)
     shell:
-        "vg view -aj {input.gam} | python3 select_first_gam.py | vg view -aGJ - > {output.gam}"
+        "vg filter -l {input.gam} > {output.gam}"
 
 rule select_best_duplicate_read_gaf:
     input:
