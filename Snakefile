@@ -5024,9 +5024,9 @@ rule vgcall:
 # Copied from Jean
 rule call_svs_sniffles:
     input:
-        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
-        bai="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai"
-        vntr=SV_DATA_DIR+"human_chm13v2.0_maskedY_rCRS.trf.bed"
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
+        bai="{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai",
+        vntr=SV_DATA_DIR+"/human_chm13v2.0_maskedY_rCRS.trf.bed"
     output: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vcf.gz"
     threads: 16
     log: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.log"
