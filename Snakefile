@@ -5038,7 +5038,9 @@ rule call_svs_sniffles:
     container: 'docker://quay.io/biocontainers/sniffles:2.5.3--pyhdfd78af_0'
     shell:
         """
-        sniffles -i {input.bam} -v {output} -t {threads} --tandem-repeats {input.vntr} 2>&1 > {log}
+        sniffles -i {input.bam} -v {output}.temp.vcf.gz -t {threads} --tandem-repeats {input.vntr} 2>&1 > {log}
+        zcat {output}.temp.vcf.gz | sed 's/CHM13#0#//g' | gzip >{output}
+        rm {output}.temp.vcf.gz
         """
 
 rule truvari:
