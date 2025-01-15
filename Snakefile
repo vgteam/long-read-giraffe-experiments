@@ -62,6 +62,7 @@ GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/
 # And a tandem repeat bed for sniffles
 # human_chm13v2.0_maskedY_rCRS.trf.bed (from https://raw.githubusercontent.com/PacificBiosciences/pbsv/refs/heads/master/annotations/human_chm13v2.0_maskedY_rCRS.trf.bed)
 #
+# TODO: For HG001 we might need https://platinum-pedigree-data.s3.amazonaws.com/variants/merged_sv_truthset/GRCh38/merged_hg38.svs.sort.oa.vcf.gz
 
 SV_DATA_DIR = config.get("sv_data_dir", None) or "/private/home/jmonlong/workspace/lreval/data"
 
@@ -153,6 +154,10 @@ READS_DIR = config.get("reads_dir", None) or "/private/groups/patenlab/anovak/pr
 # A Winnowmap repetitive kmers file:
 # chm13-pansn.repetitive_k15.txt
 #
+# For the calling references (chm13v2.0 and grch38) we also need a plain .fa
+# and .fa.fai without pansn names, and _PAR.bed files with the pseudo-autosomal
+# regions.
+#
 # TODO: Right now these indexes must be manually generated.
 #
 REFS_DIR = config.get("refs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references"
@@ -160,6 +165,10 @@ REFS_DIR = config.get("refs_dir", None) or "/private/groups/patenlab/anovak/proj
 # Where are variant call truth set files kept (for when there isn't a handy hosted URL somewhere).
 # These are organized by reference and then sample
 TRUTH_DIR = config.get("truth_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/truth-sets"
+
+# For HG001 on GRCh38, should we use Andrew Carroll's truth set instead of the
+# official Platinum Pedigree truth set?
+USE_ANDREW_TRUTH = False
 
 # When we "snakemake all_paper_figures", where should the results go?
 ALL_OUT_DIR = config.get("all_out_dir", None) or "/private/groups/patenlab/project-lrg"
@@ -307,6 +316,83 @@ def choose_partition(minutes):
             return name
     raise ValueError(f"No Slurm partition accepts jobs that run for {minutes} minutes")
 
+import snakemake
+if int(snakemake.__version__.split(".")[0]) >= 8:
+    # Remote providers have been replaced with storage plugins.
+
+    # TODO: test this on Snakemake 8
+    # TODO: Really depend on snakemake-storage-plugin-http
+
+    def remote_or_local(url):
+        """
+        Wrap a URL as a Snakemake "remote file", but pass a local path through.
+        """
+
+        if url.startswith("https://"):
+            # Looks like a remote.
+            return storage.http(url)
+        else:
+            return url
+
+    def to_local(possibly_remote_file):
+        """
+        Given a result of remote_or_local, turn it into a local filesystem path.
+
+        Snakemake must have already downloaded it for us if needed.
+        """
+
+        # TODO: Do we still have the list problem in Python code with storage
+        # plugins?
+
+        if isinstance(possibly_remote_file, list):
+            return possibly_remote_file[0]
+        else:
+            return possibly_remote_file
+
+else:
+    # This is for Snakemake 7 and below. Snakemake 8 replaces Snakemake 7
+    # remote providers with storage plugins, which aren't available in
+    # Snakemake 7.
+
+    # Also, Snakemake remote providers are terrible, and can fail a successful job with something like:
+    # Error recording metadata for finished job (HTTPSConnectionPool(host='ftp-trace.ncbi.nlm.nih.gov', port=443): Max retries exceeded with url: /ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1007)')))). Please ensure write permissions for the directory /private/home/anovak/workspace/lr-giraffe/.snakemake
+    # Because for some reason they want to run web requests at the end of a job.
+
+    # So we just use a magic local "remote_cache_https" directory
+
+    rule remote_cache_https:
+        output:
+            "remote_cache_https/{host}/{path}"
+        wildcard_constraints:
+            host="[^/]*"
+        threads: 1
+        resources:
+            mem_mb=2000,
+            runtime=30,
+            slurm_partition=choose_partition(30)
+        shell:
+            "wget https://{wildcards.host}/{wildcards.path} -O {output}"
+
+    def remote_or_local(url):
+        """
+        Wrap a URL as a usable Snakemake input, but pass a local path through.
+        """
+
+        if url.startswith("https://"):
+            # Looks like a remote.
+            return  "remote_cache_https/" + url[8:]
+        else:
+            return url
+
+    def to_local(possibly_remote_file):
+        """
+        Given a result of remote_or_local, turn it into a local filesystem path.
+
+        Snakemake must have already downloaded it for us if needed.
+        """
+
+        return possibly_remote_file
+
 def subset_to_number(subset):
     """
     Take a subset like 1m or full and turn it into a number.
@@ -376,6 +462,14 @@ def reference_path_list_callable(wildcards):
     """
     return reference_fasta(wildcards) + ".paths" + wildcards.get("region", "") + ".callable.txt"
 
+def reference_path_dict_callable(wildcards):
+    """
+    Find the path dict file for a linear reference that we can actually call on, from reference and region.
+   
+    We need this because when surjecting to a non-base reference we can't infer path lengths from the graph.
+    """
+    return reference_fasta(wildcards) + ".paths" + wildcards.get("region", "") + ".callable.dict"
+
 def reference_prefix(wildcards):
     """
     Find the PanSN prefix we need to remove to convert form PanSN names to
@@ -430,6 +524,8 @@ def calling_reference_par_bed(wildcards):
 def uncallable_contig_regex(wildcards):
     """
     Get a grep regex matching a substring in all uncallable contigs in the calling or PanSN reference, from reference.
+
+    This will be a regec compatible with non-E grep.
     """
     match wildcards["reference"]:
         case "chm13":
@@ -437,6 +533,10 @@ def uncallable_contig_regex(wildcards):
             # not the same Y as CHM13v2.0, where the truth set is and where we
             # will do the calling.
             return "chr[YM]"
+        case "grch38":
+            # We don't want to try and call on the _random/Un/EBV contigs that
+            # probably aren't in the graph at all.
+            return "chrM\\|.*_random\\|chrUn\\|chrEBV"
         case _:
             return "chrM"
 
@@ -463,7 +563,7 @@ def wdl_cache(wildcards):
 
 def truth_vcf_url(wildcards):
     """
-    Find the URL for the variant calling truth VCF, from reference and sample.
+    Find the URL or local file for the variant calling truth VCF, from reference and sample.
     """
 
     if wildcards["sample"] == "HG002":
@@ -473,23 +573,65 @@ def truth_vcf_url(wildcards):
             "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark.vcf.gz"
         }[wildcards["reference"]]
 
-    # Otherwise report a path in our truth set directory and hope we know how to make it
-    return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".dip.vcf.gz")
+    # Otherwise report a path in our truth set directory and hope we know how to make it.
+
+    if wildcards["reference"] == "chm13":
+        # On CHM13 we don't have a real benchmark set, so we have to use the raw Platinum Pedigree dipcall calls.
+        return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".dip.vcf.gz")
+    elif wildcards["reference"] == "grch38":
+        if wildcards["sample"] == "HG001" and USE_ANDREW_TRUTH:
+            # Use Andrew Carroll's magic PP-derived truth set
+            # It doesn't have an index on the server so we need to run though a rule to make one
+            return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".andrew.platinum_hq_truthset.vcf.gz")
+        # On GRCh38 we can use the Platinum Pedigree pedigree consistent merged small variant calls
+        return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".family-truthset.ov.vcf.gz")
+    else:
+        raise RuntimeError("Unsupported reference: " + wildcards["reference"])
+
 
 def truth_vcf_index_url(wildcards):
     """
-    Find the URL for the variant calling truth VCF index, from reference and sample.
+    Find the URL or local file for the variant calling truth VCF index, from reference and sample.
     """
     return truth_vcf_url(wildcards) + ".tbi"
 
 def truth_bed_url(wildcards):
     """
-    Find the URL for the variant calling truth high confidence BED, from reference.
+    Find the URL or local file for the variant calling truth high confidence BED, from reference.
+
+    If compressed, must end in ".gz".
     """
-    return {
-        "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
-        "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed"
-    }[wildcards["reference"]]
+
+    if wildcards["sample"] == "HG002" or wildcards["reference"] == "chm13":
+        # For HG002, these are available online directly.
+        # On CHM13 we don't have Platinum Pedigree high-confidence regions, so
+        # we need to just use the HG002 ones for other samples and hope they're close enough.
+        return {
+            "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
+            "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed"
+        }[wildcards["reference"]]
+
+    if wildcards["reference"] == "grch38":
+        if wildcards["sample"] == "HG001" and USE_ANDREW_TRUTH:
+            # Use Andrew Carroll's magic PP-derived truth set
+            return "https://storage.googleapis.com/brain-genomics/awcarroll/share/ucsc/platinum_truth/HG001.platinum_hq_truthset.confident.bed"
+        # On GRCh38 we can use the Platinum Pedigree pedigree consistent merged
+        # small variant calls, which all use a single BED. The BED doesn't
+        # depend on sample name at all, and is online.
+        return "https://platinum-pedigree-data.s3.amazonaws.com/variants/small_variant_truthset/GRCh38/hq_regions_final.bed.gz"
+    else:
+        raise RuntimeError("Unsupported reference: " + wildcards["reference"])
+
+def surjectable_gam(wildcards):
+    """
+    Find a GAM mapped to a graph built on a reference that we can use to
+    surject to the reference we're interested in.
+    """
+    # TODO: Make similar redirects for the benchmarks!
+
+    format_data = dict(wildcards)
+
+    return "{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam".format(**format_data)
 
 def graph_base(wildcards):
     """
@@ -692,9 +834,12 @@ def base_fastq_gz(wildcards):
     if wildcards["trimmedness"] != ".trimmed":
         # Don't match trimmed files when not trimmed.
         results = [r for r in results if ".trimmed" not in r]
-    subset_regex = re.compile("([0-9]+[km]?|full)")
     # Skip any subset files
+    subset_regex = re.compile("([0-9]+[km]?|full)")
     results = [r for r in results if not subset_regex.fullmatch(r.split(".")[-3])]
+    # Skip any chunk files
+    chunk_regex = re.compile("chunk[0-9]*")
+    results = [r for r in results if not chunk_regex.fullmatch(r.split(".")[-3])]
     if len(results) == 0:
         # Can't find it
         if wildcards["trimmedness"] == ".trimmed":
@@ -709,9 +854,9 @@ def base_fastq_gz(wildcards):
                 without_fq, fq_ext = os.path.splitext(without_gz)
                 trimmed_base = without_fq + ".trimmed" + fq_ext + ".gz"
                 return trimmed_base
-        raise FileNotFoundError(f"No files found matching {full_gz_pattern}")
+        raise FileNotFoundError(f"No  non-chunk, non-subset files found matching {full_gz_pattern}")
     elif len(results) > 1:
-        raise RuntimeError("Multiple files matched " + full_gz_pattern)
+        raise RuntimeError("Multiple non-chunk, non-subset files matched " + full_gz_pattern)
     return results[0]
 
 def fastq_finder(wildcards, compressed = False):
@@ -1458,7 +1603,7 @@ rule get_release_vg:
         "wget https://github.com/vgteam/vg/releases/download/{wildcards.releaseversion}/vg -O {output} && chmod +x {output}"
 
 # See https://github.com/Platinum-Pedigree-Consortium/Platinum-Pedigree-Datasets and https://www.biorxiv.org/content/10.1101/2024.10.02.616333v1.full.pdf
-rule get_truth_vcf:
+rule get_dipcall_truth_vcf:
     output:
         vcf=TRUTH_DIR + "/{reference}/{sample}/{sample}.dip.vcf.gz",
         index=TRUTH_DIR + "/{reference}/{sample}/{sample}.dip.vcf.gz.tbi"
@@ -1475,6 +1620,42 @@ rule get_truth_vcf:
         slurm_partition=choose_partition(10)
     shell:
         "curl https://platinum-pedigree-data.s3.amazonaws.com/variants/assembly-based/dipcall/{params.cap_reference}/{params.na_sample}.dip.vcf.gz | bcftools reheader --samples <(echo {wildcards.sample}) | bcftools sort -O z >{output.vcf} && tabix -p vcf {output.vcf}"
+
+rule get_pedigree_truth_vcf:
+    output:
+        vcf=TRUTH_DIR + "/{reference}/{sample}/{sample}.family-truthset.ov.vcf.gz",
+        index=TRUTH_DIR + "/{reference}/{sample}/{sample}.family-truthset.ov.vcf.gz.tbi"
+    wildcard_constraints:
+        sample="HG001",
+        reference="grch38"
+    params:
+        cap_reference=lambda w: {"chm13": "CHM13", "grch38": "GRCh38"}[w["reference"]],
+        na_sample=lambda w: {"HG001": "NA12878"}[w["sample"]]
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "curl https://platinum-pedigree-data.s3.amazonaws.com/variants/small_variant_truthset/{params.cap_reference}/CEPH1463.GRCh38.family-truthset.ov.vcf.gz | bcftools view --samples {params.na_sample} | bcftools reheader --samples <(echo {wildcards.sample}) | bcftools sort -O z >{output.vcf} && tabix -p vcf {output.vcf}"
+
+rule get_andrew_truth_vcf:
+    output:
+        vcf=TRUTH_DIR + "/{reference}/{sample}/{sample}.andrew.platinum_hq_truthset.vcf.gz",
+        index=TRUTH_DIR + "/{reference}/{sample}/{sample}.andrew.platinum_hq_truthset.vcf.gz.tbi"
+    wildcard_constraints:
+        sample="HG001",
+        reference="grch38"
+    params:
+        na_sample=lambda w: {"HG001": "NA12878"}[w["sample"]]
+    threads: 1
+    resources:
+        mem_mb=4000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "curl https://storage.googleapis.com/brain-genomics/awcarroll/share/ucsc/platinum_truth/HG001.platinum_hq_truthset.vcf.gz | bcftools view --samples {params.na_sample} | bcftools reheader --samples <(echo {wildcards.sample}) | bcftools sort -O z >{output.vcf} && tabix -p vcf {output.vcf}"
+
 
 
 rule alias_gam_k:
@@ -1702,6 +1883,41 @@ rule callable_paths_index_reference:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell: "cat {input.paths} | grep -v '{params.uncallable_contig_regex}' > {output.paths}"
+
+rule callable_paths_dict_reference:
+    input:
+        paths=REFS_DIR + "/{reference}-pansn.fa.paths{region}.callable.txt",
+        reference_dict=reference_dict
+    output:
+        callable_dict=REFS_DIR + "/{reference}-pansn.fa.paths{region}.callable.dict",
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        wanted_paths = set((line.strip() for line in open(input.paths) if line.strip()))
+        with open(output.callable_dict, "w") as out:
+            for line in open(input.reference_dict):
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split("\t")
+                if parts[0] == "@HD":
+                    out.write(line)
+                    out.write("\n")
+                elif parts[0] == "@SQ":
+                    # Retain only @SQ lines from the dict for callable paths
+                    keep = False
+                    for part in parts:
+                        if part.startswith("SN:"):
+                            name = part[3:]
+                            if name in wanted_paths:
+                                keep = True
+                                break
+                    if keep:
+                        out.write(line)
+                        out.write("\n")
 
 rule callable_bed_index_calling_reference:
     input:
@@ -2174,10 +2390,10 @@ rule inject_bam:
 rule surject_gam:
     input:
         gbz=gbz,
-        # We leave out paths we can't call on, like Y in CHM13 (due to different Ys beign used in different graphs).
+        # We leave out paths we can't call on, like Y in CHM13 (due to different Ys being used in different graphs).
         # TODO: Fix this when we fix chrY somehow. CHM13v2.0 has HG002's Y.
-        reference_path_list_callable=reference_path_list_callable,
-        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        reference_path_dict_callable=reference_path_dict_callable,
+        gam=surjectable_gam
     output:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
@@ -2191,7 +2407,7 @@ rule surject_gam:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg surject -F {input.reference_path_list_callable} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
+        "vg surject -F {input.reference_path_dict_callable} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
 
 rule alias_bam_graph:
     # For BAM-generating mappers we can view their BAMs as if they mapped to any reference graph for a reference
@@ -2233,9 +2449,11 @@ rule call_variants:
         calling_reference_fasta_index=calling_reference_fasta_index,
         calling_reference_restrict_bed=calling_reference_restrict_bed,
         calling_reference_par_bed=calling_reference_par_bed,
+        truth_vcf=lambda w: remote_or_local(truth_vcf_url(w)),
+        truth_vcf_index=lambda w: remote_or_local(truth_vcf_index_url(w)),
+        truth_bed=lambda w: remote_or_local(truth_bed_url(w))
     output:
-        wdl_input_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.input.json",
-        wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.json",
+       wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.json",
         # TODO: make this temp so we can delete it?
         wdl_output_directory=directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.wdlrun"),
         # Treat the job store as an output so it can live on the right filesystem.
@@ -2247,12 +2465,10 @@ rule call_variants:
     log:
         logfile="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.log"
     params:
-        truth_vcf_url=truth_vcf_url,
-        truth_vcf_index_url=truth_vcf_index_url,
-        truth_bed_url=truth_bed_url,
         reference_prefix=reference_prefix,
         haploid_contigs=haploid_contigs,
         wdl_cache=wdl_cache,
+        wdl_input_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.input.json"
     threads: 8
     resources:
         mem_mb=60000,
@@ -2289,9 +2505,9 @@ rule call_variants:
             "DeepVariant.DV_GPU_DOCKER": "google/deepvariant:1.6.1-gpu",
             "DeepVariant.DV_NO_GPU_DOCKER": "google/deepvariant:1.6.1",
             "DeepVariant.DV_IS_1_7_OR_NEWER": False,
-            "DeepVariant.TRUTH_VCF": params.truth_vcf_url,
-            "DeepVariant.TRUTH_VCF_INDEX": params.truth_vcf_index_url,
-            "DeepVariant.EVALUATION_REGIONS_BED": params.truth_bed_url,
+            "DeepVariant.TRUTH_VCF": to_local(input.truth_vcf),
+            "DeepVariant.TRUTH_VCF_INDEX": to_local(input.truth_vcf_index),
+            "DeepVariant.EVALUATION_REGIONS_BED": to_local(input.truth_bed),
             "DeepVariant.RESTRICT_REGIONS_BED": input.calling_reference_restrict_bed,
             "DeepVariant.PAR_REGIONS_BED_FILE": input.calling_reference_par_bed,
             "DeepVariant.HAPLOID_CONTIGS": params.haploid_contigs,
@@ -2302,8 +2518,11 @@ rule call_variants:
             "DeepVariant.OUTPUT_CALLING_BAMS": False,
             "DeepVariant.CALL_CORES": 32,
         }
-        json.dump(wf_inputs, open(output["wdl_input_file"], "w"))
-        shell("MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT=true MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner " + wf_url + " {output.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False --logFile={log.logfile} 2>/dev/null")
+        json.dump(wf_inputs, open(params["wdl_input_file"], "w"))
+        # Run and keep the first manageable amount of logs not sent to the log
+        # file in case we can't start. Don't stop when we hit the log limit.
+        # See https://superuser.com/a/1531706
+        shell("MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT=true MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner " + wf_url + " {params.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False --logFile={log.logfile} 2>&1 | (head -c1000000; cat >/dev/null)")
         wdl_result=json.load(open(output.wdl_output_file))
         shell("cp " + wdl_result["DeepVariant.output_vcf"] + " {output.vcf}")
         shell("cp " + wdl_result["DeepVariant.output_vcf_index"] + " {output.vcf_index}")

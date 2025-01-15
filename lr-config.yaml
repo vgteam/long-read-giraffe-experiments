@@ -598,10 +598,19 @@ experiments:
       trimmedness: ""
       realness: real
       mapper: "giraffe-k31.w50.W-hifi-default-noflags"
-      refgraph: "hprc-v2.prerelease.2-mc-eval-nov22-d39"
-      # SV specific parameters with generic names
-      caller: vgcall
-      truthset: giab6_chm13
+      refgraph: "hprc-v2.prerelease.2-mc-eval-nov22-masked38-masked19-d39"
+    vary:
+      sample: ["HG001", "HG002"]
+
+  illumina_real_samples_grch38:
+    control:
+      subset: full
+      tech: illumina
+      reference: grch38
+      trimmedness: ""
+      realness: real
+      mapper: "giraffe-k29.w11.W-default-default-noflags"
+      refgraph: "hprc-v2.prerelease.2-mc-eval-masked38-nov22-d39"
     vary:
       sample: ["HG001", "HG002"]
 
