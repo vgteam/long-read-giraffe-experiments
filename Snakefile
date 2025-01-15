@@ -59,6 +59,9 @@ GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/
 # giab6_chm13.vcf.gz
 # giab6_chm13.confreg.bed
 #
+# And a tandem repeat bed for sniffles
+# human_chm13v2.0_maskedY_rCRS.trf.bed (from https://raw.githubusercontent.com/PacificBiosciences/pbsv/refs/heads/master/annotations/human_chm13v2.0_maskedY_rCRS.trf.bed)
+#
 # TODO: For HG001 we might need https://platinum-pedigree-data.s3.amazonaws.com/variants/merged_sv_truthset/GRCh38/merged_hg38.svs.sort.oa.vcf.gz
 
 SV_DATA_DIR = config.get("sv_data_dir", None) or "/private/home/jmonlong/workspace/lreval/data"
@@ -5016,6 +5019,29 @@ rule vgcall:
         out_path = os.path.abspath(output.vcf)
         log_path = os.path.abspath(log.logfile)
         shell("cd {LARGE_TEMP_DIR} && vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k " + pack_path + " -r " + snarls_path + " -t {threads} " + graph_path + " | gzip > " + out_path + " 2> " + log_path)
+
+# Call SVs with linear caller sniffles
+# Copied from Jean
+rule call_svs_sniffles:
+    input:
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
+        bai="{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai",
+        vntr=SV_DATA_DIR+"/human_chm13v2.0_maskedY_rCRS.trf.bed"
+    output: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vcf.gz"
+    threads: 16
+    log: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.log"
+    benchmark: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.benchmark"
+    resources:
+        mem_mb=32000,
+        runtime=120,
+        slurm_partition=choose_partition(120)
+    container: 'docker://quay.io/biocontainers/sniffles:2.5.3--pyhdfd78af_0'
+    shell:
+        """
+        sniffles -i {input.bam} -v {output}.temp.vcf.gz -t {threads} --tandem-repeats {input.vntr} 2>&1 > {log}
+        zcat {output}.temp.vcf.gz | sed 's/CHM13#0#//g' | gzip >{output}
+        rm {output}.temp.vcf.gz
+        """
 
 rule truvari:
     input:
