@@ -4861,7 +4861,7 @@ rule sv_summary_by_condition:
     params:
         condition_name=condition_name
     shell:
-        "echo \"{params.condition_name}\t$(jq -r '[.TP-base,.FN,.FP,.recall,.precision,.f1] | @tsv' {input.json})\" >{output.tsv}"
+        "echo \"{params.condition_name}\t$(jq -r '[.[\"TP-base\"],.FN,.FP,.recall,.precision,.f1] | @tsv' {input.json})\" >{output.tsv}"
 rule sv_summary_table:
     input:
         tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv")
