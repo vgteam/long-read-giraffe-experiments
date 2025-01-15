@@ -404,8 +404,8 @@ experiments:
       sample: HG002
       realness: real
       truthset: giab6_chm13
-      caller: vgcall
     vary:
+      caller: ["vgcall", "sniffles"]
       tech: ["hifi", "r10"]
       mapper: ["minimap2-map-hifi", "minimap2-lr:hqae", "graphaligner-default", "giraffe-k31.w50.W-hifi-839e93-noflags", "giraffe-k31.w50.W-r10-839e93-noflags"]
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
@@ -441,6 +441,12 @@ experiments:
           refgraph: ["hprc-v1.1-mc"]
         - mapper: ["minimap2-map-hifi", "minimap2-lr:hqae"]
           refgraph: ["hprc-v1.1-mc-d9"]
+      - 
+        #Use linear mappers with sniffles and graph mappers with vgcall
+        - caller: ["vgcall"]
+          mapper: ["graphaligner-default", "giraffe-k31.w50.W-hifi-839e93-noflags", "giraffe-k31.w50.W-r10-839e93-noflags"]
+        - caller: ["sniffles"]
+          mapper: ["minimap2-map-hifi", "minimap2-lr:hqae"]
 
 
   # This experiment tests all the mappers, realnesses, technologies, and
