@@ -5095,9 +5095,9 @@ rule truvari:
 # This uses TP-base, the number of matching variants as counted by the truth set
 rule sv_summary_by_condition:
     input:
-        json="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json"
+        json="{root}/svcall/{caller}/{mapper}/eval/{truthset}_{truthref}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.truvari.refine.variant_summary.json"
     output:
-        tsv="{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv"
+        tsv="{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}_{truthref}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.sv_summary.tsv"
     threads: 1
     resources:
         mem_mb=200,
@@ -5109,7 +5109,7 @@ rule sv_summary_by_condition:
         "echo \"{params.condition_name}\t$(jq -r '[.[\"TP-base\"],.FN,.FP,.recall,.precision,.f1] | @tsv' {input.json})\" >{output.tsv}"
 rule sv_summary_table:
     input:
-        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv")
+        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}_{truthref}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.sv_summary.tsv")
     output:
         tsv="{root}/experiments/{expname}/results/sv_summary.tsv"
     threads: 1
