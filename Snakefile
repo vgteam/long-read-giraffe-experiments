@@ -163,10 +163,6 @@ REFS_DIR = config.get("refs_dir", None) or "/private/groups/patenlab/anovak/proj
 # These are organized by reference and then sample
 TRUTH_DIR = config.get("truth_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/truth-sets"
 
-# For HG001 on GRCh38, should we use Andrew Carroll's truth set instead of the
-# official Platinum Pedigree truth set?
-USE_ANDREW_TRUTH = False
-
 # When we "snakemake all_paper_figures", where should the results go?
 ALL_OUT_DIR = config.get("all_out_dir", None) or "/private/groups/patenlab/project-lrg"
 
@@ -569,22 +565,15 @@ def truth_vcf_url(wildcards):
             "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1.vcf.gz",
             "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark.vcf.gz"
         }[wildcards["reference"]]
-
-    # Otherwise report a path in our truth set directory and hope we know how to make it.
-
-    if wildcards["reference"] == "chm13":
-        # On CHM13 we don't have a real benchmark set, so we have to use the raw Platinum Pedigree dipcall calls.
-        return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".dip.vcf.gz")
-    elif wildcards["reference"] == "grch38":
-        if wildcards["sample"] == "HG001" and USE_ANDREW_TRUTH:
-            # Use Andrew Carroll's magic PP-derived truth set
-            # It doesn't have an index on the server so we need to run though a rule to make one
-            return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".andrew.platinum_hq_truthset.vcf.gz")
-        # On GRCh38 we can use the Platinum Pedigree pedigree consistent merged small variant calls
-        return os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".family-truthset.ov.vcf.gz")
+    elif wildcards["sample"] == "HG001":
+        return  {
+            # On CHM13 we don't have a real benchmark set, so we have to use the raw Platinum Pedigree dipcall calls.
+            "chm13": os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".dip.vcf.gz"),
+            # On GRCh38 there's a GIAB truth set
+            "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/NA12878_HG001/NISTv4.2.1/GRCh38/HG001_GRCh38_1_22_v4.2.1_benchmark.vcf.gz"
+        }[wildcards["reference"]]
     else:
-        raise RuntimeError("Unsupported reference: " + wildcards["reference"])
-
+        raise RuntimeError("Unsupported sample: " + wildcards["sample"])
 
 def truth_vcf_index_url(wildcards):
     """
@@ -599,25 +588,22 @@ def truth_bed_url(wildcards):
     If compressed, must end in ".gz".
     """
 
-    if wildcards["sample"] == "HG002" or wildcards["reference"] == "chm13":
+    if wildcards["sample"] == "HG002":
         # For HG002, these are available online directly.
-        # On CHM13 we don't have Platinum Pedigree high-confidence regions, so
-        # we need to just use the HG002 ones for other samples and hope they're close enough.
         return {
             "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
             "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed"
         }[wildcards["reference"]]
-
-    if wildcards["reference"] == "grch38":
-        if wildcards["sample"] == "HG001" and USE_ANDREW_TRUTH:
-            # Use Andrew Carroll's magic PP-derived truth set
-            return "https://storage.googleapis.com/brain-genomics/awcarroll/share/ucsc/platinum_truth/HG001.platinum_hq_truthset.confident.bed"
-        # On GRCh38 we can use the Platinum Pedigree pedigree consistent merged
-        # small variant calls, which all use a single BED. The BED doesn't
-        # depend on sample name at all, and is online.
-        return "https://platinum-pedigree-data.s3.amazonaws.com/variants/small_variant_truthset/GRCh38/hq_regions_final.bed.gz"
+    elif wildcards["sample"] == "HG001":
+        return  {
+            # TODO: On CHM13 we don't have Platinum Pedigree high-confidence regions, so
+            # we need to just use the HG002 ones for other samples and hope they're close enough.
+            "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
+            # On GRCh38 there's a GIAB truth set
+            "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/NA12878_HG001/NISTv4.2.1/GRCh38/HG001_GRCh38_1_22_v4.2.1_benchmark.bed"
+        }[wildcards["reference"]]
     else:
-        raise RuntimeError("Unsupported reference: " + wildcards["reference"])
+        raise RuntimeError("Unsupported sample: " + wildcards["sample"])
 
 def surjectable_gam(wildcards):
     """
@@ -1632,25 +1618,6 @@ rule get_pedigree_truth_vcf:
         slurm_partition=choose_partition(10)
     shell:
         "curl https://platinum-pedigree-data.s3.amazonaws.com/variants/small_variant_truthset/{params.cap_reference}/CEPH1463.GRCh38.family-truthset.ov.vcf.gz | bcftools view --samples {params.na_sample} | bcftools reheader --samples <(echo {wildcards.sample}) | bcftools sort -O z >{output.vcf} && tabix -p vcf {output.vcf}"
-
-rule get_andrew_truth_vcf:
-    output:
-        vcf=TRUTH_DIR + "/{reference}/{sample}/{sample}.andrew.platinum_hq_truthset.vcf.gz",
-        index=TRUTH_DIR + "/{reference}/{sample}/{sample}.andrew.platinum_hq_truthset.vcf.gz.tbi"
-    wildcard_constraints:
-        sample="HG001",
-        reference="grch38"
-    params:
-        na_sample=lambda w: {"HG001": "NA12878"}[w["sample"]]
-    threads: 1
-    resources:
-        mem_mb=4000,
-        runtime=10,
-        slurm_partition=choose_partition(10)
-    shell:
-        "curl https://storage.googleapis.com/brain-genomics/awcarroll/share/ucsc/platinum_truth/HG001.platinum_hq_truthset.vcf.gz | bcftools view --samples {params.na_sample} | bcftools reheader --samples <(echo {wildcards.sample}) | bcftools sort -O z >{output.vcf} && tabix -p vcf {output.vcf}"
-
-
 
 rule alias_gam_k:
     input:
