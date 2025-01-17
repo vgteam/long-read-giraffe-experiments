@@ -400,11 +400,12 @@ experiments:
   sv_calling:
     control:
       subset: full
-      reference: chm13
       sample: HG002
       realness: real
-      truthset: giab6_chm13
+      truthset: giab6
     vary:
+      reference: ["chm13", "grch38"]
+      truthref: ["chm13", "grch38"]
       caller: ["vgcall", "sniffles"]
       tech: ["hifi", "r10"]
       mapper: ["minimap2-map-hifi", "minimap2-lr:hqae", "graphaligner-default", "giraffe-k31.w50.W-hifi-839e93-noflags", "giraffe-k31.w50.W-r10-839e93-noflags"]
@@ -447,6 +448,17 @@ experiments:
           mapper: ["graphaligner-default", "giraffe-k31.w50.W-hifi-839e93-noflags", "giraffe-k31.w50.W-r10-839e93-noflags"]
         - caller: ["sniffles"]
           mapper: ["minimap2-map-hifi", "minimap2-lr:hqae"]
+      - 
+        # Use the same mapping and calling reference for minimap, but vary the calling reference for graphs
+        - caller: ["sniffles"]
+          truthref: ["chm13"]
+          reference: ["chm13"]
+        - caller: ["sniffles"]
+          truthref: ["grch38"]
+          reference: ["grch38"]
+        - caller: ["vgcall"]
+          truthref: ["chm13", "grch38"]
+          reference: ["chm13"]
 
 
   # This experiment tests all the mappers, realnesses, technologies, and
