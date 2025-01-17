@@ -59,6 +59,9 @@ GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/
 # giab6_chm13.vcf.gz
 # giab6_chm13.confreg.bed
 #
+# And a tandem repeat bed for sniffles
+# human_chm13v2.0_maskedY_rCRS.trf.bed (from https://raw.githubusercontent.com/PacificBiosciences/pbsv/refs/heads/master/annotations/human_chm13v2.0_maskedY_rCRS.trf.bed)
+#
 # TODO: For HG001 we might need https://platinum-pedigree-data.s3.amazonaws.com/variants/merged_sv_truthset/GRCh38/merged_hg38.svs.sort.oa.vcf.gz
 
 SV_DATA_DIR = config.get("sv_data_dir", None) or "/private/home/jmonlong/workspace/lreval/data"
@@ -253,8 +256,8 @@ def auto_mapping_threads(wildcards):
     if wildcards.get("mapper", "").startswith("graphaligner"):
         #Graphaligner is really slow so for simulated reads where we don't care about time
         #double the number of threads
-        #At most the number of cores on the phoenix nodes
-        return min(mapping_threads * 2, 254) 
+        #At most 128 because it errors with too many threads sometimes
+        return min(mapping_threads * 2, 128) 
     else:
         return mapping_threads
 
@@ -852,8 +855,11 @@ def fastq_finder(wildcards, compressed = False):
 
     extra_ext = ".gz" if compressed else ""
 
+    #If we chunked the reads, we need to add it. Otherwise there isn't a chunk
+    readchunk = wildcards.get("readchunk", "")
+
     import glob
-    fastq_by_sample_pattern = os.path.join(READS_DIR, ("{realness}/{tech}/{sample}/*{sample}*{trimmedness}[._-]{subset}.f*q" + extra_ext).format(**wildcards))
+    fastq_by_sample_pattern = os.path.join(READS_DIR, ("{realness}/{tech}/{sample}/*{sample}*{trimmedness}[._-]{subset}" + readchunk+ ".f*q" + extra_ext).format(**wildcards))
     results = glob.glob(fastq_by_sample_pattern)
     if wildcards["trimmedness"] != ".trimmed":
         # Don't match trimmed files when not trimmed.
@@ -865,12 +871,12 @@ def fastq_finder(wildcards, compressed = False):
             # And compute the subset name
             without_gz = os.path.splitext(full_file)[0]
             without_fq = os.path.splitext(without_gz)[0]
-            return without_fq + (".{subset}.fq" + extra_ext).format(**wildcards)
+            return without_fq + (".{subset}" + readchunk+ ".fq" + extra_ext).format(**wildcards)
         elif wildcards["realness"] == "sim":
             # Assume we can get this FASTQ.
             # For simulated reads we assume the right subset GAM is there. We
             # don't want to deal with the 1k/1000 difference here.
-            return os.path.join(READS_DIR, ("{realness}/{tech}/{sample}/{sample}-{realness}-{tech}{trimmedness}-{subset}.fq" + extra_ext).format(**wildcards))
+            return os.path.join(READS_DIR, ("{realness}/{tech}/{sample}/{sample}-{realness}-{tech}{trimmedness}-{subset}" + readchunk+ ".fq" + extra_ext).format(**wildcards))
         else:
             raise FileNotFoundError(f"No files found matching {fastq_by_sample_pattern}")
     elif len(results) > 1:
@@ -1760,6 +1766,50 @@ rule extract_fastq_gz_from_full_gam:
     shell:
         "vg view --fastq-out --threads 16 {input.gam} | pigz -p 8 -c >{output.fastq_gz}"
 
+
+# From Jean, chunk and unchunk reads, because graphaligner takes too long and errors when given too many threads
+# number of read chunks (for GraphAligner)
+if 'n_read_chunk' not in config:
+    config['n_read_chunk'] = 20
+READ_CHUNKS = list(range(config['n_read_chunk']))
+
+#Split read fq.gz file into chunks
+rule split_reads:
+    input: "{reads_dir}/{realness}/{tech}/{sample}/{basename}{trimmedness}.{subset}.fq.gz"
+    output: temp(expand('{{reads_dir}}/{{realness}}/{{tech}}/{{sample}}/{{basename}}{{trimmedness}}.{{subset}}.chunk{chunk}.fq.gz', chunk=READ_CHUNKS))
+    threads: 4
+    resources:
+        mem_mb=12000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    container: 'docker://quay.io/biocontainers/fastqsplitter:1.2.0--py312hf67a6ed_6'
+    params:
+        outfiles=lambda wildcards, output: '-o ' + ' -o '.join(output)
+    shell:
+        """
+        fastqsplitter -i {input} {params.outfiles}
+        """
+
+# Put mapped chunks of reads back together
+rule merge_graphaligner_gams:
+    input: expand('{{root}}/aligned-secsup/{{reference}}/{{refgraph}}/{{mapper}}-{{graphalignerflag}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.chunk{chunk}.gam', chunk=READ_CHUNKS)
+    output:
+        gam=temp("{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam")
+    wildcard_constraints:
+        realness="real",
+        mapper="graphaligner.*",
+        subset="full",
+        refgraph="hprc-v1.1-mc"
+    threads: 1
+    resources:
+        mem_mb=8000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell: "cat {input} > {output}"
+
+# Prefer to chunk gams for graphaligner, but only works for real reads on the full hprc graph
+ruleorder: merge_graphaligner_gams > graphaligner_real_reads
+
 rule dict_index_reference:
     input:
         reference_fasta=reference_fasta
@@ -2134,9 +2184,9 @@ rule graphaligner_real_reads:
         gfa=gfa,
         fastq_gz=fastq_gz
     output:
-        gam=temp("{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam")
-    benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
-    log: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        gam=temp("{root}/aligned-secsup/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}{readchunk}.gam")
+    benchmark: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}{readchunk}.benchmark"
+    log: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}{readchunk}.log"
     wildcard_constraints:
         realness="real",
         mapper="graphaligner.*"
@@ -2271,7 +2321,7 @@ rule select_first_duplicate_read_gam:
         runtime=1600,
         slurm_partition=choose_partition(1600)
     shell:
-        "vg view -aj {input.gam} | python3 select_first_gam.py | vg view -aGJ - > {output.gam}"
+        "vg filter -l {input.gam} > {output.gam}"
 
 rule select_best_duplicate_read_gaf:
     input:
@@ -2476,6 +2526,7 @@ rule stat_from_happy_summary:
     run:
         shell("cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].upper() + ",PASS' | cut -f{params.colnum} -d',' >{output.tsv}")
 
+#This outputs a tsv of: tp, fn, fp, recall, precision, f1
 rule dv_summary_by_condition:
     input:
         happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.eval.summary.csv"
@@ -3254,6 +3305,22 @@ rule experiment_calling_plot:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} {wildcards.vartype} {wildcards.colname}' --y_label '{wildcards.colname}' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 
+rule experiment_calling_summary_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/{vartype}_summary.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/{vartype}_summary.{ext}"
+    wildcard_constraints:
+        vartype="(dv_snp|dv_indel|sv)",
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "Rscript plot-calling-results.R {input.tsv} {output}"
+
+
 rule experiment_speed_from_log_tsv:
     input:
         lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
@@ -3318,6 +3385,8 @@ rule experiment_runtime_from_benchmark_tsv:
         slurm_partition=choose_partition(60)
     shell:
         "cat {input} >>{output.tsv}"
+
+ruleorder: experiment_runtime_from_benchmark_tsv > experiment_stat_table
 
 rule experiment_runtime_from_benchmark_plot:
     input:
@@ -3523,7 +3592,7 @@ rule experiment_mapping_stats_real_tsv:
         slurm_partition=choose_partition(60)
     shell:
         """
-        printf "condition\truntime(min)\tmemory(GB)\tsoftclipped_or_unmapped\n" >> {output.tsv} 
+        printf "condition\truntime(min)\tstartup_time(min)\tsampling_time(min)\tmemory(GB)\tsoftclipped_or_unmapped\n" >> {output.tsv} 
         cat {input} >>{output.tsv}
         """
 ruleorder: experiment_mapping_stats_real_tsv > experiment_stat_table
@@ -3972,8 +4041,8 @@ rule length_by_name:
     threads: 5
     resources:
         mem_mb=2000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        runtime=120,
+        slurm_partition=choose_partition(120)
     shell:
         "vg filter -t {threads} -T \"name;length\" {input.gam} | grep -v \"#\" >{output}"
 
@@ -3986,8 +4055,8 @@ rule length_by_mapping:
     threads: 2
     resources:
         mem_mb=16000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        runtime=360,
+        slurm_partition=choose_partition(360)
     run:
         mapped_names = set()
         with open(input.lengths) as in_file:
@@ -4030,8 +4099,8 @@ rule length_by_correctness:
     threads: 5
     resources:
         mem_mb=2000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        runtime=120,
+        slurm_partition=choose_partition(120)
     shell:
         "vg filter -t {threads} -T \"correctness;sequence\" {input.gam} | grep -v \"#\" | awk -v OFS='\t' '{{print $1, length($2)}}' > {output}"
 
@@ -4061,8 +4130,8 @@ rule unmapped_ends_by_name:
     threads: 5
     resources:
         mem_mb=4000,
-        runtime=120,
-        slurm_partition=choose_partition(120)
+        runtime=360,
+        slurm_partition=choose_partition(360)
     run:
         read_to_length = dict()
         with open(input.fastq) as read_file:
@@ -4918,6 +4987,29 @@ rule vgcall:
         log_path = os.path.abspath(log.logfile)
         shell("cd {LARGE_TEMP_DIR} && vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k " + pack_path + " -r " + snarls_path + " -t {threads} " + graph_path + " | gzip > " + out_path + " 2> " + log_path)
 
+# Call SVs with linear caller sniffles
+# Copied from Jean
+rule call_svs_sniffles:
+    input:
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
+        bai="{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai",
+        vntr=SV_DATA_DIR+"/human_chm13v2.0_maskedY_rCRS.trf.bed"
+    output: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vcf.gz"
+    threads: 16
+    log: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.log"
+    benchmark: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.benchmark"
+    resources:
+        mem_mb=32000,
+        runtime=120,
+        slurm_partition=choose_partition(120)
+    container: 'docker://quay.io/biocontainers/sniffles:2.5.3--pyhdfd78af_0'
+    shell:
+        """
+        sniffles -i {input.bam} -v {output}.temp.vcf.gz -t {threads} --tandem-repeats {input.vntr} 2>&1 > {log}
+        zcat {output}.temp.vcf.gz | sed 's/CHM13#0#//g' | gzip >{output}
+        rm {output}.temp.vcf.gz
+        """
+
 rule truvari:
     input:
         truth_vcf=SV_DATA_DIR+'/{truthset}.vcf.gz',
@@ -4965,13 +5057,14 @@ rule truvari:
         """
 
 #Print summary statistics from sv calling with the format:
-# condition f1 FN FP
-#The input json also has "TP-base", "TP-comp", "precision", "recall", "base cnt", "comp cnt"
+#This outputs a tsv of: tp, fn, fp, recall, precision, f1
+#The input json has "TP-base", "TP-comp", "FP", "FN", "precision", "recall", "f1", "base cnt", "comp cnt"
+# This uses TP-base, the number of matching variants as counted by the truth set
 rule sv_summary_by_condition:
     input:
         json="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json"
     output:
-        tsv="{root}/experiments/{expname}/svcall/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv"
+        tsv="{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv"
     threads: 1
     resources:
         mem_mb=200,
@@ -4980,12 +5073,12 @@ rule sv_summary_by_condition:
     params:
         condition_name=condition_name
     shell:
-        "echo \"{params.condition_name}\t$(jq -r '[.f1,.FN,.FP,.precision,.recall] | @tsv' {input.json})\" >{output.tsv}"
+        "echo \"{params.condition_name}\t$(jq -r '[.[\"TP-base\"],.FN,.FP,.recall,.precision,.f1] | @tsv' {input.json})\" >{output.tsv}"
 rule sv_summary_table:
     input:
-        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/svcall/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv")
+        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv")
     output:
-        tsv="{root}/experiments/{expname}/svcall/results/sv_calling_summary.tsv"
+        tsv="{root}/experiments/{expname}/results/sv_summary.tsv"
     threads: 1
     resources:
         mem_mb=200,
@@ -4993,10 +5086,10 @@ rule sv_summary_table:
         slurm_partition=choose_partition(10)
     shell:
         """
-        printf "condition\tF1\tFN\tFP\tprecision\trecall\n" >> {output.tsv}
+        printf "condition\tTP\tFN\tFP\trecall\tprecision\tF1\n" >> {output.tsv}
         cat {input} >>{output.tsv}
         """
-
+ruleorder: sv_summary_table > experiment_stat_table
 
 
 
@@ -5015,7 +5108,7 @@ rule all_paper_figures:
         mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.latex.tsv", expname=config["sim_exps"]),
         qq=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/qq.pdf", expname=config["headline_sim_exps"]),
         roc=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/roc.pdf", expname=config["headline_sim_exps"]),
-        dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_indel_summary.tsv", expname=config["dv_exps"]),
-        dv_snp=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_snp_summary.tsv", expname=config["dv_exps"]),
-        svs=expand(ALL_OUT_DIR + "/experiments/{expname}/svcall/results/sv_calling_summary.tsv", expname=config["sv_exps"])
+        dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_indel_summary.pdf", expname=config["dv_exps"]),
+        dv_snp=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_snp_summary.pdf", expname=config["dv_exps"]),
+        svs=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/sv_summary.pdf", expname=config["sv_exps"])
 
