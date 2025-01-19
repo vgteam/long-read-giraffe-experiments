@@ -520,6 +520,17 @@ def calling_reference_par_bed(wildcards):
     Find the BED for the psuedo-autosomal regions of a reference, from reference.
     """
     return os.path.splitext(calling_reference_fasta(wildcards))[0] + "_PAR.bed"
+def sv_calling_vntr_bed(wildcards):
+    """
+    Find the vntr bed file for sniffles
+    """
+
+    match wildcards["reference"]:
+        case "chm13":
+            return os.path.join(SV_DATA_DIR, "human_chm13v2.0_maskedY_rCRS.trf.bed")
+        case reference:
+            return os.path.join(SV_DATA_DIR, "human_GRCh38_no_alt_analysis_set.trf.bed")
+
 
 def uncallable_contig_regex(wildcards):
     """
@@ -5026,7 +5037,8 @@ rule call_svs_sniffles:
     input:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
         bai="{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai",
-        vntr=SV_DATA_DIR+"/human_chm13v2.0_maskedY_rCRS.trf.bed"
+        vntr=sv_calling_vntr_bed,
+        ref_fasta=reference_fasta
     output: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{reference}.vcf.gz"
     threads: 16
     log: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.log"
@@ -5038,8 +5050,8 @@ rule call_svs_sniffles:
     container: 'docker://quay.io/biocontainers/sniffles:2.5.3--pyhdfd78af_0'
     shell:
         """
-        sniffles -i {input.bam} -v {output}.temp.vcf.gz -t {threads} --tandem-repeats {input.vntr} 2>&1 > {log}
-        zcat {output}.temp.vcf.gz | sed 's/CHM13#0#//g' | gzip >{output}
+        sniffles -i {input.bam} -v {output}.temp.vcf.gz -t {threads} --tandem-repeats {input.vntr} --referance {input.ref_fasta} 2>&1 > {log}
+        zcat {output}.temp.vcf.gz | sed 's/CHM13#0#//g' | sed 's/GRCh38#0#//g' | gzip >{output}
         rm {output}.temp.vcf.gz
         """
 
