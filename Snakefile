@@ -2200,7 +2200,8 @@ rule graphaligner_real_reads:
     log: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}{readchunk}.log"
     wildcard_constraints:
         realness="real",
-        mapper="graphaligner.*"
+        mapper="graphaligner.*",
+        readchunk=".chunk[0-9]*|"
     threads: auto_mapping_threads
     params:
         mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
