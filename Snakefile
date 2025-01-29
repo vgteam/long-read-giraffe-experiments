@@ -1247,6 +1247,10 @@ def get_vg_flags(wildcard_flag):
             return "--explored-cap"
         case downsample_number if downsample_number[0:10] == "downsample":
             return "--downsample-min " + downsample_number[10:]
+        case minchains_number if minchains_number[0:9] == "minchains":
+            return "--min-chains " + minchains_number[9:]
+        case "paramset1":
+            return "--min-chains 2 --chain-score-threshold 500"
         case "mapqscale":
             return "--mapq-score-scale 0.01"
         case "moreseeds":
