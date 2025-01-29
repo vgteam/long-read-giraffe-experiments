@@ -483,7 +483,7 @@ def reference_sample(wildcards):
     return {
         "chm13": "CHM13",
         "grch38": "GRCh38"
-    }[wildcards["reference"]]
+    }[wildcards["truthref"]]
 
 def calling_reference_fasta(wildcards):
     """
@@ -516,6 +516,17 @@ def calling_reference_par_bed(wildcards):
     Find the BED for the psuedo-autosomal regions of a reference, from reference.
     """
     return os.path.splitext(calling_reference_fasta(wildcards))[0] + "_PAR.bed"
+def sv_calling_vntr_bed(wildcards):
+    """
+    Find the vntr bed file for sniffles
+    """
+
+    match wildcards["reference"]:
+        case "chm13":
+            return os.path.join(SV_DATA_DIR, "human_chm13v2.0_maskedY_rCRS.trf.bed")
+        case reference:
+            return os.path.join(SV_DATA_DIR, "human_GRCh38_no_alt_analysis_set.trf.bed")
+
 
 def uncallable_contig_regex(wildcards):
     """
@@ -2411,7 +2422,7 @@ rule sort_bam:
         with tempfile.TemporaryDirectory() as sort_scratch:
             shell("samtools sort -T " + os.path.join(sort_scratch, "scratch") + " --threads {threads} {input.bam} -O BAM > {output.bam} && samtools index -b {output.bam} {output.bai}")
 
-rule call_variants:
+rule call_variants_dv:
     input:
         sorted_bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
         sorted_bam_index="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai",
@@ -4972,10 +4983,10 @@ rule vgcall:
         graph=gbz,
         snarls=snarls
     output:
-        vcf='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vcf.gz'
-    benchmark: '{root}/svcall/vgcall/{mapper}/benchmark.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.tsv'
+        vcf='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz'
+    benchmark: '{root}/svcall/vgcall/{mapper}/benchmark.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.tsv'
     log:
-        logfile='{root}/svcall/vgcall/{mapper}/log.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.log'
+        logfile='{root}/svcall/vgcall/{mapper}/log.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.log'
     threads: 4
     params:
         reference_sample=reference_sample
@@ -4997,8 +5008,9 @@ rule call_svs_sniffles:
     input:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
         bai="{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai",
-        vntr=SV_DATA_DIR+"/human_chm13v2.0_maskedY_rCRS.trf.bed"
-    output: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vcf.gz"
+        vntr=sv_calling_vntr_bed,
+        ref_fasta=reference_fasta
+    output: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{reference}.vcf.gz"
     threads: 16
     log: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.log"
     benchmark: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.benchmark"
@@ -5009,30 +5021,30 @@ rule call_svs_sniffles:
     container: 'docker://quay.io/biocontainers/sniffles:2.5.3--pyhdfd78af_0'
     shell:
         """
-        sniffles -i {input.bam} -v {output}.temp.vcf.gz -t {threads} --tandem-repeats {input.vntr} 2>&1 > {log}
-        zcat {output}.temp.vcf.gz | sed 's/CHM13#0#//g' | gzip >{output}
+        sniffles -i {input.bam} -v {output}.temp.vcf.gz -t {threads} --tandem-repeats {input.vntr} --referance {input.ref_fasta} 2>&1 > {log}
+        zcat {output}.temp.vcf.gz | sed 's/CHM13#0#//g' | sed 's/GRCh38#0#//g' | gzip >{output}
         rm {output}.temp.vcf.gz
         """
 
 rule truvari:
     input:
-        truth_vcf=SV_DATA_DIR+'/{truthset}.vcf.gz',
+        truth_vcf=SV_DATA_DIR+'/{truthset}_{truthref}.vcf.gz',
         # TODO: Rename caller to svcaller to avoid confusing it with the point variant caller (always DV)
-        sample_vcf='{root}/svcall/{caller}/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.vcf.gz',
-        confreg=SV_DATA_DIR+'/{truthset}.confreg.bed',
+        sample_vcf='{root}/svcall/{caller}/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz',
+        confreg=SV_DATA_DIR+'/{truthset}_{truthref}.confreg.bed',
         ref=calling_reference_fasta
     output:
-        summary="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.summary.json",
-        refine_var="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json",
-        refine_reg="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.region_summary.json",
+        summary="{root}/svcall/{caller}/{mapper}/eval/{truthset}_{truthref}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.truvari.summary.json",
+        refine_var="{root}/svcall/{caller}/{mapper}/eval/{truthset}_{truthref}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.truvari.refine.variant_summary.json",
+        refine_reg="{root}/svcall/{caller}/{mapper}/eval/{truthset}_{truthref}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.region_summary.json",
         # These aren't actual outputs but are scratch files which we rely on Snakemake to manage cleanup for
-        odir=temp(directory('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}')),
-        bvcf=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.base.vcf.gz'),
-        bvcf_index=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.base.vcf.gz.tbi'),
-        cvcf_temp=temp('{root}/temp/{caller}.{mapper}.temp.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.vcf.gz'),
-        cvcf_temp_index=temp('{root}/temp/{caller}.{mapper}.temp.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.vcf.gz.tbi'),
-        cvcf=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.nomulti.vcf.gz'),
-        cvcf_index=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.call.nomulti.vcf.gz.tbi')
+        odir=temp(directory('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}')),
+        bvcf=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.base.vcf.gz'),
+        bvcf_index=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.base.vcf.gz.tbi'),
+        cvcf_temp=temp('{root}/temp/{caller}.{mapper}.temp.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.call.vcf.gz'),
+        cvcf_temp_index=temp('{root}/temp/{caller}.{mapper}.temp.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.call.vcf.gz.tbi'),
+        cvcf=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.call.nomulti.vcf.gz'),
+        cvcf_index=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.call.nomulti.vcf.gz.tbi')
     resources:
         mem_mb=12000,
         runtime=360,
@@ -5066,9 +5078,9 @@ rule truvari:
 # This uses TP-base, the number of matching variants as counted by the truth set
 rule sv_summary_by_condition:
     input:
-        json="{root}/svcall/{caller}/{mapper}/eval/{truthset}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.variant_summary.json"
+        json="{root}/svcall/{caller}/{mapper}/eval/{truthset}_{truthref}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.truvari.refine.variant_summary.json"
     output:
-        tsv="{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv"
+        tsv="{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}_{truthref}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.sv_summary.tsv"
     threads: 1
     resources:
         mem_mb=200,
@@ -5080,7 +5092,7 @@ rule sv_summary_by_condition:
         "echo \"{params.condition_name}\t$(jq -r '[.[\"TP-base\"],.FN,.FP,.recall,.precision,.f1] | @tsv' {input.json})\" >{output.tsv}"
 rule sv_summary_table:
     input:
-        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.sv_summary.tsv")
+        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}_{truthref}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.sv_summary.tsv")
     output:
         tsv="{root}/experiments/{expname}/results/sv_summary.tsv"
     threads: 1
