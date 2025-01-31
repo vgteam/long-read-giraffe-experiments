@@ -4984,6 +4984,8 @@ rule vgcall:
     benchmark: '{root}/svcall/vgcall/unpopped/{mapper}/benchmark.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.tsv'
     log:
         logfile='{root}/svcall/vgcall/unpopped/{mapper}/log.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.log'
+    wildcard_constraints:
+        mapper="giraffe.*|graphaligner.*"
     threads: 4
     params:
         reference_sample=reference_sample
@@ -5003,16 +5005,24 @@ rule decompose_nested_variants:
     input:
         vcf='{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz'
     output:
-        vcf='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz'
+        vcf='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz',
+        temp_vcf=temp('{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.temp.vcf.gz'),
+        temp_tbi=temp('{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.temp.vcf.gz.tbi'),
+
+    wildcard_constraints:
+        mapper="giraffe.*|graphaligner.*"
     threads: 2
     resources:
         mem_mb=100000,
         runtime=600,
         slurm_partition=choose_partition(600)
-    container: 'docker://quay.io/jmonlong/vcfwave-vcfbub:1.1.10_0.1.1'
+    container: 'docker://quay.io/jmonlong/vcfwave-vcfbub:1.1.12_0.1.1'
     shell:
         """
-        vcfbub -l 0 -a 100000 --input {input.vcf} | vcfwave -I 1000 | bgzip > {output.vcf}
+        export TMPDIR={wildcards.root}/temp
+        zcat {input.vcf} | bgzip > {output.temp_vcf}
+        tabix -p vcf {output.temp_vcf}
+        vcfbub -l 0 -a 100000 --input {output.temp_vcf} | vcfwave -I 1000 | bcftools sort -O z -o {output.vcf}
         """
 
 # Call SVs with linear caller sniffles
