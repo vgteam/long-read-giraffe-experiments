@@ -1262,6 +1262,10 @@ def get_vg_flags(wildcard_flag):
             return "--min-chains " + minchains_number[9:]
         case "paramset1":
             return "--min-chains 2 --chain-score-threshold 500"
+        case "paramset2":
+            return "--min-chains 2 --chain-score-threshold 200 --min-chain-score-per-base 0.1 --max-min-chain-score 1400"
+        case "paramset3":
+            return "--min-chains 2 --chain-score-threshold 200 --min-chain-score-per-base 0.1 --max-min-chain-score 1100"
         case "mapqscale":
             return "--mapq-score-scale 0.01"
         case "moreseeds":

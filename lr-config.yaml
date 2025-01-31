@@ -597,11 +597,34 @@ experiments:
       realness: sim
     vary:
       refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-d9"]
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-minchains2", "giraffe-k31.w50.W-hifi-default-minchains3", "giraffe-k31.w50.W-hifi-default-paramset1"]
-    constrain:
-        - refgraph: "hprc-v1.1-mc-sampled2d"
-        - refgraph: "hprc-v1.1-mc-d9"
-          mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-paramset1"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-paramset1", "giraffe-k31.w50.W-hifi-default-paramset2", "giraffe-k31.w50.W-hifi-default-paramset3"]
+
+  hifi_sim_params_medium:
+    control:
+      subset: 100k
+      tech: hifi
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: sim
+    vary:
+      refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-d9"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-paramset1", "giraffe-k31.w50.W-hifi-default-paramset2", "giraffe-k31.w50.W-hifi-default-paramset3"]
+
+  hifi_real_params:
+    control:
+      subset: full
+      tech: hifi
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: real
+      # SV specific parameters with generic names
+      caller: vgcall
+      truthset: giab6_chm13
+    vary:
+      refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-d9"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-paramset3"]
 
   hifi_real_graphs:
     control:
@@ -665,6 +688,33 @@ experiments:
       mapper: "giraffe-k31.w50.W-r10-default-noflags"
     vary:
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prerelease.2-mc-eval-nov22-d39", "hprc-v2.prerelease.2-mc-eval-nov22-sampled16"]
+
+  r10_sim_params_small:
+    control:
+      subset: 10k
+      tech: r10
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: sim
+    vary:
+      refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-d9"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-paramset1", "giraffe-k31.w50.W-r10-default-paramset2", "giraffe-k31.w50.W-r10-default-paramset3"]
+
+  r10_real_params:
+    control:
+      subset: full
+      tech: r10
+      reference: chm13
+      trimmedness: ".trimmed"
+      sample: HG002
+      realness: real
+      # SV specific parameters with generic names
+      caller: vgcall
+      truthset: giab6_chm13
+    vary:
+      refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-d9"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-paramset3"] 
 
   r10_real_graphs:
     control:
