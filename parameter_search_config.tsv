@@ -1,5 +1,5 @@
 #name	type	min_val	max_val	default	sampling_strategy
-min-chains	int	2	2	4	uniform
-chain-score-threshold	int	200	200	100	log
-min-chain-score-per-base	float	0.1	0.1	0.06	log
-max-min-chain-score	int	100	1500	100	uniform
+min-chains	int	2	4	4	uniform
+chain-score-threshold	int	100	1000	100	log
+min-chain-score-per-base	float	0.03	0.3	0.06	log
+max-min-chain-score	int	100	2000	100	log

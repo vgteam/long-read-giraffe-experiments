@@ -1266,6 +1266,10 @@ def get_vg_flags(wildcard_flag):
             return "--min-chains 2 --chain-score-threshold 200 --min-chain-score-per-base 0.1 --max-min-chain-score 1400"
         case "paramset3":
             return "--min-chains 2 --chain-score-threshold 200 --min-chain-score-per-base 0.1 --max-min-chain-score 1100"
+        case "ontparams1":
+            return "--min-chains 2 --chain-score-threshold 159 --min-chain-score-per-base 0.052071175466076945 --max-min-chain-score 1870"
+        case "ontparams1reg":
+            return "--min-chains 2 --chain-score-threshold 160 --min-chain-score-per-base 0.052 --max-min-chain-score 1900"
         case "mapqscale":
             return "--mapq-score-scale 0.01"
         case "moreseeds":
@@ -3352,6 +3356,8 @@ rule experiment_speed_from_log_tsv:
         slurm_partition=choose_partition(60)
     shell:
         "cat {input} >>{output.tsv}"
+
+ruleorder: experiment_speed_from_log_tsv > experiment_stat_table
 
 rule experiment_speed_from_log_plot:
     input:

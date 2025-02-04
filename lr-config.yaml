@@ -699,7 +699,31 @@ experiments:
       realness: sim
     vary:
       refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-d9"]
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-paramset1", "giraffe-k31.w50.W-r10-default-paramset2", "giraffe-k31.w50.W-r10-default-paramset3"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-paramset3", "giraffe-k31.w50.W-r10-default-ontparams1", "giraffe-k31.w50.W-r10-default-ontparams1reg"]
+
+  r10_sim_params_medium:
+    control:
+      subset: 100k
+      tech: r10
+      reference: chm13
+      trimmedness: ""
+      sample: HG002
+      realness: sim
+    vary:
+      refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-d9"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-paramset3", "giraffe-k31.w50.W-r10-default-ontparams1", "giraffe-k31.w50.W-r10-default-ontparams1reg"]
+
+  r10_real_params_medium:
+    control:
+      subset: 100k
+      tech: r10
+      reference: chm13
+      trimmedness: ".trimmed"
+      sample: HG002
+      realness: real
+    vary:
+      refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-d9"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-paramset3", "giraffe-k31.w50.W-r10-default-ontparams1", "giraffe-k31.w50.W-r10-default-ontparams1reg"]
 
   r10_real_params:
     control:
