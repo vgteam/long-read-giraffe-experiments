@@ -2835,7 +2835,7 @@ rule speed_from_log_bwa:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="bwa"
+        mapper="bwa(-pe)?"
     threads: 1
     resources:
         mem_mb=200,
@@ -3043,7 +3043,7 @@ rule index_load_time_from_log_graphaligner:
         condition_name=condition_name
     wildcard_constraints:
         realness="real",
-        mapper="graphaligner-.*"
+        mapper="graphaligner-.*|bwa(-pe)?"
     threads: 1
     resources:
         mem_mb=200,
