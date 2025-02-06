@@ -2204,7 +2204,8 @@ rule graphaligner_real_reads:
     log: "{root}/aligned/{reference}/{refgraph}/{mapper}-{graphalignerflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}{readchunk}.log"
     wildcard_constraints:
         realness="real",
-        mapper="graphaligner.*"
+        mapper="graphaligner.*",
+        readchunk=".chunk[0-9]*|"
     threads: auto_mapping_threads
     params:
         mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
@@ -4983,10 +4984,12 @@ rule vgcall:
         graph=gbz,
         snarls=snarls
     output:
-        vcf='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz'
-    benchmark: '{root}/svcall/vgcall/{mapper}/benchmark.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.tsv'
+        vcf='{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz'
+    benchmark: '{root}/svcall/vgcall/unpopped/{mapper}/benchmark.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.tsv'
     log:
-        logfile='{root}/svcall/vgcall/{mapper}/log.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.log'
+        logfile='{root}/svcall/vgcall/unpopped/{mapper}/log.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.log'
+    wildcard_constraints:
+        mapper="giraffe.*|graphaligner.*"
     threads: 4
     params:
         reference_sample=reference_sample
@@ -5001,6 +5004,30 @@ rule vgcall:
         out_path = os.path.abspath(output.vcf)
         log_path = os.path.abspath(log.logfile)
         shell("cd {LARGE_TEMP_DIR} && vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k " + pack_path + " -r " + snarls_path + " -t {threads} " + graph_path + " | gzip > " + out_path + " 2> " + log_path)
+
+rule decompose_nested_variants:
+    input:
+        vcf='{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz'
+    output:
+        vcf='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz',
+        temp_vcf=temp('{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.temp.vcf.gz'),
+        temp_tbi=temp('{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.temp.vcf.gz.tbi'),
+
+    wildcard_constraints:
+        mapper="giraffe.*|graphaligner.*"
+    threads: 2
+    resources:
+        mem_mb=100000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    container: 'docker://quay.io/jmonlong/vcfwave-vcfbub:1.1.12_0.1.1'
+    shell:
+        """
+        export TMPDIR={wildcards.root}/temp
+        zcat {input.vcf} | bgzip > {output.temp_vcf}
+        tabix -p vcf {output.temp_vcf}
+        vcfbub -l 0 -a 100000 --input {output.temp_vcf} | vcfwave -I 1000 | bcftools sort -O z -o {output.vcf}
+        """
 
 # Call SVs with linear caller sniffles
 # Copied from Jean
@@ -5021,7 +5048,7 @@ rule call_svs_sniffles:
     container: 'docker://quay.io/biocontainers/sniffles:2.5.3--pyhdfd78af_0'
     shell:
         """
-        sniffles -i {input.bam} -v {output}.temp.vcf.gz -t {threads} --tandem-repeats {input.vntr} --referance {input.ref_fasta} 2>&1 > {log}
+        sniffles -i {input.bam} -v {output}.temp.vcf.gz -t {threads} --tandem-repeats {input.vntr} --reference {input.ref_fasta} 2>&1 > {log}
         zcat {output}.temp.vcf.gz | sed 's/CHM13#0#//g' | sed 's/GRCh38#0#//g' | gzip >{output}
         rm {output}.temp.vcf.gz
         """
