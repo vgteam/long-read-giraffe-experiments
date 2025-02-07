@@ -83,7 +83,8 @@
 #reads_dir: "/private/groups/patenlab/xhchang/reads"
 #all_out_dir: "outputs"
 real_slurm_extra: "--exclude=phoenix-[00-10,22-24]"
-exclusive_timing: false
+exclusive_timing: true
+# Note that reserving a full node is the only way we have to ensure a job is not split across NUMA nodes
 
 real_exps: ["hifi_real_full", "r10_real_full"]
 sim_exps: ["hifi_sim_1m", "r10_sim_1m"]
@@ -711,7 +712,7 @@ experiments:
       realness: sim
     vary:
       refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-d9"]
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-paramset3", "giraffe-k31.w50.W-r10-default-ontparams1", "giraffe-k31.w50.W-r10-default-ontparams1reg"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-ontparams1reg", "giraffe-k31.w50.W-r10-default-ontparams2"]
 
   r10_real_params_medium:
     control:
@@ -723,7 +724,7 @@ experiments:
       realness: real
     vary:
       refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-d9"]
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-paramset3", "giraffe-k31.w50.W-r10-default-ontparams1", "giraffe-k31.w50.W-r10-default-ontparams1reg"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-ontparams1reg", "giraffe-k31.w50.W-r10-default-ontparams2"]
 
   r10_real_params:
     control:
