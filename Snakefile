@@ -191,10 +191,6 @@ SLURM_PARTITIONS = [
     ("long", 7 * 24 * 60)
 ]
 
-# How many threads do we want mapping to use?
-MAPPER_THREADS=64
-# How many threads do we want to use for big mapping jobs?
-
 PARAM_SEARCH = parameter_search.ParameterSearch()
 
 # Where is a large temp directory?
@@ -207,6 +203,10 @@ REAL_SLURM_EXTRA = config.get("real_slurm_extra", None) or ""
 # If set to True, jobs where we care about speed will demand entire nodes.
 # If False, they will just use one thread per core.
 EXCLUSIVE_TIMING = config.get("exclusive_timing", True)
+
+# How many threads do we want mapping to use?
+# TODO: If we're reserving whole nodes we want to use all of the node actually, but only on exclusive runs.
+MAPPER_THREADS = 64 if EXCLUSIVE_TIMING else 64
 
 # Figure out what columns to put in a table comparing all the conditions in an experiment.
 # TODO: Make this be per-experiment and let multiple tables be defined
@@ -253,7 +253,7 @@ def auto_mapping_threads(wildcards):
     else:
         mapping_threads= 8
 
-    if wildcards.get("mapper", "").startswith("graphaligner"):
+    if wildcards.get("mapper", "").startswith("graphaligner") and wildcards.get("realness", "") == "sim":
         #Graphaligner is really slow so for simulated reads where we don't care about time
         #double the number of threads
         #At most 128 because it errors with too many threads sometimes
@@ -268,7 +268,7 @@ def auto_mapping_slurm_extra(wildcards):
     if EXCLUSIVE_TIMING:
         return "--exclusive " + REAL_SLURM_EXTRA
     else:
-        return "--threads-per-core 1 " + REAL_SLURM_EXTRA
+        return REAL_SLURM_EXTRA
 
 def auto_mapping_full_cluster_nodes(wildcards):
     """
@@ -298,7 +298,7 @@ def auto_mapping_memory(wildcards):
         scale_mb = 600000
 
     # Scale down memory with threads
-    return scale_mb / MAPPER_THREADS * thread_count + base_mb
+    return scale_mb / 64 * thread_count + base_mb
 
 
 
@@ -1262,6 +1262,16 @@ def get_vg_flags(wildcard_flag):
             return "--min-chains " + minchains_number[9:]
         case "paramset1":
             return "--min-chains 2 --chain-score-threshold 500"
+        case "paramset2":
+            return "--min-chains 2 --chain-score-threshold 200 --min-chain-score-per-base 0.1 --max-min-chain-score 1400"
+        case "paramset3":
+            return "--min-chains 2 --chain-score-threshold 200 --min-chain-score-per-base 0.1 --max-min-chain-score 1100"
+        case "ontparams1":
+            return "--min-chains 2 --chain-score-threshold 159 --min-chain-score-per-base 0.052071175466076945 --max-min-chain-score 1870"
+        case "ontparams1reg":
+            return "--min-chains 2 --chain-score-threshold 160 --min-chain-score-per-base 0.052 --max-min-chain-score 1900"
+        case "ontparams2":
+            return "--min-chains 2 --chain-score-threshold 160 --min-chain-score-per-base 0.052 --max-min-chain-score 1900 --max-read-lookback-bases 20000 --max-read-lookback-bases-per-base 0.036 --max-graph-lookback-bases-per-base 0.036"
         case "mapqscale":
             return "--mapq-score-scale 0.01"
         case "moreseeds":
@@ -3370,6 +3380,8 @@ rule experiment_speed_from_log_tsv:
         slurm_partition=choose_partition(60)
     shell:
         "cat {input} >>{output.tsv}"
+
+ruleorder: experiment_speed_from_log_tsv > experiment_stat_table
 
 rule experiment_speed_from_log_plot:
     input:
