@@ -3103,6 +3103,27 @@ rule haplotype_sampling_time_giraffe:
 
 ruleorder: haplotype_sampling_time_giraffe > haplotype_sampling_time_empty
 
+#output tsv of:
+#condition name, index load time plus haplotype sampling time in minutes
+#input tsv have condition name and index load time / sampling time
+rule index_load_and_sampling_time:
+    input:
+        startup_time="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv",
+        sampling_time="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv",
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_and_sampling_time.tsv"
+    wildcard_constraints:
+        realness="real"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        paste {input.startup_time} {input.sampling_time} | awk -v OFS='\t' '{{print $1,($2+$4)}}' >{output.tsv}
+        """
+
 # Some experiment stats can come straight from stats for the individual conditions
 rule condition_experiment_stat:
     input:
@@ -3404,6 +3425,23 @@ rule experiment_runtime_from_benchmark_tsv:
 
 ruleorder: experiment_runtime_from_benchmark_tsv > experiment_stat_table
 
+rule experiment_run_and_sampling_time_from_benchmark_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.run_and_sampling_time_from_benchmark.tsv", lambda condition: condition["realness"] == "real"),
+    output:
+        tsv="{root}/experiments/{expname}/results/run_and_sampling_time_from_benchmark.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input} >>{output.tsv}"
+
+ruleorder: experiment_run_and_sampling_time_from_benchmark_tsv > experiment_stat_table
+
+
+
 rule experiment_runtime_from_benchmark_plot:
     input:
         tsv=rules.experiment_runtime_from_benchmark_tsv.output.tsv
@@ -3416,6 +3454,21 @@ rule experiment_runtime_from_benchmark_plot:
         slurm_partition=choose_partition(30)
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Runtime From Benchmark' --y_label 'Runtime (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+
+
+#This includes the time for haplotype sampling
+rule experiment_index_load_and_sampling_time_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_and_sampling_time_from_log.tsv", lambda condition: condition["realness"] == "real")
+    output:
+        tsv="{root}/experiments/{expname}/results/index_load_time.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "cat {input} >>{output.tsv}"
 
 rule experiment_index_load_time_tsv:
     input:
@@ -3430,10 +3483,12 @@ rule experiment_index_load_time_tsv:
     shell:
         "cat {input} >>{output.tsv}"
 
+#This includes the time for sampling in both the runtime and index time
+#Runtime is really the total time
 rule experiment_run_and_index_time_plot:
     input:
-        runtime=rules.experiment_runtime_from_benchmark_tsv.output.tsv,
-        index_time=rules.experiment_index_load_time_tsv.output.tsv
+        runtime=rules.experiment_run_and_sampling_time_from_benchmark_tsv.output.tsv,
+        index_time=rules.experiment_index_load_and_sampling_time_tsv.output.tsv
     output:
         "{root}/experiments/{expname}/plots/run_and_index_time.{ext}"
     threads: 1
@@ -3447,8 +3502,8 @@ rule experiment_run_and_index_time_plot:
 #Plot only the slow runtimes- the top part of the bar plot
 rule experiment_run_and_index_time_slow_plot:
     input:
-        runtime=rules.experiment_runtime_from_benchmark_tsv.output.tsv,
-        index_time=rules.experiment_index_load_time_tsv.output.tsv
+        runtime=rules.experiment_run_and_sampling_time_from_benchmark_tsv.output.tsv,
+        index_time=rules.experiment_index_load_and_sampling_time_tsv.output.tsv
     output:
         "{root}/experiments/{expname}/plots/run_and_index_slow_time.{ext}"
     threads: 1
@@ -3478,8 +3533,8 @@ rule experiment_run_and_index_time_slow_plot:
 #Plot only the fast runtimes- the bottom part of the bar plot
 rule experiment_run_and_index_time_fast_plot:
     input:
-        runtime=rules.experiment_runtime_from_benchmark_tsv.output.tsv,
-        index_time=rules.experiment_index_load_time_tsv.output.tsv
+        runtime=rules.experiment_run_and_sampling_time_from_benchmark_tsv.output.tsv,
+        index_time=rules.experiment_index_load_and_sampling_time_tsv.output.tsv
     output:
         "{root}/experiments/{expname}/plots/run_and_index_fast_time.{ext}"
     threads: 1
@@ -3502,6 +3557,79 @@ rule experiment_run_and_index_time_fast_plot:
             upper_limit = max(smalls) * 1.1
 
             shell("python3 barchart.py {input.runtime} --max " + str(upper_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+
+rule experiment_run_and_index_time_hours_plot:
+    input:
+        runtime=rules.experiment_run_and_sampling_time_from_benchmark_tsv.output.tsv,
+        index_time=rules.experiment_index_load_and_sampling_time_tsv.output.tsv
+    output:
+        "{root}/experiments/{expname}/plots/run_and_index_time_hours.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        "python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+
+#Plot only the slow runtimes- the top part of the bar plot
+rule experiment_run_and_index_time_slow_hours_plot:
+    input:
+        runtime=rules.experiment_run_and_sampling_time_from_benchmark_tsv.output.tsv,
+        index_time=rules.experiment_index_load_and_sampling_time_tsv.output.tsv
+    output:
+        "{root}/experiments/{expname}/plots/run_and_index_slow_time_hours.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    run:
+        runtimes = []
+        with open(input.runtime) as in_file:
+            for line in in_file:
+                runtimes.append(float(line.split()[1]))
+
+
+        iqr = np.percentile(runtimes, 75) - np.percentile(runtimes, 25)
+        cutoff = np.percentile(runtimes, 75) + (1.5 * iqr)
+        bigs = list(filter(lambda x : x > cutoff, runtimes))
+
+        if not len(bigs) == 0:
+
+            lower_limit = (min(bigs) / 60.0 * 0.80)
+
+            shell("python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --min " + str(lower_limit) + " --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+
+
+#Plot only the fast runtimes- the bottom part of the bar plot
+rule experiment_run_and_index_time_fast_hours_plot:
+    input:
+        runtime=rules.experiment_run_and_sampling_time_from_benchmark_tsv.output.tsv,
+        index_time=rules.experiment_index_load_and_sampling_time_tsv.output.tsv
+    output:
+        "{root}/experiments/{expname}/plots/run_and_index_fast_time_hours.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    run:
+        runtimes = []
+        with open(input.runtime) as in_file:
+            for line in in_file:
+                runtimes.append(float(line.split()[1]))
+        iqr = np.percentile(runtimes, 75) - np.percentile(runtimes, 25)
+        cutoff = np.percentile(runtimes, 75) + (1.5 * iqr)
+        smalls = list(filter(lambda x : x <= cutoff, runtimes))
+
+
+        if not len(smalls) == 0:
+
+            upper_limit = (max(smalls) * 1.1) / 60
+
+            shell("python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --max " + str(upper_limit) + " --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+
 
 
 rule experiment_memory_from_benchmark_tsv:
@@ -4326,6 +4454,22 @@ rule runtime_from_benchmark_gam:
 
         shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
 
+rule run_and_sampling_time_from_benchmark:
+    input:
+        runtime="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv",
+        sampling="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv"
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.run_and_sampling_time_from_benchmark.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        paste {input.runtime} {input.sampling} | awk -v OFS='\t' '{{print $1,($2+$4)}}' >{output.tsv}
+        """
+
 rule memory_from_benchmark_sam:
     input:
         bench="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
@@ -5145,8 +5289,9 @@ rule all_paper_figures:
     input:
         mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.latex.tsv", expname=config["real_exps"]),
         softclipped_plot=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/softclipped_or_unmapped.pdf", expname=config["headline_real_exps"]),
-        runtime_slow=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_slow_time.pdf", expname=config["headline_real_exps"]),
-        runtime_fast=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_fast_time.pdf", expname=config["headline_real_exps"]),
+        runtime_slow=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_slow_time_hours.pdf", expname=config["headline_real_exps"]),
+        runtime_fast=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_fast_time_hours.pdf", expname=config["headline_real_exps"]),
+        runtime=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_time_hours.pdf", expname=config["headline_real_exps"]),
         memory=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/memory_from_benchmark.pdf", expname=config["real_exps"]),
         mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.latex.tsv", expname=config["sim_exps"]),
         qq=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/qq.pdf", expname=config["headline_sim_exps"]),
