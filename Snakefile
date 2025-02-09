@@ -5164,7 +5164,7 @@ rule decompose_nested_variants:
         mem_mb=100000,
         runtime=600,
         slurm_partition=choose_partition(600)
-    container: 'docker://quay.io/jmonlong/vcfwave-vcfbub:1.1.12_0.1.1'
+    container: 'docker://quay.io/jmonlong/vcfwave-vcfbub:1.0.12_0.1.1'
     shell:
         """
         export TMPDIR={wildcards.root}/temp
