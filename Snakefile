@@ -4366,6 +4366,25 @@ rule softclipped_or_unmapped:
             f.write(f"{total}\n")
         
 
+#Getting this for short reads is super slow and we don't really care so skip it
+rule softclipped_or_unmapped_empty:
+    output:
+         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
+    wildcard_constraints:
+        tech="illumina"
+    threads: 1
+    resources:
+        mem_mb=400,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        """
+        echo "0" >{output}
+        """
+ruleorder: softclipped_or_unmapped_empty > softclipped_or_unmapped
+
+
+
 rule memory_usage_gam:
     input:
         bench="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
