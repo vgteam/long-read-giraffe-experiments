@@ -208,6 +208,10 @@ EXCLUSIVE_TIMING = config.get("exclusive_timing", True)
 # TODO: If we're reserving whole nodes we want to use all of the node actually, but only on exclusive runs.
 MAPPER_THREADS = 64 if EXCLUSIVE_TIMING else 64
 
+# We may not want to populate the MiniWDL task cache because it makes us take
+# more shared disk space.
+FILL_WDL_CACHE = "true" if config.get("fill_wdl_cache", True) else "false"
+
 # Figure out what columns to put in a table comparing all the conditions in an experiment.
 # TODO: Make this be per-experiment and let multiple tables be defined
 IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["speed_from_log", "softclipped_or_unmapped", "accuracy", "indel_f1", "snp_f1"])
@@ -233,9 +237,9 @@ wildcard_constraints:
     # We use this for an optional separating dot, so we can leave it out if we also leave the field empty
     dot="\\.?",
     tech="[a-zA-Z0-9]+",
-    statname="[a-zA-Z0-9_]+(?<!compared)(.mean|.total)?",
-    statnamex="[a-zA-Z0-9_]+(?<!compared)(.mean|.total)?",
-    statnamey="[a-zA-Z0-9_]+(?<!compared)(.mean|.total)?",
+    statname="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(.mean|.total)?",
+    statnamex="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(.mean|.total)?",
+    statnamey="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(.mean|.total)?",
     realness="(real|sim)",
     realnessx="(real|sim)",
     realnessy="(real|sim)",
@@ -2515,7 +2519,7 @@ rule call_variants_dv:
         # Run and keep the first manageable amount of logs not sent to the log
         # file in case we can't start. Don't stop when we hit the log limit.
         # See https://superuser.com/a/1531706
-        shell("MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT=true MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner " + wf_url + " {params.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False --logFile={log.logfile} 2>&1 | (head -c1000000; cat >/dev/null)")
+        shell("MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT={FILL_WDL_CACHE} MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner " + wf_url + " {params.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False --logFile={log.logfile} 2>&1 | (head -c1000000; cat >/dev/null)")
         wdl_result=json.load(open(output.wdl_output_file))
         shell("cp " + wdl_result["DeepVariant.output_vcf"] + " {output.vcf}")
         shell("cp " + wdl_result["DeepVariant.output_vcf_index"] + " {output.vcf_index}")
