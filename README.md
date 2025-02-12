@@ -35,15 +35,15 @@ Note that the Illumina read subsets made like this won't be uniformly sampled fr
 5. Use Snakemake and the included `Snakefile` to do the work necessary to create the experimental results files you are interested in. For example if you write `lr-config.yaml` to define an experiment named `r10_accuracy_small` to compare Winnowmap and Giraffe on some R10 nanopore reads, you can get a plot of the rate of mapped reads across the two conditions in the experiment with:
 
     ```
-    snakemake --rerun-incomplete output/experiments/r10_accuracy_small/plots/mapping_rate.png
+    snakemake --rerun-incomplete --use-singularity --singularity-args "-B /private" output/experiments/r10_accuracy_small/plots/mapping_rate.png
     ```
 
-    Make sure that `output` is a directory with enough free space to store the mapped reads. We use the `--rerun-incomplete` flag to make Snakemake rerun any commands that were interrupted on previous runs.
+    Make sure that `output` is a directory with enough free space to store the mapped reads. Also, if any inputs or outputs are not in your home directory, make sure that the Singularity mountpoint (here `/private`) is an absolute path to a parent of all input and output files (including symlink destinations), but is not `/`. (If there is no common parent, you can use multiple `-B` flags in the string.) We use the `--rerun-incomplete` flag to make Snakemake rerun any commands that were interrupted on previous runs.
 
     You can also run jobs on Slurm, where they will be automatically assigned to the correct partitions for UCSC's Phoenix cluster:
 
     ```
-    snakemake --rerun-incomplete --slurm --latency-wait 120 -j128 output/experiments/r10_accuracy_small/plots/mapping_rate.png
+    snakemake --rerun-incomplete --use-singularity --singularity-args "-B /private" --slurm --latency-wait 120 -j128 output/experiments/r10_accuracy_small/plots/mapping_rate.png
     ```
 
     This will run on Slurm, waiting up to 120 seconds for files created on the worker nodes to become visible to the head node, and using up to 128 cores total.
@@ -51,7 +51,7 @@ Note that the Illumina read subsets made like this won't be uniformly sampled fr
     You can also ask for multiple output files in a single run:
 
     ```
-    snakemake --rerun-incomplete --slurm --latency-wait 120 -j128 \
+    snakemake --rerun-incomplete --use-singularity --singularity-args "-B /private" --slurm --latency-wait 120 -j128 \
         output/experiments/r10_accuracy_small/plots/mapping_rate.png \
         output/experiments/r10_accuracy_small/plots/correct.png \
         output/plots/chm13/hprc-v1.1-mc-d9/minimap2-lr:hq/length_by_correctness-sim-r10-HG002.trimmed.1k.png
@@ -68,7 +68,7 @@ Note that the Illumina read subsets made like this won't be uniformly sampled fr
     And to run all the plots for the paper into the configured `all_out_dir` (expected to be group sticky):
 
     ```
-    (umask 0002; snakemake -j128 --rerun-incomplete --latency-wait 120 --slurm all_paper_figures)
+    (umask 0002; snakemake -j128 --rerun-incomplete --use-singularity --singularity-args "-B /private" --latency-wait 120 --slurm all_paper_figures)
     ```
 
 ## Dependencies
@@ -85,7 +85,7 @@ To run all the rules, you will need to have installations of:
 * Java
 * Picard (as `picard.jar` in the current directory)
 * bcftools
-* A container runtime, for running fastqsplitter, [Truvari](https://github.com/ACEnglish/truvari), [mafft](https://mafft.cbrc.jp/alignment/software/installation_without_root.html) which Truvari calls, vcfwave, vcfbub, and sniffles
+* Singularity, for running fastqsplitter, [Truvari](https://github.com/ACEnglish/truvari), [mafft](https://mafft.cbrc.jp/alignment/software/installation_without_root.html) which Truvari calls, vcfwave, vcfbub, and sniffles
 * [toil](https://github.com/DataBiosphere/toil) for DeepVariant
 
 ## Available Experiment Outputs:
@@ -132,7 +132,7 @@ chmod g+s /private/groups/patenlab/project-lrg
 
 Then run the Snakemake in a subshell with a group-writable umask set, and ask for a file under that directory:
 ```
-(umask 0002; snakemake -j128 --rerun-incomplete --latency-wait 120 --slurm /private/groups/patenlab/project-lrg/output/plots/chm13/hprc-v1.1-mc-d9/giraffe-k31.w50.W-hifi-default-noflags/time_used-real-hifi-HG002.1k.png)
+(umask 0002; snakemake -j128 --rerun-incomplete --use-singularity --singularity-args "-B /private" --latency-wait 120 --slurm /private/groups/patenlab/project-lrg/output/plots/chm13/hprc-v1.1-mc-d9/giraffe-k31.w50.W-hifi-default-noflags/time_used-real-hifi-HG002.1k.png)
 ```
 
 The file and all intermediates will end up owned and writable by the correct group.
