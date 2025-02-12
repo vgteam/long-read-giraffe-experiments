@@ -85,8 +85,7 @@ To run all the rules, you will need to have installations of:
 * Java
 * Picard (as `picard.jar` in the current directory)
 * bcftools
-* [Truvari](https://github.com/ACEnglish/truvari)
-* [mafft](https://mafft.cbrc.jp/alignment/software/installation_without_root.html) for Truvari to call
+* A container runtime, for running fastqsplitter, [Truvari](https://github.com/ACEnglish/truvari), [mafft](https://mafft.cbrc.jp/alignment/software/installation_without_root.html) which Truvari calls, vcfwave, vcfbub, and sniffles
 * [toil](https://github.com/DataBiosphere/toil) for DeepVariant
 
 ## Available Experiment Outputs:
