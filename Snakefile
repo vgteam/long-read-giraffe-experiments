@@ -3512,12 +3512,13 @@ rule experiment_run_and_index_time_plot:
         "python3 barchart.py {input.runtime} --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
 
 #Plot only the slow runtimes- the top part of the bar plot
-rule experiment_run_and_index_time_slow_plot:
+rule experiment_run_and_index_time_split_plot:
     input:
         runtime=rules.experiment_run_and_sampling_time_from_benchmark_tsv.output.tsv,
         index_time=rules.experiment_index_load_and_sampling_time_tsv.output.tsv
     output:
-        "{root}/experiments/{expname}/plots/run_and_index_slow_time.{ext}"
+        slow="{root}/experiments/{expname}/plots/run_and_index_slow_time.{ext}"
+        fast="{root}/experiments/{expname}/plots/run_and_index_fast_time.{ext}"
     threads: 1
     resources:
         mem_mb=10000,
@@ -3538,37 +3539,16 @@ rule experiment_run_and_index_time_slow_plot:
 
             lower_limit = min(bigs) * 0.80
 
-            shell("python3 barchart.py {input.runtime} --min " + str(lower_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+            shell("python3 barchart.py {input.runtime} --min " + str(lower_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output.slow}")
 
-
-
-#Plot only the fast runtimes- the bottom part of the bar plot
-rule experiment_run_and_index_time_fast_plot:
-    input:
-        runtime=rules.experiment_run_and_sampling_time_from_benchmark_tsv.output.tsv,
-        index_time=rules.experiment_index_load_and_sampling_time_tsv.output.tsv
-    output:
-        "{root}/experiments/{expname}/plots/run_and_index_fast_time.{ext}"
-    threads: 1
-    resources:
-        mem_mb=10000,
-        runtime=30,
-        slurm_partition=choose_partition(30)
-    run:
-        runtimes = []
-        with open(input.runtime) as in_file:
-            for line in in_file:
-                runtimes.append(float(line.split()[1]))
-        iqr = np.percentile(runtimes, 75) - np.percentile(runtimes, 25)
-        cutoff = np.percentile(runtimes, 75) + (1.5 * iqr)
         smalls = list(filter(lambda x : x <= cutoff, runtimes))
-
 
         if not len(smalls) == 0:
 
             upper_limit = max(smalls) * 1.1
 
-            shell("python3 barchart.py {input.runtime} --max " + str(upper_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+            shell("python3 barchart.py {input.runtime} --max " + str(upper_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output.fast}")
+
 
 rule experiment_run_and_index_time_hours_plot:
     input:
@@ -3585,12 +3565,13 @@ rule experiment_run_and_index_time_hours_plot:
         "python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
 
 #Plot only the slow runtimes- the top part of the bar plot
-rule experiment_run_and_index_time_slow_hours_plot:
+rule experiment_run_and_index_time_split_hours_plot:
     input:
         runtime=rules.experiment_run_and_sampling_time_from_benchmark_tsv.output.tsv,
         index_time=rules.experiment_index_load_and_sampling_time_tsv.output.tsv
     output:
-        "{root}/experiments/{expname}/plots/run_and_index_slow_time_hours.{ext}"
+        slow="{root}/experiments/{expname}/plots/run_and_index_slow_time_hours.{ext}"
+        fast="{root}/experiments/{expname}/plots/run_and_index_fast_time_hours.{ext}"
     threads: 1
     resources:
         mem_mb=10000,
@@ -3611,28 +3592,8 @@ rule experiment_run_and_index_time_slow_hours_plot:
 
             lower_limit = (min(bigs) / 60.0 * 0.80)
 
-            shell("python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --min " + str(lower_limit) + " --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+            shell("python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --min " + str(lower_limit) + " --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output.slow}")
 
-
-#Plot only the fast runtimes- the bottom part of the bar plot
-rule experiment_run_and_index_time_fast_hours_plot:
-    input:
-        runtime=rules.experiment_run_and_sampling_time_from_benchmark_tsv.output.tsv,
-        index_time=rules.experiment_index_load_and_sampling_time_tsv.output.tsv
-    output:
-        "{root}/experiments/{expname}/plots/run_and_index_fast_time_hours.{ext}"
-    threads: 1
-    resources:
-        mem_mb=10000,
-        runtime=30,
-        slurm_partition=choose_partition(30)
-    run:
-        runtimes = []
-        with open(input.runtime) as in_file:
-            for line in in_file:
-                runtimes.append(float(line.split()[1]))
-        iqr = np.percentile(runtimes, 75) - np.percentile(runtimes, 25)
-        cutoff = np.percentile(runtimes, 75) + (1.5 * iqr)
         smalls = list(filter(lambda x : x <= cutoff, runtimes))
 
 
@@ -3640,8 +3601,7 @@ rule experiment_run_and_index_time_fast_hours_plot:
 
             upper_limit = (max(smalls) * 1.1) / 60
 
-            shell("python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --max " + str(upper_limit) + " --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
-
+            shell("python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --max " + str(upper_limit) + " --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output.fast}")
 
 
 rule experiment_memory_from_benchmark_tsv:
@@ -3943,6 +3903,24 @@ rule softclipped_or_unmapped_from_softclipped_or_unmapped:
     shell:
         "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.tsv} >>{output.tsv}"
 
+rule softclipped_or_unmapped_percent:
+    input:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv",
+        unmapped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
+    params:
+        condition_name=condition_name
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped_percent.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        """
+        printf '{params.condition_name}\\t' >{output.tsv} && echo "$(cut -f 2 {input.tsv}) * 100 / $(awk '{{SUM += $2}} END {{print SUM}}' {input.unmapped})" | bc -l  >>{output.tsv}
+        """
+
 rule experiment_softclipped_or_unmapped_plot:
     input:
         tsv="{root}/experiments/{expname}/results/softclipped_or_unmapped.tsv"
@@ -3955,6 +3933,58 @@ rule experiment_softclipped_or_unmapped_plot:
         slurm_partition=choose_partition(5)
     shell:
         "python3 barchart.py {input.tsv} --title '{wildcards.expname} Softclipped or Unmapped Bases' --y_label 'Total (bp)' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule experiment_softclipped_or_unmapped_percent_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/softclipped_or_unmapped_percent.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/softclipped_or_unmapped_percent.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Softclipped or Unmapped Bases' --y_label 'Percent of base pairs' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+#Plot the unmapped bases but split off the high outliers 
+rule experiment_softclipped_or_unmapped_percent_split_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/softclipped_or_unmapped_percent.tsv"
+    output:
+        low="{root}/experiments/{expname}/plots/softclipped_or_unmapped_percent_low.{ext}",
+        high="{root}/experiments/{expname}/plots/softclipped_or_unmapped_percent_high.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    run:
+        values = []
+        with open(input.tsv) as in_file:
+            for line in in_file:
+                values.append(float(line.split()[1]))
+
+
+        iqr = np.percentile(values, 75) - np.percentile(values, 25)
+        cutoff = np.percentile(values, 75) + (1.5 * iqr)
+        bigs = list(filter(lambda x : x > cutoff, values))
+        smalls = list(filter(lambda x : x <= cutoff, values))
+
+        if not len(bigs) == 0:
+
+            lower_limit = min(bigs) * 0.80
+
+            shell("python3 barchart.py {input.tsv} --min " + str(lower_limit) + " --title '{wildcards.expname} Softclipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --save {output.low}")
+
+
+        if not len(smalls) == 0:
+
+            upper_limit = max(smalls) * 1.1
+
+            shell("python3 barchart.py {input.tsv} --max " + str(upper_limit) + " --title '{wildcards.expname} Softclipped or unmapped bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --save {output.high}")
+
+
 
 rule chain_coverage_from_mean_best_chain_coverage:
     input:
@@ -5319,12 +5349,14 @@ ruleorder: sv_summary_table > experiment_stat_table
 rule all_paper_figures:
     input:
         mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.latex.tsv", expname=config["real_exps"]),
-        softclipped_plot=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/softclipped_or_unmapped.pdf", expname=config["headline_real_exps"]),
+        softclipped_plot=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/softclipped_or_unmapped_percent.pdf", expname=config["headline_real_exps"]),
+        softclipped_plot_high=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/softclipped_or_unmapped_percent_high.pdf", expname=config["headline_real_exps"]),
+        softclipped_plot_low=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/softclipped_or_unmapped_percent_low.pdf", expname=config["headline_real_exps"]),
         runtime_slow=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_slow_time_hours.pdf", expname=config["headline_real_exps"]),
         runtime_fast=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_fast_time_hours.pdf", expname=config["headline_real_exps"]),
         runtime=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_time_hours.pdf", expname=config["headline_real_exps"]),
-        memory=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/memory_from_benchmark.pdf", expname=config["real_exps"]),
-        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.latex.tsv", expname=config["sim_exps"]),
+        memory=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/memory_from_benchmark.pdf", expname=config["headline_real_exps"]),
+        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=config["sim_exps"]),
         qq=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/qq.pdf", expname=config["headline_sim_exps"]),
         roc=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/roc.pdf", expname=config["headline_sim_exps"]),
         dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_indel_summary.pdf", expname=config["dv_exps"]),
