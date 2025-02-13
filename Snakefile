@@ -237,9 +237,9 @@ wildcard_constraints:
     # We use this for an optional separating dot, so we can leave it out if we also leave the field empty
     dot="\\.?",
     tech="[a-zA-Z0-9]+",
-    statname="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(.mean|.total)?",
-    statnamex="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(.mean|.total)?",
-    statnamey="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(.mean|.total)?",
+    statname="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(?<!mapping_stats_real)(?<!mapping_stats_sim)(.mean|.total)?",
+    statnamex="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(?<!mapping_stats_real)(?<!mapping_stats_sim)(.mean|.total)?",
+    statnamey="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(?<!mapping_stats_real)(?<!mapping_stats_sim)(.mean|.total)?",
     realness="(real|sim)",
     realnessx="(real|sim)",
     realnessy="(real|sim)",
@@ -1215,8 +1215,13 @@ def all_experiment(wildcard_values, pattern, filter_function=None, empty_ok=Fals
         filename = pattern.format(**merged)
         yield filename
         empty = False
-    if empty and not empty_ok:
-        raise RuntimeError("Produced no values for " + pattern + " in experiment!")
+    if empty:
+        if debug:
+            print("Produced no values for " + pattern + " in experiment!")
+        if not empty_ok:
+            if debug:
+                print("Failing!")
+            raise RuntimeError("Produced no values for " + pattern + " in experiment!")
 
 def has_stat_filter(stat_name):
     """
@@ -3697,7 +3702,7 @@ rule experiment_mapping_stats_sim_tsv_from_stats:
 #Get the accuracy from simulated reads for all conditions in the experiment
 rule experiment_mapping_stats_sim_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.mapping_accuracy.tsv", lambda condition: condition["realness"] == "sim")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.mapping_accuracy.tsv", lambda condition: condition["realness"] == "sim", empty_ok=True)
     output:
         tsv="{root}/experiments/{expname}/results/mapping_stats_sim.tsv"
     threads: 1
@@ -3708,7 +3713,7 @@ rule experiment_mapping_stats_sim_tsv:
     shell:
         """
         printf "condition\tcorrect\tmapq60\twrong_mapq60\n" >> {output.tsv}
-        cat {input} >>{output.tsv}
+        cat {input} /dev/null >>{output.tsv}
         """
 
 #Get the speed, memory use, and softclips from real reads for each condition
@@ -3740,7 +3745,7 @@ rule experiment_mapping_stats_real_tsv_from_stats:
 #Get the speed, memory use, and softclips from real reads
 rule experiment_mapping_stats_real_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv", lambda condition: condition["realness"] == "real")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv", lambda condition: condition["realness"] == "real", empty_ok=True)
     output:
         tsv="{root}/experiments/{expname}/results/mapping_stats_real.tsv"
     wildcard_constraints:
@@ -3753,7 +3758,7 @@ rule experiment_mapping_stats_real_tsv:
     shell:
         """
         printf "condition\truntime(min)\tstartup_time(min)\tsampling_time(min)\tmemory(GB)\tsoftclipped_or_unmapped\n" >> {output.tsv} 
-        cat {input} >>{output.tsv}
+        cat {input} /dev/null >>{output.tsv}
         """
 ruleorder: experiment_mapping_stats_real_tsv > experiment_stat_table
 
