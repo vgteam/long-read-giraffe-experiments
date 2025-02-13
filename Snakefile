@@ -3775,7 +3775,8 @@ rule experiment_mapping_stats_tsv:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "join -t '\t' {input.sim} {input.real} >> {output.tsv}"
+        # Do a full outer join
+        "join -t '\t' -a 1 -a 2 -o auto {input.sim} {input.real} >> {output.tsv}"
 ruleorder: experiment_mapping_stats_tsv > experiment_stat_table
 
 rule stats_from_alignments:

@@ -610,7 +610,7 @@ experiments:
       realness: sim
     vary:
       refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-d9"]
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-paramset1", "giraffe-k31.w50.W-hifi-default-paramset2", "giraffe-k31.w50.W-hifi-default-paramset3"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-paramset3"]
 
   hifi_real_params:
     control:
@@ -730,7 +730,7 @@ experiments:
       realness: sim
     vary:
       refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-d9"]
-      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-ontparams1reg", "giraffe-k31.w50.W-r10-default-ontparams2"]
+      mapper: ["giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-ontparams2"]
 
   r10_real_params_medium:
     control:
