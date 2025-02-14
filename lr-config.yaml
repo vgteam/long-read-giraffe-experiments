@@ -609,8 +609,8 @@ experiments:
       sample: HG002
       realness: sim
     vary:
-      refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-d9"]
-      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-paramset3"]
+      refgraph: ["hprc-v1.1-mc-d9"]
+      mapper: ["giraffe-k31.w50.W-hifi-default-noflags", "giraffe-k31.w50.W-hifi-default-paramset3", "giraffe-k31.w50.W-hifi-default-paramset5"]
 
   hifi_real_params:
     control:

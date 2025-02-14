@@ -1275,6 +1275,8 @@ def get_vg_flags(wildcard_flag):
             return "--min-chains 2 --chain-score-threshold 200 --min-chain-score-per-base 0.1 --max-min-chain-score 1400"
         case "paramset3":
             return "--min-chains 2 --chain-score-threshold 200 --min-chain-score-per-base 0.1 --max-min-chain-score 1100"
+        case "paramset5":
+            return "--min-chains 3 --chain-score-threshold 200 --min-chain-score-per-base 0.1 --max-min-chain-score 1100 --max-graph-lookback-bases 20000 --max-read-lookback-bases 20000 --max-read-lookback-bases-per-base 0.10501002120802233 --max-graph-lookback-bases-per-base 0.10501002120802233"
         case "ontparams1":
             return "--min-chains 2 --chain-score-threshold 159 --min-chain-score-per-base 0.052071175466076945 --max-min-chain-score 1870"
         case "ontparams1reg":
