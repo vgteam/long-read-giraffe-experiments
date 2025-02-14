@@ -1267,22 +1267,6 @@ def get_vg_flags(wildcard_flag):
             return "--explored-cap"
         case downsample_number if downsample_number[0:10] == "downsample":
             return "--downsample-min " + downsample_number[10:]
-        case minchains_number if minchains_number[0:9] == "minchains":
-            return "--min-chains " + minchains_number[9:]
-        case "paramset1":
-            return "--min-chains 2 --chain-score-threshold 500"
-        case "paramset2":
-            return "--min-chains 2 --chain-score-threshold 200 --min-chain-score-per-base 0.1 --max-min-chain-score 1400"
-        case "paramset3":
-            return "--min-chains 2 --chain-score-threshold 200 --min-chain-score-per-base 0.1 --max-min-chain-score 1100"
-        case "paramset5":
-            return "--min-chains 3 --chain-score-threshold 200 --min-chain-score-per-base 0.1 --max-min-chain-score 1100 --max-graph-lookback-bases 20000 --max-read-lookback-bases 20000 --max-read-lookback-bases-per-base 0.10501002120802233 --max-graph-lookback-bases-per-base 0.10501002120802233"
-        case "ontparams1":
-            return "--min-chains 2 --chain-score-threshold 159 --min-chain-score-per-base 0.052071175466076945 --max-min-chain-score 1870"
-        case "ontparams1reg":
-            return "--min-chains 2 --chain-score-threshold 160 --min-chain-score-per-base 0.052 --max-min-chain-score 1900"
-        case "ontparams2":
-            return "--min-chains 2 --chain-score-threshold 160 --min-chain-score-per-base 0.052 --max-min-chain-score 1900 --max-read-lookback-bases 20000 --max-read-lookback-bases-per-base 0.036 --max-graph-lookback-bases-per-base 0.036"
         case "mapqscale":
             return "--mapq-score-scale 0.01"
         case "moreseeds":
