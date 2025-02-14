@@ -219,6 +219,13 @@ IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["spee
 # What versions of Giraffe should be run with the old, non-zipcode-aware indexes
 NON_ZIPCODE_GIRAFFE_VERSIONS = set(config.get("non_zipcode_giraffe_versions")) if "non_zipcode_giraffe_versions" in config else set()
 
+# What version of vg should be used to make fragment-unaware haplotype indexes?
+VG_NO_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="71428e"
+# What version of vg should be used to make fragment-aware haplotype indexes?
+VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="5cfcdb"
+# What version of vg should be used to haplotype-sample graphs?
+VG_HAPLOTYPE_SAMPLING_VERSION="5cfcdb"
+
 wildcard_constraints:
     expname="[^/]+",
     refgraphbase="[^/]+?",
@@ -1479,26 +1486,30 @@ rule haplotype_index_graph:
         unpack(r_and_snarl_indexed_graph),
     output:
         haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}.hapl"
+    params:
+        vg_binary=get_vg_version(VG_NO_FRAGMENT_HAPLOTYPE_INDEXING_VERSION)
     threads: 16
     resources:
         mem_mb=1000000,
         runtime=800,
         slurm_partition=choose_partition(800)
     shell:
-        "vg haplotypes -v 2 -t 16 -d {input.snarls} -r {input.ri} {input.gbz} -H {output.haplfile}"
+        "{params.vg_binary} haplotypes -v 2 -t 16 -d {input.snarls} -r {input.ri} {input.gbz} -H {output.haplfile}"
 
 rule haplotype_index_graph_with_subchain_override:
     input:
         unpack(r_and_snarl_indexed_graph),
     output:
         haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}.subchain{subchainlength}.hapl"
+    params:
+        vg_binary=get_vg_version(VG_NO_FRAGMENT_HAPLOTYPE_INDEXING_VERSION)
     threads: 16
     resources:
         mem_mb=1000000,
         runtime=800,
         slurm_partition=choose_partition(800)
     shell:
-        "vg haplotypes -v 2 -t 16 -d {input.snarls} -r {input.ri} {input.gbz} --subchain-length {wildcards.subchainlength} -H {output.haplfile}"
+        "{params.vg_binary} haplotypes -v 2 -t 16 -d {input.snarls} -r {input.ri} {input.gbz} --subchain-length {wildcards.subchainlength} -H {output.haplfile}"
 
 rule xg_index_graph:
     input:
@@ -1545,13 +1556,14 @@ rule haplotype_sample_graph:
         samplingparams="(_[^-]*)?"
     params:
         haplotype_sampling_flags=haplotype_sampling_flags
+        vg_binary=get_vg_version(VG_HAPLOTYPE_SAMPLING_VERSION)
     threads: 8
     resources:
         mem_mb=60000,
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg haplotypes -v 2 -t {threads} --include-reference {params.haplotype_sampling_flags} -i {input.hapl} -k {input.kmer_counts} {input.gbz} -g {output.sampled_gbz}"
+        "{params.vg_binary} haplotypes -v 2 -t {threads} --include-reference {params.haplotype_sampling_flags} -i {input.hapl} -k {input.kmer_counts} {input.gbz} -g {output.sampled_gbz}"
 
 
 rule minimizer_index_graph:
