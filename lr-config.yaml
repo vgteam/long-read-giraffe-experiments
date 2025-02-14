@@ -133,7 +133,6 @@ experiments:
       subset: full
       tech: hifi
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: real
     vary:
@@ -158,7 +157,6 @@ experiments:
       subset: full
       reference: chm13
       tech: illumina
-      trimmedness: ""
       sample: HG002
       realness: real
     vary:
@@ -207,7 +205,6 @@ experiments:
       subset: full
       tech: hifi
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: real
     vary:
@@ -234,7 +231,6 @@ experiments:
       subset: 1m
       reference: chm13
       tech: r10
-      trimmedness: ""
       sample: HG002
       realness: sim
     vary:
@@ -259,7 +255,6 @@ experiments:
       subset: 1m
       tech: hifi
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: sim
     vary:
@@ -284,7 +279,6 @@ experiments:
       subset: 1m
       reference: chm13
       tech: illumina
-      trimmedness: ""
       sample: HG002
       realness: sim
     vary:
@@ -303,7 +297,6 @@ experiments:
       subset: 1m
       reference: chm13
       tech: r10
-      trimmedness: ""
       sample: HG002
       realness: sim
     vary:
@@ -329,7 +322,6 @@ experiments:
       subset: 1m
       tech: hifi
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: sim
     vary:
@@ -544,7 +536,6 @@ experiments:
       subset: 1m
       tech: hifi
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: real
     vary:
@@ -569,7 +560,6 @@ experiments:
       subset: 10k
       tech: hifi
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: sim
       mapper: "giraffe-k31.w50.W-hifi-default-noflags"
@@ -581,7 +571,6 @@ experiments:
       subset: 10k
       tech: hifi
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: sim
       mapper: "giraffe-k31.w50.W-hifi-default-noflags"
@@ -593,7 +582,6 @@ experiments:
       subset: full
       tech: hifi
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: real
       mapper: "giraffe-k31.w50.W-hifi-default-noflags"
@@ -609,7 +597,6 @@ experiments:
       subset: 100k
       tech: hifi
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: real
       mapper: "giraffe-k31.w50.W-hifi-default-noflags"
@@ -621,7 +608,6 @@ experiments:
       subset: full
       tech: hifi
       reference: chm13
-      trimmedness: ""
       realness: real
       mapper: "giraffe-k31.w50.W-hifi-default-noflags"
       refgraph: "hprc-v2.prerelease.2-mc-eval-nov22-masked38-masked19-d39"
@@ -633,7 +619,6 @@ experiments:
       subset: full
       tech: illumina
       reference: grch38
-      trimmedness: ""
       realness: real
       mapper: "giraffe-k29.w11.W-default-default-noflags"
       refgraph: "hprc-v2.prerelease.2-mc-eval-masked38-nov22-d39"
@@ -645,7 +630,6 @@ experiments:
       subset: 10k
       tech: r10
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: sim
       mapper: "giraffe-k31.w50.W-r10-default-noflags"
@@ -685,7 +669,6 @@ experiments:
       subset: 10k
       tech: illumina
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: sim
     vary:
@@ -703,7 +686,6 @@ experiments:
       subset: full
       tech: illumina
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: real
       # SV specific parameters with generic names
@@ -725,7 +707,6 @@ experiments:
       subset: full
       tech: illumina
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: real
       refgraph: "hprc-v2.prerelease.2-mc-eval-nov22-d39"
@@ -741,43 +722,66 @@ experiments:
       subset: 10k
       tech: illumina
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: sim
       mapper: "giraffe-k29.w11.W-default-default-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled16", "hprc-v1.1-mc-sampled16_jean20241203", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prereease-mc-R2-sampled16_jean20241203"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+      linearstructure: ["", "_linear"]
+      fragmentsupport: ["", "_fragsupport"]
+      fragments: ["", "_fragments"]
+    constrain:
+      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
+        linearstructure: ""
+        fragmentsupport: ""
+        fragments: ""
+      - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
 
   hifi_sim_samplingparams:
     control:
       subset: 10k
       tech: hifi
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: sim
       mapper: "giraffe-k31.w50.W-hifi-default-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled16", "hprc-v1.1-mc-sampled16_jean20241203", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prereease-mc-R2-sampled16_jean20241203"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+      linearstructure: ["", "_linear"]
+      fragmentsupport: ["", "_fragsupport"]
+      fragments: ["", "_fragments"]
+    constrain:
+      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
+        linearstructure: ""
+        fragmentsupport: ""
+        fragments: ""
+      - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
 
   r10_sim_samplingparams:
     control:
       subset: 10k
       tech: r10
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: sim
       mapper: "giraffe-k31.w50.W-r10-default-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled16", "hprc-v1.1-mc-sampled16_jean20241203", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prereease-mc-R2-sampled16_jean20241203"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+      linearstructure: ["", "_linear"]
+      fragmentsupport: ["", "_fragsupport"]
+      fragments: ["", "_fragments"]
+    constrain:
+      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
+        linearstructure: ""
+        fragmentsupport: ""
+        fragments: ""
+      - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
 
   illumina_real_samplingparams:
     control:
       subset: full
       tech: illumina
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: real
       mapper: "giraffe-k29.w11.W-default-default-noflags"
@@ -793,7 +797,6 @@ experiments:
       subset: full
       tech: hifi
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: real
       mapper: "giraffe-k31.w50.W-hifi-default-noflags"
@@ -825,7 +828,6 @@ experiments:
       subset: 10k
       tech: hifi
       reference: chm13
-      trimmedness: ""
       sample: HG002
       realness: real
       refgraph: hprc-v1.1-mc
@@ -836,7 +838,6 @@ experiments:
     control:
       tech: hifi
       reference: chm13
-      trimmedness: ""
       sample: HG002
       refgraph: hprc-v1.1-mc
     vary:
@@ -881,7 +882,6 @@ experiments:
       reference: chm13
       refgraph: "hprc-v1.1-mc"
       tech: illumina
-      trimmedness: ""
       sample: HG002
     vary:
       realness: ["sim", "real"]
@@ -901,7 +901,6 @@ experiments:
       reference: chm13
       refgraph: "hprc-v1.1-mc"
       tech: illumina
-      trimmedness: ""
       sample: HG002
     vary:
       mapper: ["giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2"]

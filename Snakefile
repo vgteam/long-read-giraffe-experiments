@@ -230,8 +230,11 @@ wildcard_constraints:
     expname="[^/]+",
     refgraphbase="[^/]+?",
     reference="chm13|grch38",
+    linearstructure="(_linear|)",
+    fragmentsupport="(_fragsupport|)",
+    fragments="(_fragments|)",
     # We can have multiple versions of graphs with different modifications and clipping regimes
-    modifications="(-[^.-]+(.trimmed)?)*",
+    modifications="(-[^.-]+(\\.trimmed|\\.full)?)*",
     clipping="\\.d[0-9]+|",
     chopping="\\.unchopped|",
     trimmedness="\\.trimmed|",
@@ -250,6 +253,8 @@ wildcard_constraints:
     realness="(real|sim)",
     realnessx="(real|sim)",
     realnessy="(real|sim)",
+
+# We have a wildcvard constraint on refgraph everywhere we need a condition name, to keep linearstructure/fragmentsupport/fragments out of it. TODO: Let this still accept custom samplingparams name strings
 
 def auto_mapping_threads(wildcards):
     """
@@ -682,7 +687,7 @@ def graph_base(wildcards):
             parts.pop()
 
         last = parts[-1]
-        if re.fullmatch("sampled[0-9]+d?(_[^-]*)?", last):
+        if re.fullmatch("sampled[0-9]+d?(_[^/-]*)?", last):
             # We have a generic haplotype sampling flag.
             # Autodetect the right haplotype-sampled graph to use.
 
@@ -811,20 +816,26 @@ def haplotype_indexed_graph(wildcards):
     """
     Find a GBZ and its hapl index.
 
-    Uses samplingparams to get haplotype sampling subchain length.
+    Uses samplingparams to get haplotype sampling index name with parameters.
 
     Distance and ri indexes are not needed for haplotype sampling.
     """
     base = graph_base(wildcards)
+    use_linear_structure = get_linear_structure(wildcards)
+    use_fragment_support = get_fragment_support(wildcards)
     subchain_length = get_subchain_length(wildcards)
+
+    hapl_modifiers = []
+    if use_linear_structure:
+        hapl_modifiers.append(".linear")
+    if use_fragment_support:
+        hapl_modifiers.append(".fragment")
     if subchain_length != 10000:
         # If using a non-default subchain length for haplotype sampling we need to put it in the filename.
-        subchain_length_part = f".subchain{subchain_length}"
-    else:
-        subchain_length_part = ""
+        hapl_modifiers.append(f".subchain{subchain_length}")
     return {
         "gbz": gbz(wildcards),
-        "hapl": base + subchain_length_part + ".hapl"
+        "hapl": base + "".join(hapl_modifiers) + ".hapl"
     }
     return result
 
@@ -971,6 +982,9 @@ def all_experiment_conditions(expname, filter_function=None, debug=False):
     match *at least* one of these dicts on *all* values in the dict in order to
     survive the pass. And it must survive all passes in order to be run.
 
+    If optional variables (defined internally) don't appear in the experiment
+    "vary" or "control" sections, they will be given an empty-string value.
+
     If filter_function is provided, only yields conditions that the filter
     function is true for.
 
@@ -996,6 +1010,11 @@ def all_experiment_conditions(expname, filter_function=None, debug=False):
     total_conditions = 0
     for condition in augmented_with_all(base_condition, to_vary):
         # For each combination of independent variables on top of the base condition
+
+        # Fill in optional experiment variables with empty strings
+        for optional_key in ["linearstructure", "fragmentsupport", "fragments", "trimmedness"]:
+            if optional_key not in condition:
+                condition[optional_key] = ""
 
         # We need to see if this is a combination we want to do
         if matches_all_constraint_passes(condition, constraint_passes):
@@ -1110,7 +1129,7 @@ def wildcards_to_condition(all_wildcards):
     for var in base_condition.keys():
         if var in wc_keys:
             # Constant variables across the whole experiment don't need to
-            # actually be in the consition name unless we actually have them
+            # actually be in the condition name unless we actually have them
             # available.
             condition[var] = all_wildcards[var]
 
@@ -1299,30 +1318,41 @@ def get_vg_version(wildcard_vgversion):
     else:
         return "./vg_"+wildcard_vgversion
 
+def get_linear_structure(wildcards):
+    """
+    Return whether linear structure haplotype indexing should be used, from samplingparams.
+    """
+
+    if "_linear" in wildcards["samplingparams"]:
+        return True
+    else:
+        return False
+
+def get_fragment_support(wildcards):
+    """
+    Return whether linear structure haplotype indexing should be used, from samplingparams.
+    """
+
+    if "_fragsupport" in wildcards["samplingparams"]:
+        return True
+    else:
+        return False
+
 def get_subchain_length(wildcards):
     """
     Get the subchain length for haplotype indexing as an int, from samplingparams.
     """
 
-    match wildcards["samplingparams"]:
-        case "":
-            # If not set, use default.
-            return 10000
-        case "_jean20241202":
-            # See <https://ucsc-gi.slack.com/archives/CJ2EHEH1A/p1733151257429979>
-            # Jean recommends:
-            return 25000
-        case "_jean20241203":
-            # Jean didn't actually apply an override though, he just thought he did.
-            return 10000
-        case unknown:
-            raise RuntimeError("Unimplemented named haplotype sampling parameter set " + unknown)
+    # Just default everything to 10000
+    return 10000
 
 def haplotype_sampling_flags(wildcards):
     """
     Return a string of command line flags for haplotype-sampling a GBZ, from hapcount, diploidtag, and samplingparams.
     """
     
+    print(f"Haplotype sampling flags for {wildcards}")
+
     parts = []
     
     # Start with the number of haplotypes to sample
@@ -1339,20 +1369,13 @@ def haplotype_sampling_flags(wildcards):
         case unknown:
             raise RuntimeError("Unimplemented diploid tag " + unknown)
 
-    match wildcards["samplingparams"]:
-        case "":
-            # If not set, nothing to add.
-            pass
-        case "_jean20241202" | "_jean20241203":
-            # See <https://ucsc-gi.slack.com/archives/CJ2EHEH1A/p1733151257429979>
-            # Jean recommends:
-            # 16 haplotypes, subchain length of 25000, presence 0.87, absence 0.75, het 0.07, without diploid sampling.
-            # We leave count and diploidness up to the reserved fields, and subchain length is in the hapl index, but fill in the other values.
-            parts += ["--present-discount", "0.87", "--absent-score", "0.75", "--het-adjustment", "0.07"]
-        case unknown:
-            raise RuntimeError("Unimplemented named haplotype sampling parameter set " + unknown)
+    if "_fragments" in wildcards["samplingparams"]:
+        # Sample extra fragments
+        parts.append("--extra-fragments")
 
-    return " ".join(parts)
+    result = " ".join(parts)
+    print(f"Result: {result}")
+    return result
 
     
 
@@ -1485,31 +1508,22 @@ rule haplotype_index_graph:
     input:
         unpack(r_and_snarl_indexed_graph),
     output:
-        haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}.hapl"
+        haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{maybelinear}{maybefragment}{maybesubchain}.hapl"
+    wildcard_constraints:
+        maybelinear="(\\.linear|)",
+        maybefragment="(\\.fragment|)",
+        maybesubchain="(\\.subchain[0-9]+|)"
     params:
-        vg_binary=get_vg_version(VG_NO_FRAGMENT_HAPLOTYPE_INDEXING_VERSION)
+        vg_binary=lambda w: get_vg_version(VG_NO_FRAGMENT_HAPLOTYPE_INDEXING_VERSION if w["maybefragment"] == "" else VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION)
     threads: 16
     resources:
         mem_mb=1000000,
         runtime=800,
         slurm_partition=choose_partition(800)
-    shell:
-        "{params.vg_binary} haplotypes -v 2 -t 16 -d {input.snarls} -r {input.ri} {input.gbz} -H {output.haplfile}"
-
-rule haplotype_index_graph_with_subchain_override:
-    input:
-        unpack(r_and_snarl_indexed_graph),
-    output:
-        haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}.subchain{subchainlength}.hapl"
-    params:
-        vg_binary=get_vg_version(VG_NO_FRAGMENT_HAPLOTYPE_INDEXING_VERSION)
-    threads: 16
-    resources:
-        mem_mb=1000000,
-        runtime=800,
-        slurm_partition=choose_partition(800)
-    shell:
-        "{params.vg_binary} haplotypes -v 2 -t 16 -d {input.snarls} -r {input.ri} {input.gbz} --subchain-length {wildcards.subchainlength} -H {output.haplfile}"
+    run:
+        linear_flag = "--linear-structure" if wildcards["maybelinear"] != "" else ""
+        subchain_flag = "--subchain-length " + wildcards["maybesubchain"][9:] if wildcards["maybesubchain"] != "" else ""
+        shell("{params.vg_binary} haplotypes -v 2 -t 16 -d {input.snarls} -r {input.ri} {input.gbz} -H {output.haplfile} " + linear_flag + " " + subchain_flag)
 
 rule xg_index_graph:
     input:
@@ -1553,9 +1567,9 @@ rule haplotype_sample_graph:
     wildcard_constraints:
         hapcount="[0-9]+",
         diploidtag="d?",
-        samplingparams="(_[^-]*)?"
+        samplingparams="(_[^/-]*)?"
     params:
-        haplotype_sampling_flags=haplotype_sampling_flags
+        haplotype_sampling_flags=haplotype_sampling_flags,
         vg_binary=get_vg_version(VG_HAPLOTYPE_SAMPLING_VERSION)
     threads: 8
     resources:
@@ -2562,24 +2576,25 @@ rule stat_from_happy_summary:
 #This outputs a tsv of: tp, fn, fp, recall, precision, f1
 rule dv_summary_by_condition:
     input:
-        happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.eval.summary.csv"
+        happy_evaluation_summary="{root}/stats/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.eval.summary.csv"
+    params:
+        condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/stats/deepvariant/{mapper}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.dv_{vartype}_summary.tsv"
+        tsv="{root}/experiments/{expname}/stats/deepvariant/{mapper}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}{linearstructure}{fragmentsupport}{fragments}.dv_{vartype}_summary.tsv"
     wildcard_constraints:
+        refgraph="[^/_]+",
         vartype="(snp|indel)"
     threads: 1
     resources:
         mem_mb=200,
         runtime=10,
         slurm_partition=choose_partition(10)
-    params:
-        condition_name=condition_name
     run:
         shell("echo \"{params.condition_name}\t$(cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].upper() + ",PASS' | cut -f 4,5,7,11,12,14 -d',' | sed 's/,/\\t/g')\" >{output.tsv}")
 
 rule dv_summary_table:
     input:
-        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/deepvariant/{mapper}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.dv_{vartype}_summary.tsv")
+        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/deepvariant/{mapper}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}{linearstructure}{fragmentsupport}{fragments}.dv_{vartype}_summary.tsv")
     output:
         tsv="{root}/experiments/{expname}/results/dv_{vartype}_summary.tsv"
     wildcard_constraints:
@@ -2790,12 +2805,13 @@ rule speed_from_log_giraffe_stats:
 
 rule speed_from_log_giraffe:
     input:
-        giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        giraffe_log="{root}/aligned/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="giraffe.*"
     threads: 1
@@ -2810,12 +2826,13 @@ rule speed_from_log_giraffe:
 #This makes it easier to find for different mappers that may or may not have a refgraph in the path
 rule memory_from_log_giraffe_experiment:
     input:
-        giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        giraffe_log="{root}/aligned/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="giraffe.*"
     threads: 1
@@ -2847,10 +2864,11 @@ rule speed_from_log_bwa:
     input:
         bwa_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="bwa(-pe)?"
     threads: 1
@@ -2870,10 +2888,11 @@ rule speed_from_log_bam:
     input:
         minimap2_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="(minimap2-.*|winnowmap)"
     threads: 1
@@ -2892,12 +2911,13 @@ rule speed_from_log_bam:
 
 rule speed_from_log_minigraph:
     input:
-        log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        log="{root}/aligned/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="(minigraph|panaligner)"
     threads: 1
@@ -2916,10 +2936,11 @@ rule speed_from_log_minigraph:
 #We need a speed_from_log.tsv file but graphaligner doesn't have a log so just make a dummy file
 rule speed_from_log_graphaligner:
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="graphaligner-.*"
     threads: 1
@@ -2936,10 +2957,11 @@ rule memory_from_log_bam:
     input:
         minimap2_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="(minimap2-.*|winnowmap|bwa(-pe)?)"
     threads: 1
@@ -2952,12 +2974,13 @@ rule memory_from_log_bam:
 
 rule memory_from_log_minigraph:
     input:
-        log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        log="{root}/aligned/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="(minigraph|panaligner)"
     threads: 1
@@ -2972,10 +2995,11 @@ rule memory_from_log_minigraph:
 #We need memory_from_log for all mappers but graphaligner doesn't have a log so make a dummy file
 rule memory_from_log_graphaligner:
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="graphaligner-.*"
     threads: 1
@@ -2991,12 +3015,13 @@ rule memory_from_log_graphaligner:
 #condition name, index load time in minutes
 rule index_load_time_from_log_giraffe:
     input:
-        giraffe_log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        giraffe_log="{root}/aligned/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="giraffe.*"
     threads: 1
@@ -3015,10 +3040,11 @@ rule index_load_time_from_log_bam:
     input:
         minimap2_log="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="(minimap2-.*|winnowmap)"
     threads: 1
@@ -3033,12 +3059,13 @@ rule index_load_time_from_log_bam:
         """
 rule index_load_time_from_log_minigraph:
     input:
-        log="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        log="{root}/aligned/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="(minigraph|panaligner)"
     threads: 1
@@ -3055,10 +3082,11 @@ rule index_load_time_from_log_minigraph:
 #a dummy file for the index load time since graphaligner doesn't have a log
 rule index_load_time_from_log_graphaligner:
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="graphaligner-.*|bwa(-pe)?"
     threads: 1
@@ -3074,9 +3102,11 @@ rule index_load_time_from_log_graphaligner:
 #empty time for anything not haplotype sampled
 rule haplotype_sampling_time_empty:
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmednes}.{subset}.haplotype_sampling_time.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmednes}.{subset}.haplotype_sampling_time.tsv"
     params:
         condition_name=condition_name
+    wildcard_constraints:
+        refgraph="[^/_]+"
     threads: 1
     resources:
         mem_mb=200,
@@ -3088,18 +3118,21 @@ rule haplotype_sampling_time_empty:
 rule haplotype_sampling_time_giraffe:
     input:
         kmer_counting=kmer_counts_benchmark,
-        haplotype_sampling=os.path.join(GRAPHS_DIR, "indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}-{sampling}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
-        distance_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}-{sampling}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
-        minimizer_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}-{sampling}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.k{k}.w{w}{weightedness}.benchmark")
+        haplotype_sampling=os.path.join(GRAPHS_DIR, "indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}-{sampling}{linearstructure}{fragmentsupport}{fragments}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
+        distance_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}-{sampling}{linearstructure}{fragmentsupport}{fragments}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
+        minimizer_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}-{sampling}{linearstructure}{fragmentsupport}{fragments}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.k{k}.w{w}{weightedness}.benchmark")
+    params:
+        condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraphbase}-{sampling}{clipping}{chopping}/giraffe-k{k}.w{w}{weightedness}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraphbase}-{sampling}{linearstructure}{fragmentsupport}{fragments}{clipping}{chopping}/giraffe-k{k}.w{w}{weightedness}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv"
     wildcard_constraints:
         sampling="sampled[0-9]+d?",
         weightedness="\\.W|",
         k="[0-9]+",
-        w="[0-9]+"
-    params:
-        condition_name=condition_name
+        w="[0-9]+",
+        # We're thinking about haplotype sampling only and these don't go into the inputs actually
+        clipping="",
+        chopping=""
     threads: 1
     resources:
         mem_mb=200,
@@ -3144,12 +3177,13 @@ rule index_load_and_sampling_time:
 # Some experiment stats can come straight from stats for the individual conditions
 rule condition_experiment_stat:
     input:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{conditionstat}.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{conditionstat}.tsv"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{conditionstat}.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{conditionstat}.tsv"
     wildcard_constraints:
+        refgraph="[^/_]+",
         conditionstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp))"
     threads: 1
     resources:
@@ -3161,7 +3195,7 @@ rule condition_experiment_stat:
 
 rule experiment_stat_table:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{statname}.tsv", filter_function=has_stat_filter(w["statname"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{statname}.tsv", filter_function=has_stat_filter(w["statname"]))
     output:
         table="{root}/experiments/{expname}/results/{statname}.tsv"
     threads: 1
@@ -3276,11 +3310,13 @@ rule experiment_overall_fraction_eligible_plot:
 
 rule compared_named_from_compared:
     input:
-        tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
+        tsv="{root}/compared/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
+    wildcard_constraints:
+        refgraph="[^/_]+"
     threads: 3
     resources:
         mem_mb=1000,
@@ -3292,7 +3328,7 @@ rule compared_named_from_compared:
 
 rule experiment_compared_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.compared.tsv", lambda condition: condition["realness"] == "sim")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.compared.tsv", lambda condition: condition["realness"] == "sim")
     output:
         tsv="{root}/experiments/{expname}/results/compared.tsv"
     threads: 1
@@ -3377,7 +3413,7 @@ rule experiment_calling_summary_plot:
 
 rule experiment_speed_from_log_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
     output:
         tsv="{root}/experiments/{expname}/results/speed_from_log.tsv"
     threads: 1
@@ -3405,7 +3441,7 @@ rule experiment_speed_from_log_plot:
 
 rule experiment_memory_from_log_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
     output:
         tsv="{root}/experiments/{expname}/results/memory_from_log.tsv"
     threads: 1
@@ -3431,7 +3467,7 @@ rule experiment_memory_from_log_plot:
 
 rule experiment_runtime_from_benchmark_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv", lambda condition: condition["realness"] == "real")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv", lambda condition: condition["realness"] == "real")
     output:
         tsv="{root}/experiments/{expname}/results/runtime_from_benchmark.tsv"
     threads: 1
@@ -3446,7 +3482,7 @@ ruleorder: experiment_runtime_from_benchmark_tsv > experiment_stat_table
 
 rule experiment_run_and_sampling_time_from_benchmark_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.run_and_sampling_time_from_benchmark.tsv", lambda condition: condition["realness"] == "real"),
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.run_and_sampling_time_from_benchmark.tsv", lambda condition: condition["realness"] == "real"),
     output:
         tsv="{root}/experiments/{expname}/results/run_and_sampling_time_from_benchmark.tsv"
     threads: 1
@@ -3491,7 +3527,7 @@ rule experiment_index_load_and_sampling_time_tsv:
 
 rule experiment_index_load_time_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv", lambda condition: condition["realness"] == "real")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}{linearstructure}{fragmentsupport}{fragments}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv", lambda condition: condition["realness"] == "real")
     output:
         tsv="{root}/experiments/{expname}/results/index_load_time.tsv"
     threads: 1
@@ -3653,7 +3689,7 @@ rule experiment_run_and_index_time_fast_hours_plot:
 
 rule experiment_memory_from_benchmark_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv", lambda condition: condition["realness"] == "real")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv", lambda condition: condition["realness"] == "real")
     output:
         tsv="{root}/experiments/{expname}/results/memory_from_benchmark.tsv"
     threads: 1
@@ -3682,10 +3718,11 @@ rule experiment_memory_from_benchmark_plot:
 #Get the accuracy from simulated reads for one condition
 rule experiment_mapping_stats_sim_tsv_from_stats:
     input:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_accuracy.tsv"
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="sim"
     params:
         condition_name=condition_name
@@ -3700,7 +3737,7 @@ rule experiment_mapping_stats_sim_tsv_from_stats:
 #Get the accuracy from simulated reads for all conditions in the experiment
 rule experiment_mapping_stats_sim_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.mapping_accuracy.tsv", lambda condition: condition["realness"] == "sim", empty_ok=True)
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.mapping_accuracy.tsv", lambda condition: condition["realness"] == "sim", empty_ok=True)
     output:
         tsv="{root}/experiments/{expname}/results/mapping_stats_sim.tsv"
     threads: 1
@@ -3717,15 +3754,16 @@ rule experiment_mapping_stats_sim_tsv:
 #Get the speed, memory use, and softclips from real reads for each condition
 rule experiment_mapping_stats_real_tsv_from_stats:
     input:
-        startup_time="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv",
-        sampling_time="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv",
-        runtime_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv",
-        memory_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv",
-        softclipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
+        startup_time="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv",
+        sampling_time="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv",
+        runtime_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv",
+        memory_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv",
+        softclipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
 
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv"
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real"
     params:
         condition_name=condition_name
@@ -3743,7 +3781,7 @@ rule experiment_mapping_stats_real_tsv_from_stats:
 #Get the speed, memory use, and softclips from real reads
 rule experiment_mapping_stats_real_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv", lambda condition: condition["realness"] == "real", empty_ok=True)
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv", lambda condition: condition["realness"] == "real", empty_ok=True)
     output:
         tsv="{root}/experiments/{expname}/results/mapping_stats_real.tsv"
     wildcard_constraints:
@@ -3808,11 +3846,13 @@ rule facts_from_alignments_with_correctness:
 
 rule mapping_rate_from_stats:
     input:
-        stats="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt"
+        stats="{root}/stats/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt"
     params:
         condition_name=condition_name
     output:
-        rate="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_rate.tsv"
+        rate="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_rate.tsv"
+    wildcard_constraints:
+        refgraph="[^/_]+"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3836,12 +3876,14 @@ rule experiment_mapping_rate_plot:
 
 rule unmapped_from_stats:
     input:
-        stats="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt",
-        mapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_rate.tsv"
+        stats="{root}/stats/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt",
+        mapped="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_rate.tsv"
     params:
         condition_name=condition_name
     output:
         unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped.tsv"
+    wildcard_constraints:
+        refgraph="[^/_]+"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3880,12 +3922,13 @@ rule mapping_speed_from_mean_time_used:
 
 rule mapping_speed_from_stats:
     input:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_speed.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_speed.tsv"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_speed.tsv"
+        tsv="{root}/experiments/{expname}/{reference}{linearstructure}{fragmentsupport}{fragments}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_speed.tsv"
     wildcard_constraints:
+        refgraph="[^/_]+",
         mapper="giraffe-.+"
     threads: 1
     resources:
@@ -3910,11 +3953,13 @@ rule experiment_mapping_speed_plot:
 
 rule softclips_from_mean_softclips:
     input:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.mean.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.mean.tsv"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv"
+    wildcard_constraints:
+        refgraph="[^/_]+"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3938,11 +3983,13 @@ rule experiment_softclips_plot:
 
 rule softclipped_or_unmapped_from_softclipped_or_unmapped:
     input:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
     params:
         condition_name=condition_name
+    wildcard_constraints:
+        refgraph="[^/_]+"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3966,11 +4013,13 @@ rule experiment_softclipped_or_unmapped_plot:
 
 rule chain_coverage_from_mean_best_chain_coverage:
     input:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.mean.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.mean.tsv"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chain_coverage.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chain_coverage.tsv"
+    wildcard_constraints:
+        refgraph="[^/_]+"
     wildcard_constraints:
         mapper="giraffe-.+"
     threads: 1
@@ -4443,10 +4492,11 @@ rule runtime_from_benchmark_bam:
     input:
         bench="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
     threads: 1
@@ -4468,12 +4518,13 @@ rule runtime_from_benchmark_bam:
 
 rule runtime_from_benchmark_gam:
     input:
-        bench="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+        bench="{root}/aligned/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="(giraffe.*|graphaligner-.*|minigraph|panaligner)"
     threads: 1
@@ -4513,10 +4564,11 @@ rule memory_from_benchmark_sam:
     input:
         bench="{root}/aligned-secsup/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
     threads: 1
@@ -4534,12 +4586,13 @@ rule memory_from_benchmark_sam:
 
 rule memory_from_benchmark_gam:
     input:
-        bench="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+        bench="{root}/aligned/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
+        refgraph="[^/_]+",
         realness="real",
         mapper="(giraffe.*|graphaligner-.*|minigraph|panaligner)"
     threads: 1
@@ -5288,21 +5341,23 @@ rule truvari:
 # This uses TP-base, the number of matching variants as counted by the truth set
 rule sv_summary_by_condition:
     input:
-        json="{root}/svcall/{caller}/{mapper}/eval/{truthset}_{truthref}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.truvari.refine.variant_summary.json"
+        json="{root}/svcall/{caller}/{mapper}/eval/{truthset}_{truthref}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}{linearstructure}{fragmentsupport}{fragments}.{truthset}_{truthref}.truvari.refine.variant_summary.json"
+    params:
+        condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}_{truthref}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.sv_summary.tsv"
+        tsv="{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}_{truthref}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}{linearstructure}{fragmentsupport}{fragments}.{truthset}_{truthref}.sv_summary.tsv"
+    wildcard_constraints:
+        refgraph="[^/_]+"
     threads: 1
     resources:
         mem_mb=200,
         runtime=10,
         slurm_partition=choose_partition(10)
-    params:
-        condition_name=condition_name
     shell:
         "echo \"{params.condition_name}\t$(jq -r '[.[\"TP-base\"],.FN,.FP,.recall,.precision,.f1] | @tsv' {input.json})\" >{output.tsv}"
 rule sv_summary_table:
     input:
-        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}_{truthref}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.sv_summary.tsv")
+        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/{caller}/{mapper}/{truthset}_{truthref}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}{linearstructure}{fragmentsupport}{fragments}.{truthset}_{truthref}.sv_summary.tsv")
     output:
         tsv="{root}/experiments/{expname}/results/sv_summary.tsv"
     threads: 1
