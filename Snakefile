@@ -234,9 +234,12 @@ wildcard_constraints:
     fragmentsupport="(_fragsupport|)",
     fragments="(_fragments|)",
     # We can have multiple versions of graphs with different modifications and clipping regimes
-    modifications="(-[^.-]+(\\.trimmed|\\.full)?)*",
+    modifications="(-[^.-]+(\\.trimmed)?)*",
     clipping="\\.d[0-9]+|",
+    full="\\.full|",
     chopping="\\.unchopped|",
+    # After a full graph, we might have sampling stuff in a graph name
+    sampling="(-[^-]+)*",
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
     basename=".+(?<!\\.trimmed)",
@@ -661,16 +664,18 @@ def graph_base(wildcards):
     modifications = []
 
     if "refgraphbase" in wc_keys and "modifications" in wc_keys:
-        # We already have the reference graph base (hprc-v1.1-mc) and clipping (.d9) and chopping (.unchopped) if allowed cut apart.
+        # We already have the reference graph base (hprc-v1.1-mc) and clipping (.d9) and chopping (.unchopped) and full (.full) if allowed cut apart.
         refgraphbase = wildcards["refgraphbase"]
         modifications.append(wildcards["modifications"])
         if "clipping" in wc_keys:
             modifications.append(wildcards["clipping"])
+        if "full" in wc_keys:
+            modifications.append(wildcards["full"])
         if "chopping" in wc_keys:
             modifications.append(wildcards["chopping"])
     else:
         assert "refgraph" in wc_keys, f"No refgraph wildcard in: {wc_keys}"
-        # We need to handle hprc-v1.1-mc and hprc-v1.1-mc-d9 and hprc-v2.prereease-mc-R2-d32 and hprc-v2.prereease-mc-R2-sampled10d.
+        # We need to handle hprc-v1.1-mc and hprc-v1.1-mc.full and hprc-v1.1-mc-d9 and hprc-v2.prereease-mc-R2-d32 and hprc-v2.prereease-mc-R2-sampled10d.
         # Also probaby primary.
         # They need the reference inserted after the -mc. but before the other stuff, and -d32 needs to become .d32.
         # And -sampled10d needs to be expanded to say what sample and read set we are haplotype sampling from.
@@ -711,6 +716,14 @@ def graph_base(wildcards):
             # We have more than just the 3-tuple of name, version, algorithm. Take the last thing into modifications.
             modifications.append("-" + parts[-1])
             parts.pop()
+        
+        last = parts[-1]
+        if last.endswith(".full"):
+            # Move a .full over the reference
+            modifications.append(".full")
+            last = last[:-5]
+            parts[-1] = last
+        
 
         # Now we have all the modifications. Flip them around the right way.
         modifications.reverse()
@@ -1148,6 +1161,7 @@ def wildcards_to_condition(all_wildcards):
                 graph += "-"
                 graph += all_wildcards.get("sampling")
             graph += all_wildcards.get("clipping","")
+            graph += all_wildcards.get("full","")
             graph += all_wildcards.get("chopping","")
 
             condition[var] = graph
@@ -1351,8 +1365,6 @@ def haplotype_sampling_flags(wildcards):
     Return a string of command line flags for haplotype-sampling a GBZ, from hapcount, diploidtag, and samplingparams.
     """
     
-    print(f"Haplotype sampling flags for {wildcards}")
-
     parts = []
     
     # Start with the number of haplotypes to sample
@@ -1373,9 +1385,7 @@ def haplotype_sampling_flags(wildcards):
         # Sample extra fragments
         parts.append("--extra-fragments")
 
-    result = " ".join(parts)
-    print(f"Result: {result}")
-    return result
+    return " ".join(parts)
 
     
 
@@ -1404,9 +1414,9 @@ def param_search_tsvs(wildcards, statname="time_used.mean", realness="real"):
 
 rule hg_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.gbz"
     output:
-        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.hg"
+        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.hg"
     threads: 26
     resources:
         mem_mb=120000,
@@ -1417,9 +1427,9 @@ rule hg_index_graph:
 
 rule unchop_hg_graph:
     input:
-        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.hg"
+        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}.hg"
     output:
-        unchopped_hg="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.unchopped.hg"
+        unchopped_hg="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}.unchopped.hg"
     threads: 26
     resources:
         mem_mb=120000,
@@ -1430,9 +1440,9 @@ rule unchop_hg_graph:
 
 rule hg_to_gfa:
     input:
-        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.hg"
+        hgfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.hg"
     output:
-        gfa="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gfa"
+        gfa="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.gfa"
     wildcard_constraints:
         chopping="\.unchopped|"
     threads: 26
@@ -1446,10 +1456,10 @@ rule hg_to_gfa:
 
 rule distance_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.gbz"
     output:
-        distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.dist"
-    benchmark: "{graphs_dir}/indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark"
+        distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.dist"
+    benchmark: "{graphs_dir}/indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.benchmark"
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
     resources:
@@ -1461,10 +1471,10 @@ rule distance_index_graph:
 
 rule precompute_snarls:
     input:
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.gbz"
     output:
-        snarls="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.snarls"
-    benchmark: "{graphs_dir}/indexing_benchmarks/snarls_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark"
+        snarls="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.snarls"
+    benchmark: "{graphs_dir}/indexing_benchmarks/snarls_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.benchmark"
     threads: 4
     resources:
         mem_mb=120000,
@@ -1474,10 +1484,10 @@ rule precompute_snarls:
 
 rule tcdist_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.gbz"
     output:
-        tcdistfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.tcdist"
-    benchmark: "{graphs_dir}/indexing_benchmarks/tcdistance_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.benchmark"
+        tcdistfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.tcdist"
+    benchmark: "{graphs_dir}/indexing_benchmarks/tcdistance_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.benchmark"
 
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
@@ -1493,9 +1503,9 @@ rule tcdist_index_graph:
 rule r_index_graph:
     input:
         # We don't operate on clipped graphs
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.gbz"
     output:
-        rifile="{graphs_dir}/{refgraphbase}-{reference}{modifications}.ri"
+        rifile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.ri"
     threads: 16
     resources:
         mem_mb=120000,
@@ -1508,7 +1518,7 @@ rule haplotype_index_graph:
     input:
         unpack(r_and_snarl_indexed_graph),
     output:
-        haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{maybelinear}{maybefragment}{maybesubchain}.hapl"
+        haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{maybelinear}{maybefragment}{maybesubchain}.hapl"
     wildcard_constraints:
         maybelinear="(\\.linear|)",
         maybefragment="(\\.fragment|)",
@@ -1527,9 +1537,9 @@ rule haplotype_index_graph:
 
 rule xg_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.gbz"
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.gbz"
     output:
-        xg="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}.xg"
+        xg="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.xg"
     threads: 8
     resources:
         mem_mb=100000,
@@ -1562,8 +1572,8 @@ rule haplotype_sample_graph:
         kmer_counts=kmer_counts
     output:
         # Need to sample back into the graphs directory so e.g. minimizer indexing and mapping can work.
-        sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.gbz"
-    benchmark: "{graphs_dir}/indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{modifications}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"
+        sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.gbz"
+    benchmark: "{graphs_dir}/indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"
     wildcard_constraints:
         hapcount="[0-9]+",
         diploidtag="d?",
@@ -1584,9 +1594,9 @@ rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
     output:
-        minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.withzip.min",
-        zipfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.zipcodes"
-    benchmark: "{graphs_dir}/indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.benchmark"
+        minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.withzip.min",
+        zipfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.zipcodes"
+    benchmark: "{graphs_dir}/indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.benchmark"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
@@ -1606,7 +1616,7 @@ rule non_zipcode_minimizer_index_graph:
         unpack(dist_indexed_graph),
         non_zipcode_vg="vg_v1.62.0"
     output:
-        minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{chopping}.k{k}.w{w}{weightedness}.nozip.min",
+        minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.nozip.min",
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
@@ -3118,13 +3128,13 @@ rule haplotype_sampling_time_empty:
 rule haplotype_sampling_time_giraffe:
     input:
         kmer_counting=kmer_counts_benchmark,
-        haplotype_sampling=os.path.join(GRAPHS_DIR, "indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}-{sampling}{linearstructure}{fragmentsupport}{fragments}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
-        distance_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}-{sampling}{linearstructure}{fragmentsupport}{fragments}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
-        minimizer_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}-{sampling}{linearstructure}{fragmentsupport}{fragments}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.k{k}.w{w}{weightedness}.benchmark")
+        haplotype_sampling=os.path.join(GRAPHS_DIR, "indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{full}-{sampling}{linearstructure}{fragmentsupport}{fragments}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
+        distance_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{full}-{sampling}{linearstructure}{fragmentsupport}{fragments}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
+        minimizer_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{full}-{sampling}{linearstructure}{fragmentsupport}{fragments}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.k{k}.w{w}{weightedness}.benchmark")
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraphbase}-{sampling}{linearstructure}{fragmentsupport}{fragments}{clipping}{chopping}/giraffe-k{k}.w{w}{weightedness}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraphbase}-{sampling}{linearstructure}{fragmentsupport}{fragments}{clipping}{full}{chopping}/giraffe-k{k}.w{w}{weightedness}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv"
     wildcard_constraints:
         sampling="sampled[0-9]+d?",
         weightedness="\\.W|",
@@ -3926,7 +3936,7 @@ rule mapping_speed_from_stats:
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}{linearstructure}{fragmentsupport}{fragments}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_speed.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}{linearstructure}{fragmentsupport}{fragments}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_speed.tsv"
     wildcard_constraints:
         refgraph="[^/_]+",
         mapper="giraffe-.+"
