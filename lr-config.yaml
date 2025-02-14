@@ -724,7 +724,7 @@ experiments:
       reference: chm13
       sample: HG002
       realness: sim
-      mapper: "giraffe-k29.w11.W-default-default-noflags"
+      mapper: "giraffe-k29.w11.W-default-71428e-noflags"
     vary:
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
       linearstructure: ["", "_linear"]
@@ -744,7 +744,7 @@ experiments:
       reference: chm13
       sample: HG002
       realness: sim
-      mapper: "giraffe-k31.w50.W-hifi-default-noflags"
+      mapper: "giraffe-k31.w50.W-hifi-71428e-noflags"
     vary:
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
       linearstructure: ["", "_linear"]
@@ -764,7 +764,7 @@ experiments:
       reference: chm13
       sample: HG002
       realness: sim
-      mapper: "giraffe-k31.w50.W-r10-default-noflags"
+      mapper: "giraffe-k31.w50.W-r10-71428e-noflags"
     vary:
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
       linearstructure: ["", "_linear"]
@@ -784,7 +784,7 @@ experiments:
       reference: chm13
       sample: HG002
       realness: real
-      mapper: "giraffe-k29.w11.W-default-default-noflags"
+      mapper: "giraffe-k29.w11.W-default-71428e-noflags"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6
@@ -808,7 +808,7 @@ experiments:
       reference: chm13
       sample: HG002
       realness: real
-      mapper: "giraffe-k31.w50.W-hifi-default-noflags"
+      mapper: "giraffe-k31.w50.W-hifi-71428e-noflags"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6
@@ -833,7 +833,7 @@ experiments:
       trimmedness: ".trimmed"
       sample: HG002
       realness: real
-      mapper: "giraffe-k31.w50.W-r10-default-noflags"
+      mapper: "giraffe-k31.w50.W-r10-71428e-noflags"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6
