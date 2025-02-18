@@ -1463,7 +1463,7 @@ rule distance_index_graph:
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
     resources:
-        mem_mb=120000,
+        mem_mb=lambda w: 120000 if w["full"] == "" else 2000000,
         runtime=240,
         slurm_partition=choose_partition(240)
     shell:
@@ -1508,7 +1508,7 @@ rule r_index_graph:
         rifile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.ri"
     threads: 16
     resources:
-        mem_mb=120000,
+        mem_mb=lambda w: 120000 if w["full"] == "" else 240000,
         runtime=240,
         slurm_partition=choose_partition(240)
     shell:
