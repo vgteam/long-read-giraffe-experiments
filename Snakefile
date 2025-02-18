@@ -1583,7 +1583,7 @@ rule haplotype_sample_graph:
         vg_binary=get_vg_version(VG_HAPLOTYPE_SAMPLING_VERSION)
     threads: 8
     resources:
-        mem_mb=60000,
+        mem_mb=120000,
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
