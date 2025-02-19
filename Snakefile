@@ -3663,7 +3663,7 @@ rule experiment_mapping_stats_sim_tsv:
         slurm_partition=choose_partition(60)
     shell:
         """
-        printf "condition\tcorrect\tmapq60\twrong_mapq60\n" >> {output.tsv}
+        printf "condition\tcorrect\tmapq60\twrong_mapq60\twrong_eligible\n" >> {output.tsv}
         cat {input} >>{output.tsv}
         """
 
@@ -4916,6 +4916,7 @@ rule mapping_accuracy:
         correct_count = 0
         mapq60_count = 0
         wrong_mapq60_count = 0
+        wrong_eligible_count = 0
 
         f = open(input.compared_tsv)
         f.readline()
@@ -4927,8 +4928,11 @@ rule mapping_accuracy:
                 mapq60_count += 1
                 if int(l[0]) == 0 and int(l[4]) == 1:
                     wrong_mapq60_count+=1
+            if int(l[0]) == 0 and int(l[4]) == 1:
+                wrong_eligible_count+=1
+
         f.close()
-        shell("printf \"" + str(correct_count) + "\t" + str(mapq60_count) + "\t" + str(wrong_mapq60_count) + "\" > {output}")
+        shell("printf \"" + str(correct_count) + "\t" + str(mapq60_count) + "\t" + str(wrong_mapq60_count) + "\t" + str(wrong_eligible_count) + "\" > {output}")
         
 
 rule parameter_search_mapping_stats:
@@ -5349,16 +5353,12 @@ ruleorder: sv_summary_table > experiment_stat_table
 rule all_paper_figures:
     input:
         mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.latex.tsv", expname=config["real_exps"]),
-        softclipped_plot=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/softclipped_or_unmapped_percent.pdf", expname=config["headline_real_exps"]),
-        softclipped_plot_high=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/softclipped_or_unmapped_percent_high.pdf", expname=config["headline_real_exps"]),
-        softclipped_plot_low=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/softclipped_or_unmapped_percent_low.pdf", expname=config["headline_real_exps"]),
-        runtime_slow=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_slow_time_hours.pdf", expname=config["headline_real_exps"]),
-        runtime_fast=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_fast_time_hours.pdf", expname=config["headline_real_exps"]),
-        runtime=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_time_hours.pdf", expname=config["headline_real_exps"]),
-        memory=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/memory_from_benchmark.pdf", expname=config["headline_real_exps"]),
-        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=config["sim_exps"]),
-        qq=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/qq.pdf", expname=config["headline_sim_exps"]),
-        roc=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/roc.pdf", expname=config["headline_sim_exps"]),
+        softclipped_plot=expand(ALL_OUT_DIR + "/experiments/{expname}/results/softclipped_or_unmapped_percent.tsv", expname=config["headline_real_exps"]),
+        runtime=expand(ALL_OUT_DIR + "/experiments/{expname}/results/run_and_sampling_time_from_benchmark.tsv", expname=config["headline_real_exps"]),
+        index_time=expand(ALL_OUT_DIR + "/experiments/{expname}/results/index_load_time.tsv", expname=config["headline_real_exps"]),
+        memory=expand(ALL_OUT_DIR + "/experiments/{expname}/results/memory_from_benchmark.tsv", expname=config["headline_real_exps"]),
+        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=config["headline_sim_exps"]),
+        compared_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/compared.tsv", expname=config["headline_sim_exps"]),
         dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_indel_summary.pdf", expname=config["dv_exps"]),
         dv_snp=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_snp_summary.pdf", expname=config["dv_exps"]),
         svs=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/sv_summary.pdf", expname=config["sv_exps"])

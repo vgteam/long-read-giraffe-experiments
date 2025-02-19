@@ -131,7 +131,7 @@ dat.plot <- ggplot(dat.roc, aes( x= FPR, y = TPR, color = aligner, label=mq)) +
     geom_point(aes(size=Positive+Negative)) +
     scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
     scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
-    scale_x_log10(limits=c(range.unlogged[1],range.unlogged[length(range.unlogged)]), breaks=range.unlogged, oob=squish) +
+    coord_trans(xlim = c(0.005, 0.0085), x = "log",ylim = c(0.9905, 0.9945)) +
     geom_vline(xintercept=1/total.reads) + # vertical line at one wrong read
     theme_bw() + 
     theme(legend.position=c(1,0), legend.justification=c(1,0)) +
