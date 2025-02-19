@@ -19,7 +19,7 @@ smalls = list(filter(lambda x : x <= cutoff, runtimes))
 
 if not len(bigs) == 0 and sys.argv[2] == "big":
 
-    print(min(bigs) / 60.0 * 0.80)
+    print(min(bigs) * 0.80)
 
 if not len(smalls) == 0 and sys.argv[2] == "small":
 
