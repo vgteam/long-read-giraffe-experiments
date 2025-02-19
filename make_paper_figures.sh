@@ -47,9 +47,9 @@ Rscript plot-qq.R ${R10_ACCURACY} ${OUT_DIR}/qq_r10_headline.pdf
 HIFI_INCORRECT=${ROOT_DIR}/experiments/hifi_sim_1m_headline/results/mapping_stats_sim.tsv
 R10_INCORRECT=${ROOT_DIR}/experiments/r10_sim_1m_headline/results/mapping_stats_sim.tsv
 
-python3 barchart.py <(tail -n +2 ${HIFI_INCORRECT} | cut -f1,5) --divisions <(tail -n +2 ${HIFI_INCORRECT} | cut -f1,4)  --title 'HiFi incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --save ${OUT_DIR}/incorrectness_hifi.pdf
+python3 barchart.py <(tail -n +2 ${HIFI_INCORRECT} | cut -f1,5) --divisions <(tail -n +2 ${HIFI_INCORRECT} | cut -f1,4)  --title 'HiFi incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --categories minimap2-map-hifi,hprc-v1.1-mc-d9 winnowmap,hprc-v1.1-mc-d9 giraffe,primary minigraph,hprc-v1.0-minigraph graphaligner-default,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc giraffe,hprc-v1.1-mc-sampled16  --colors '#F57600' '#C44601' '#3C96B0' '#F2C300' '#C49AB6' '#53AEDF' '#27A974' '#9B8BF4'  --save ${OUT_DIR}/incorrectness_hifi.pdf
 
-python3 barchart.py <(tail -n +2 ${R10_INCORRECT} | cut -f1,5) --divisions <(tail -n +2 ${R10_INCORRECT} | cut -f1,4)  --title 'R10 incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --save ${OUT_DIR}/incorrectness_r10.pdf
+python3 barchart.py <(tail -n +2 ${R10_INCORRECT} | cut -f1,5) --divisions <(tail -n +2 ${R10_INCORRECT} | cut -f1,4)  --title 'R10 incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --categories minimap2-map-hifi,hprc-v1.1-mc-d9 winnowmap,hprc-v1.1-mc-d9 giraffe,primary minigraph,hprc-v1.0-minigraph graphaligner-default,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc giraffe,hprc-v1.1-mc-sampled16  --colors '#F57600' '#C44601' '#3C96B0' '#F2C300' '#C49AB6' '#53AEDF' '#27A974' '#9B8BF4'  --save ${OUT_DIR}/incorrectness_r10.pdf
 
 ########################################## Softclips
 
