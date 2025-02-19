@@ -3,6 +3,7 @@
 # Takes a file of numbers with the numbers in the second column, and a string "big" or "small" for if we want the lower limit for plotting the big ones or the upper limit for plotting the small ones.
 
 import sys
+import numpy as np
 
 runtimes = []
 with open(sys.argv[1]) as in_file:

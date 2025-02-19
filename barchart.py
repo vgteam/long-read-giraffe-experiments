@@ -8,7 +8,7 @@ Re-uses sample code and documentation from
 """
 
 import argparse, sys, os, itertools, math, collections, re
-import matplotlib, matplotlib.ticker
+import matplotlib, matplotlib.ticker, matplotlib.colors
 
 # Implementation of "natural" sorting from
 # <http://stackoverflow.com/a/5967539/402891>
@@ -196,7 +196,8 @@ def main(args):
             if options.colors is not None:
                 color_map = dict()
                 for i in range(len(options.categories)):
-                    color_map[options.categories[i]] = options.colors[i]
+                    color = matplotlib.colors.to_rgb(options.colors[i]) if options.colors[i][0] == '#' else options.colors[i]
+                    color_map[options.categories[i]] = color
                     
             # sort by value
             options.categories = sorted(options.categories,
