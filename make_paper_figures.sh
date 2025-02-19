@@ -28,19 +28,19 @@ OUT_DIR="./plots"
 HIFI_ACCURACY=${ROOT_DIR}/experiments/hifi_sim_1m_headline/results/compared.tsv
 R10_ACCURACY=${ROOT_DIR}/experiments/r10_sim_1m_headline/results/compared.tsv
 
-Rscript plot-roc-hifi.R ${HIFI_ACCURACY} roc_hifi_headline_zoomed.pdf
+Rscript plot-roc-hifi.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline_zoomed.pdf
 
-Rscript plot-roc-r10.R ${R10_ACCURACY} roc_r10_headline_zoomed.pdf
+Rscript plot-roc-r10.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline_zoomed.pdf
 
 # Zoomed out headline roc plots
-Rscript plot-roc.R ${HIFI_ACCURACY} roc_hifi_headline.pdf
+Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline.pdf
 
-Rscript plot-roc.R ${R10_ACCURACY} roc_r10_headline.pdf
+Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline.pdf
 
 # headline qq plots
-Rscript plot-qq.R ${HIFI_ACCURACY} qq_hifi_headline.pdf
+Rscript plot-qq.R ${HIFI_ACCURACY} ${OUT_DIR}/qq_hifi_headline.pdf
 
-Rscript plot-qq.R ${R10_ACCURACY} qq_r10_headline.pdf
+Rscript plot-qq.R ${R10_ACCURACY} ${OUT_DIR}/qq_r10_headline.pdf
 
 ######################################### Incorrect counts
 
