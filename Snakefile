@@ -664,7 +664,10 @@ def graph_base(wildcards):
     modifications = []
 
     if "refgraphbase" in wc_keys and "modifications" in wc_keys:
-        # We already have the reference graph base (hprc-v1.1-mc) and clipping (.d9) and chopping (.unchopped) and full (.full) if allowed cut apart.
+        # We already have the reference graph base (hprc-v1.1-mc) and clipping
+        # (.d9) and chopping (.unchopped) and full (.full) if allowed cut
+        # apart. Sampling info may also be there (we assume it already
+        # describes what to sample for specifically).
         refgraphbase = wildcards["refgraphbase"]
         modifications.append(wildcards["modifications"])
         if "clipping" in wc_keys:
@@ -673,6 +676,8 @@ def graph_base(wildcards):
             modifications.append(wildcards["full"])
         if "chopping" in wc_keys:
             modifications.append(wildcards["chopping"])
+        if "sampling" in wc_keys:
+            modifications.append(wildcards["sampling"])
     else:
         assert "refgraph" in wc_keys, f"No refgraph wildcard in: {wc_keys}"
         # We need to handle hprc-v1.1-mc and hprc-v1.1-mc.full and hprc-v1.1-mc-d9 and hprc-v2.prereease-mc-R2-d32 and hprc-v2.prereease-mc-R2-sampled10d.
@@ -730,7 +735,7 @@ def graph_base(wildcards):
         
         # The first 3 or fewer parts are the graph base name.
         refgraphbase = "-".join(parts)
-    
+
     result = os.path.join(GRAPHS_DIR, refgraphbase + "-" + reference + "".join(modifications))
     return result
 
@@ -2419,7 +2424,8 @@ rule surject_gam:
         reference_path_dict_callable=reference_path_dict_callable,
         gam=surjectable_gam
     output:
-        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+        # Don't keep this around because we're going to keep the sorted version and use that for most things.
+        bam=temp("{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam")
     wildcard_constraints:
         mapper="(giraffe.*|graphaligner-.*)"
     params:
