@@ -1533,8 +1533,8 @@ rule haplotype_index_graph:
     threads: 16
     resources:
         mem_mb=1000000,
-        runtime=800,
-        slurm_partition=choose_partition(800)
+        runtime=5760,
+        slurm_partition=choose_partition(5760)
     run:
         linear_flag = "--linear-structure" if wildcards["maybelinear"] != "" else ""
         subchain_flag = "--subchain-length " + wildcards["maybesubchain"][9:] if wildcards["maybesubchain"] != "" else ""
@@ -1588,7 +1588,7 @@ rule haplotype_sample_graph:
         vg_binary=get_vg_version(VG_HAPLOTYPE_SAMPLING_VERSION)
     threads: 8
     resources:
-        mem_mb=120000,
+        mem_mb=lambda w: 120000 if w["full"] == "" else 240000,
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
@@ -3257,7 +3257,7 @@ rule experiment_correctness_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Correctness' --y_label 'Correct Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Correctness' --y_label 'Correct Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule experiment_wrongness_plot:
     input:
@@ -3270,7 +3270,7 @@ rule experiment_wrongness_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Wrongness' --y_label 'Wrong Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Wrongness' --y_label 'Wrong Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule experiment_accuracy_plot:
     input:
@@ -3283,7 +3283,7 @@ rule experiment_accuracy_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Accuracy' --y_label 'Percentage Correct of Eligible' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Accuracy' --y_label 'Percentage Correct of Eligible' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule experiment_overall_fraction_wrong_plot:
     input:
@@ -3296,7 +3296,7 @@ rule experiment_overall_fraction_wrong_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Overall Fraction Wrong' --y_label 'Fraction Eligible and Wrong' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Overall Fraction Wrong' --y_label 'Fraction Eligible and Wrong' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule experiment_overall_fraction_correct_plot:
     input:
@@ -3309,7 +3309,7 @@ rule experiment_overall_fraction_correct_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Overall Fraction Correct' --y_label 'Fraction Eligible and Correct' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Overall Fraction Correct' --y_label 'Fraction Eligible and Correct' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule experiment_overall_fraction_eligible_plot:
     input:
@@ -3322,7 +3322,7 @@ rule experiment_overall_fraction_eligible_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Overall Fraction Eligible' --y_label 'Fraction Eligible' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Overall Fraction Eligible' --y_label 'Fraction Eligible' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule compared_named_from_compared:
     input:
@@ -3408,7 +3408,7 @@ rule experiment_calling_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} {wildcards.vartype} {wildcards.colname}' --y_label '{wildcards.colname}' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} {wildcards.vartype} {wildcards.colname}' --y_label '{wildcards.colname}' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 
 rule experiment_calling_summary_plot:
@@ -3453,7 +3453,7 @@ rule experiment_speed_from_log_plot:
         runtime=30,
         slurm_partition=choose_partition(30)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Speed From Log' --y_label 'Speed (reads/second/thread)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Speed From Log' --y_label 'Speed (reads/second/thread)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
 
 rule experiment_memory_from_log_tsv:
     input:
@@ -3479,7 +3479,7 @@ rule experiment_memory_from_log_plot:
         runtime=30,
         slurm_partition=choose_partition(30)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Memory From Log' --y_label 'Memory use (GB)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Memory From Log' --y_label 'Memory use (GB)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
 
 rule experiment_runtime_from_benchmark_tsv:
     input:
@@ -3524,7 +3524,7 @@ rule experiment_runtime_from_benchmark_plot:
         runtime=30,
         slurm_partition=choose_partition(30)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Runtime From Benchmark' --y_label 'Runtime (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Runtime From Benchmark' --y_label 'Runtime (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
 
 
 #This includes the time for haplotype sampling
@@ -3568,7 +3568,7 @@ rule experiment_run_and_index_time_plot:
         runtime=30,
         slurm_partition=choose_partition(30)
     shell:
-        "python3 barchart.py {input.runtime} --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.runtime} --width 8 --height 8 --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
 
 #Plot only the slow runtimes- the top part of the bar plot
 rule experiment_run_and_index_time_slow_plot:
@@ -3597,7 +3597,7 @@ rule experiment_run_and_index_time_slow_plot:
 
             lower_limit = min(bigs) * 0.80
 
-            shell("python3 barchart.py {input.runtime} --min " + str(lower_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+            shell("python3 barchart.py {input.runtime} --width 8 --height 8 --min " + str(lower_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
 
 
 
@@ -3627,7 +3627,7 @@ rule experiment_run_and_index_time_fast_plot:
 
             upper_limit = max(smalls) * 1.1
 
-            shell("python3 barchart.py {input.runtime} --max " + str(upper_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+            shell("python3 barchart.py {input.runtime} --width 8 --height 8 --max " + str(upper_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
 
 rule experiment_run_and_index_time_hours_plot:
     input:
@@ -3641,7 +3641,7 @@ rule experiment_run_and_index_time_hours_plot:
         runtime=30,
         slurm_partition=choose_partition(30)
     shell:
-        "python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+        "python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --width 8 --height 8 --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
 
 #Plot only the slow runtimes- the top part of the bar plot
 rule experiment_run_and_index_time_slow_hours_plot:
@@ -3670,7 +3670,7 @@ rule experiment_run_and_index_time_slow_hours_plot:
 
             lower_limit = (min(bigs) / 60.0 * 0.80)
 
-            shell("python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --min " + str(lower_limit) + " --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+            shell("python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --min " + str(lower_limit) + " --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --width 8 --height 8 --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
 
 
 #Plot only the fast runtimes- the bottom part of the bar plot
@@ -3699,7 +3699,7 @@ rule experiment_run_and_index_time_fast_hours_plot:
 
             upper_limit = (max(smalls) * 1.1) / 60
 
-            shell("python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --max " + str(upper_limit) + " --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+            shell("python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --max " + str(upper_limit) + " --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --width 8 --height 8 --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
 
 
 
@@ -3729,7 +3729,7 @@ rule experiment_memory_from_benchmark_plot:
         runtime=30,
         slurm_partition=choose_partition(30)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
 
 #Get the accuracy from simulated reads for one condition
 rule experiment_mapping_stats_sim_tsv_from_stats:
@@ -3888,7 +3888,7 @@ rule experiment_mapping_rate_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Mapping Rate' --y_label 'Mapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Mapping Rate' --y_label 'Mapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule unmapped_from_stats:
     input:
@@ -3919,7 +3919,7 @@ rule experiment_unmapped_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Unmapped Reads' --y_label 'Unmapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Unmapped Reads' --y_label 'Unmapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule mapping_speed_from_mean_time_used:
     input:
@@ -3965,7 +3965,7 @@ rule experiment_mapping_speed_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Speed' --y_label 'Reads per Second' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Speed' --y_label 'Reads per Second' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule softclips_from_mean_softclips:
     input:
@@ -3995,7 +3995,7 @@ rule experiment_softclips_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Read End Softclips' --y_label 'Mean Softclip (bp/end)' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Read End Softclips' --y_label 'Mean Softclip (bp/end)' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule softclipped_or_unmapped_from_softclipped_or_unmapped:
     input:
@@ -4025,7 +4025,7 @@ rule experiment_softclipped_or_unmapped_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Softclipped or Unmapped Bases' --y_label 'Total (bp)' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Softclipped or Unmapped Bases' --y_label 'Total (bp)' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule chain_coverage_from_mean_best_chain_coverage:
     input:
@@ -4057,7 +4057,7 @@ rule experiment_chain_coverage_plot:
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "python3 barchart.py {input.tsv} --title '{wildcards.expname} Chain Coverage' --y_label 'Best Chain Coverage (fraction)' --x_label 'Condition' --x_sideways --no_n --save {output}"
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Chain Coverage' --y_label 'Best Chain Coverage (fraction)' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 
 rule best_chain_coverage:

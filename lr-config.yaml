@@ -737,6 +737,26 @@ experiments:
         fragments: ""
       - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
 
+  illumina_sim_samplingparams_nofull2:
+    control:
+      subset: 100k
+      tech: illumina
+      reference: chm13
+      sample: HG002
+      realness: sim
+      mapper: "giraffe-k29.w11.W-default-71428e-noflags"
+    vary:
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d"]
+      linearstructure: ["", "_linear"]
+      fragmentsupport: ["", "_fragsupport"]
+      fragments: ["", "_fragments"]
+    constrain:
+      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
+        linearstructure: ""
+        fragmentsupport: ""
+        fragments: ""
+      - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+
   hifi_sim_samplingparams:
     control:
       subset: 100k
@@ -747,6 +767,26 @@ experiments:
       mapper: "giraffe-k31.w50.W-hifi-71428e-noflags"
     vary:
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+      linearstructure: ["", "_linear"]
+      fragmentsupport: ["", "_fragsupport"]
+      fragments: ["", "_fragments"]
+    constrain:
+      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
+        linearstructure: ""
+        fragmentsupport: ""
+        fragments: ""
+      - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+
+  hifi_sim_samplingparams_nofull2:
+    control:
+      subset: 100k
+      tech: hifi
+      reference: chm13
+      sample: HG002
+      realness: sim
+      mapper: "giraffe-k31.w50.W-hifi-71428e-noflags"
+    vary:
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d"]
       linearstructure: ["", "_linear"]
       fragmentsupport: ["", "_fragsupport"]
       fragments: ["", "_fragments"]
