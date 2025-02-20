@@ -110,11 +110,11 @@ experiments:
       realness: real
     vary:
       mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-r10-839e93-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-r10-839e93-noflags"]
-        - refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+        - refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "hprc-v1.1-mc-d9-unchopped"
           mapper: ["graphaligner-default", "graphaligner-fast"]
@@ -137,11 +137,11 @@ experiments:
       realness: real
     vary:
       mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-hifi-839e93-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-map-hifi", "winnowmap", "graphaligner-default", "graphaligner-fast", "giraffe-k31.w50.W-hifi-839e93-noflags"]
-        - refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+        - refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "hprc-v1.1-mc-d9-unchopped"
           mapper: ["graphaligner-default", "graphaligner-fast"]
@@ -161,11 +161,11 @@ experiments:
       realness: real
     vary:
       mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-030329-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-030329-noflags"]
-        - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+        - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
           mapper: []
         - refgraph: "primary"
           mapper: ["giraffe-k29.w11-default-030329-noflags"]
@@ -180,13 +180,13 @@ experiments:
       realness: real
     vary:
       mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-r10-839e93-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: ["hprc-v1.1-mc"]
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
-        - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+        - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
           mapper: []
         - refgraph: "hprc-v1.1-mc-d9-unchopped"
           mapper: ["graphaligner-default"]
@@ -209,13 +209,13 @@ experiments:
       realness: real
     vary:
       mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-hifi-839e93-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-map-hifi", "winnowmap", "graphaligner-default", "graphaligner-fast", "giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: ["hprc-v1.1-mc"]
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
-        - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+        - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
           mapper: []
         - refgraph: "hprc-v1.1-mc-d9-unchopped"
           mapper: ["graphaligner-default"]
@@ -235,11 +235,11 @@ experiments:
       realness: sim
     vary:
       mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-r10-839e93-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-r10-839e93-noflags"]
-        - refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+        - refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
           mapper: ["giraffe-k31.w50.W-r10-839e93-noflags"]
         - refgraph: "hprc-v1.1-mc-d9-unchopped"
           mapper: ["graphaligner-default", "graphaligner-fast"]
@@ -259,11 +259,11 @@ experiments:
       realness: sim
     vary:
       mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-hifi-839e93-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-map-hifi", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-hifi-839e93-noflags"]
-        - refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+        - refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
           mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags"]
         - refgraph: "hprc-v1.1-mc-d9-unchopped"
           mapper: ["graphaligner-default", "graphaligner-fast"]
@@ -283,11 +283,11 @@ experiments:
       realness: sim
     vary:
       mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-030329-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-030329-noflags"]
-        - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+        - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
           mapper: []
         - refgraph: "primary"
           mapper: ["giraffe-k29.w11-default-030329-noflags"]
@@ -301,13 +301,13 @@ experiments:
       realness: sim
     vary:
       mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-r10-e9fa19-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-lr:hqae", "winnowmap", "giraffe-k31.w50.W-r10-e9fa19-noflags"]
         - refgraph: ["hprc-v1.1-mc"]
           mapper: ["giraffe-k31.w50.W-r10-e9fa19-noflags"]
-        #- refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+        #- refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
         #  mapper: []
         - refgraph: "hprc-v1.1-mc-d9-unchopped"
           mapper: ["graphaligner-default"]
@@ -326,13 +326,13 @@ experiments:
       realness: sim
     vary:
       mapper: ["minimap2-map-pb", "minimap2-map-hifi", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-hifi-e9fa19-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-d9-unchopped", "hprc-v1.1-mc-unchopped", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-map-hifi", "winnowmap", "giraffe-k31.w50.W-hifi-e9fa19-noflags"]
         - refgraph: ["hprc-v1.1-mc"]
           mapper: ["giraffe-k31.w50.W-hifi-e9fa19-noflags"]
-        #- refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+        #- refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
         #  mapper: []
         - refgraph: "hprc-v1.1-mc-d9-unchopped"
           mapper: ["graphaligner-default"]
@@ -355,7 +355,7 @@ experiments:
     vary:
       tech: ["hifi", "r10"]
       mapper: ["minimap2-map-hifi", "minimap2-lr:hqae", "giraffe-k31.w50.W-hifi-839e93-noflags", "giraffe-k31.w50.W-r10-839e93-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
       trimmedness: [".trimmed", ""]
     constrain:
       - 
@@ -383,7 +383,7 @@ experiments:
       - 
         # Don't use the linear mappers on all the graphs
         - mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags", "giraffe-k31.w50.W-r10-839e93-noflags"]
-          refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+          refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
         - mapper: ["minimap2-map-hifi", "minimap2-lr:hqae"]
           refgraph: ["hprc-v1.1-mc-d9"]
 
@@ -402,7 +402,7 @@ experiments:
       caller: ["vgcall", "sniffles"]
       tech: ["hifi", "r10"]
       mapper: ["minimap2-map-hifi", "minimap2-lr:hqae", "graphaligner-default", "giraffe-k31.w50.W-hifi-839e93-noflags", "giraffe-k31.w50.W-r10-839e93-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
       trimmedness: [".trimmed", ""]
     constrain:
       - 
@@ -430,7 +430,7 @@ experiments:
       - 
         # Don't use the linear mappers on all the graphs
         - mapper: ["giraffe-k31.w50.W-hifi-839e93-noflags", "giraffe-k31.w50.W-r10-839e93-noflags"]
-          refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc-sampled16"]
+          refgraph: ["hprc-v1.1-mc", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
         - mapper: ["graphaligner-default"]
           refgraph: ["hprc-v1.1-mc"]
         - mapper: ["minimap2-map-hifi", "minimap2-lr:hqae"]
@@ -726,16 +726,16 @@ experiments:
       realness: sim
       mapper: "giraffe-k29.w11.W-default-71428e-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
       linearstructure: ["", "_linear"]
-      fragmentsupport: ["", "_fragsupport"]
-      fragments: ["", "_fragments"]
+      fragmentlinked: ["", "_fragmentlinked"]
+      extrafragments: ["", "_extrafragments"]
     constrain:
       - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
         linearstructure: ""
-        fragmentsupport: ""
-        fragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+        fragmentlinked: ""
+        extrafragments: ""
+      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
 
   illumina_sim_samplingparams_nofull2:
     control:
@@ -746,16 +746,16 @@ experiments:
       realness: sim
       mapper: "giraffe-k29.w11.W-default-71428e-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d"]
       linearstructure: ["", "_linear"]
-      fragmentsupport: ["", "_fragsupport"]
-      fragments: ["", "_fragments"]
+      fragmentlinked: ["", "_fragmentlinked"]
+      extrafragments: ["", "_extrafragments"]
     constrain:
       - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
         linearstructure: ""
-        fragmentsupport: ""
-        fragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+        fragmentlinked: ""
+        extrafragments: ""
+      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
 
   hifi_sim_samplingparams:
     control:
@@ -766,16 +766,16 @@ experiments:
       realness: sim
       mapper: "giraffe-k31.w50.W-hifi-71428e-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
       linearstructure: ["", "_linear"]
-      fragmentsupport: ["", "_fragsupport"]
-      fragments: ["", "_fragments"]
+      fragmentlinked: ["", "_fragmentlinked"]
+      extrafragments: ["", "_extrafragments"]
     constrain:
       - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
         linearstructure: ""
-        fragmentsupport: ""
-        fragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+        fragmentlinked: ""
+        extrafragments: ""
+      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
 
   hifi_sim_samplingparams_nofull2:
     control:
@@ -786,16 +786,16 @@ experiments:
       realness: sim
       mapper: "giraffe-k31.w50.W-hifi-71428e-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d"]
       linearstructure: ["", "_linear"]
-      fragmentsupport: ["", "_fragsupport"]
-      fragments: ["", "_fragments"]
+      fragmentlinked: ["", "_fragmentlinked"]
+      extrafragments: ["", "_extrafragments"]
     constrain:
       - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
         linearstructure: ""
-        fragmentsupport: ""
-        fragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+        fragmentlinked: ""
+        extrafragments: ""
+      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
 
   r10_sim_samplingparams:
     control:
@@ -806,16 +806,16 @@ experiments:
       realness: sim
       mapper: "giraffe-k31.w50.W-r10-71428e-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
       linearstructure: ["", "_linear"]
-      fragmentsupport: ["", "_fragsupport"]
-      fragments: ["", "_fragments"]
+      fragmentlinked: ["", "_fragmentlinked"]
+      extrafragments: ["", "_extrafragments"]
     constrain:
       - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
         linearstructure: ""
-        fragmentsupport: ""
-        fragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+        fragmentlinked: ""
+        extrafragments: ""
+      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
 
   illumina_real_samplingparams:
     control:
@@ -830,16 +830,16 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
       linearstructure: ["", "_linear"]
-      fragmentsupport: ["", "_fragsupport"]
-      fragments: ["", "_fragments"]
+      fragmentlinked: ["", "_fragmentlinked"]
+      extrafragments: ["", "_extrafragments"]
     constrain:
       - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
         linearstructure: ""
-        fragmentsupport: ""
-        fragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+        fragmentlinked: ""
+        extrafragments: ""
+      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
 
   hifi_real_samplingparams:
     control:
@@ -854,16 +854,16 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
       linearstructure: ["", "_linear"]
-      fragmentsupport: ["", "_fragsupport"]
-      fragments: ["", "_fragments"]
+      fragmentlinked: ["", "_fragmentlinked"]
+      extrafragments: ["", "_extrafragments"]
     constrain:
       - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
         linearstructure: ""
-        fragmentsupport: ""
-        fragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+        fragmentlinked: ""
+        extrafragments: ""
+      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
 
   r10_real_samplingparams:
     control:
@@ -879,16 +879,16 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
       linearstructure: ["", "_linear"]
-      fragmentsupport: ["", "_fragsupport"]
-      fragments: ["", "_fragments"]
+      fragmentlinked: ["", "_fragmentlinked"]
+      extrafragments: ["", "_extrafragments"]
     constrain:
       - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
         linearstructure: ""
-        fragmentsupport: ""
-        fragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled2d", "hprc-v1.1-mc.full-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled2d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled2d"]
+        fragmentlinked: ""
+        extrafragments: ""
+      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
 
   hifi_speed:
     control:
