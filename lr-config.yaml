@@ -865,6 +865,30 @@ experiments:
         extrafragments: ""
       - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
 
+  hifi_real_samplingparams_nofull2:
+    control:
+      subset: full
+      tech: hifi
+      reference: chm13
+      sample: HG002
+      realness: real
+      mapper: "giraffe-k31.w50.W-hifi-71428e-noflags"
+      # SV specific parameters with generic names
+      caller: vgcall
+      truthset: giab6
+      truthref: chm13
+    vary:
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d"]
+      linearstructure: ["", "_linear"]
+      fragmentlinked: ["", "_fragmentlinked"]
+      extrafragments: ["", "_extrafragments"]
+    constrain:
+      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
+        linearstructure: ""
+        fragmentlinked: ""
+        extrafragments: ""
+      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
+
   r10_real_samplingparams:
     control:
       subset: full
