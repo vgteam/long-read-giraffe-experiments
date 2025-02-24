@@ -4169,11 +4169,11 @@ rule time_used:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.tsv"
-    threads: 5
+    threads: 10
     resources:
-        mem_mb=2000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        mem_mb=4000,
+        runtime=120,
+        slurm_partition=choose_partition(120)
     shell:
         "vg filter -t {threads} -T \"time_used\" {input.gam} | grep -v \"#\" >{output}"
 
