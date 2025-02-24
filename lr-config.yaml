@@ -737,26 +737,6 @@ experiments:
         extrafragments: ""
       - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
 
-  illumina_sim_samplingparams_nofull2:
-    control:
-      subset: 100k
-      tech: illumina
-      reference: chm13
-      sample: HG002
-      realness: sim
-      mapper: "giraffe-k29.w11.W-default-71428e-noflags"
-    vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d"]
-      linearstructure: ["", "_linear"]
-      fragmentlinked: ["", "_fragmentlinked"]
-      extrafragments: ["", "_extrafragments"]
-    constrain:
-      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
-        linearstructure: ""
-        fragmentlinked: ""
-        extrafragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
-
   hifi_sim_samplingparams:
     control:
       subset: 100k
@@ -775,27 +755,11 @@ experiments:
         linearstructure: ""
         fragmentlinked: ""
         extrafragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
-
-  hifi_sim_samplingparams_nofull2:
-    control:
-      subset: 100k
-      tech: hifi
-      reference: chm13
-      sample: HG002
-      realness: sim
-      mapper: "giraffe-k31.w50.W-hifi-71428e-noflags"
-    vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d"]
-      linearstructure: ["", "_linear"]
-      fragmentlinked: ["", "_fragmentlinked"]
-      extrafragments: ["", "_extrafragments"]
-    constrain:
-      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
-        linearstructure: ""
-        fragmentlinked: ""
+      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d"]
+      - refgraph: ["hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
+        fragmentlinked: "_fragmentlinked"
         extrafragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
+
 
   r10_sim_samplingparams:
     control:
@@ -854,7 +818,7 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d"]
       linearstructure: ["", "_linear"]
       fragmentlinked: ["", "_fragmentlinked"]
       extrafragments: ["", "_extrafragments"]
@@ -863,31 +827,10 @@ experiments:
         linearstructure: ""
         fragmentlinked: ""
         extrafragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
-
-  hifi_real_samplingparams_nofull2:
-    control:
-      subset: full
-      tech: hifi
-      reference: chm13
-      sample: HG002
-      realness: real
-      mapper: "giraffe-k31.w50.W-hifi-71428e-noflags"
-      # SV specific parameters with generic names
-      caller: vgcall
-      truthset: giab6
-      truthref: chm13
-    vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d"]
-      linearstructure: ["", "_linear"]
-      fragmentlinked: ["", "_fragmentlinked"]
-      extrafragments: ["", "_extrafragments"]
-    constrain:
-      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
+      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d"]
         linearstructure: ""
-        fragmentlinked: ""
+        fragmentlinked: "_fragmentlinked"
         extrafragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
 
   r10_real_samplingparams:
     control:
