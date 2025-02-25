@@ -83,7 +83,7 @@
 #reads_dir: "/private/groups/patenlab/xhchang/reads"
 #all_out_dir: "outputs"
 real_slurm_extra: "--exclude=phoenix-[00-10,22-24]"
-exclusive_timing: true
+exclusive_timing: false
 # Note that reserving a full node is the only way we have to ensure a job is not split across NUMA nodes
 
 real_exps: ["hifi_real_full", "r10_real_full"]
