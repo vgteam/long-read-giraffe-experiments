@@ -225,6 +225,8 @@ VG_NO_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="71428e"
 VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="5cfcdb"
 # What version of vg should be used to haplotype-sample graphs?
 VG_HAPLOTYPE_SAMPLING_VERSION="5cfcdb"
+# What version of vg should be used to haplotype-sample graphs when we want to keep just one reference?
+VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="8145be"
 
 wildcard_constraints:
     expname="[^/]+",
@@ -697,7 +699,7 @@ def graph_base(wildcards):
             parts.pop()
 
         last = parts[-1]
-        if re.fullmatch("sampled[0-9]+d?(_[^/-]*)?", last):
+        if re.fullmatch("sampled[0-9]+d?o?(_[^/-]*)?", last):
             # We have a generic haplotype sampling flag.
             # Autodetect the right haplotype-sampled graph to use.
 
@@ -1366,9 +1368,20 @@ def get_subchain_length(wildcards):
     # Just default everything to 10000
     return 10000
 
+def cap_reference(wildcards):
+    """
+    Get the partially-capitalized reference sample name from reference.
+
+    We expect reference to be all lower-case.
+    """
+
+    return {"chm13": "CHM13", "grch38": "GRCh38"}[wildcards["reference"]]
+
+
 def haplotype_sampling_flags(wildcards):
     """
-    Return a string of command line flags for haplotype-sampling a GBZ, from hapcount, diploidtag, and samplingparams.
+    Return a string of command line flags for haplotype-sampling a GBZ, from
+    hapcount, diploidtag, onereftag, samplingparams, and reference.
     """
     
     parts = []
@@ -1386,6 +1399,17 @@ def haplotype_sampling_flags(wildcards):
             pass
         case unknown:
             raise RuntimeError("Unimplemented diploid tag " + unknown)
+
+    match wildcards["onereftag"]:
+        case "o":
+            # Use single-reference sampling
+            parts.append("--set-reference")
+            parts.append(cap_reference(wildcards))
+        case "":
+            # Don't use single-reference sampling. Nothing to do.
+            pass
+        case unknown:
+            raise RuntimeError("Unimplemented oneref tag " + unknown)
 
     if "_extrafragments" in wildcards["samplingparams"]:
         # Sample extra fragments
@@ -1578,15 +1602,16 @@ rule haplotype_sample_graph:
         kmer_counts=kmer_counts
     output:
         # Need to sample back into the graphs directory so e.g. minimizer indexing and mapping can work.
-        sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.gbz"
-    benchmark: "{graphs_dir}/indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}-sampled{hapcount}{diploidtag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"
+        sampled_gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}-sampled{hapcount}{diploidtag}{onereftag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.gbz"
+    benchmark: "{graphs_dir}/indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}-sampled{hapcount}{diploidtag}{onereftag}{samplingparams}-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"
     wildcard_constraints:
         hapcount="[0-9]+",
         diploidtag="d?",
+        onereftag="o?",
         samplingparams="(_[^/-]*)?"
     params:
         haplotype_sampling_flags=haplotype_sampling_flags,
-        vg_binary=get_vg_version(VG_HAPLOTYPE_SAMPLING_VERSION)
+        vg_binary=lambda w: get_vg_version(VG_HAPLOTYPE_SAMPLING_VERSION if w["onereftag"] == "" else VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION)
     threads: 8
     resources:
         mem_mb=lambda w: 120000 if w["full"] == "" else 240000,
@@ -1659,7 +1684,7 @@ rule get_dipcall_truth_vcf:
         sample="HG001",
         reference="(chm13|grch38)"
     params:
-        cap_reference=lambda w: {"chm13": "CHM13", "grch38": "GRCh38"}[w["reference"]],
+        cap_reference=cap_reference,
         na_sample=lambda w: {"HG001": "NA12878"}[w["sample"]]
     threads: 1
     resources:
@@ -1677,7 +1702,7 @@ rule get_pedigree_truth_vcf:
         sample="HG001",
         reference="grch38"
     params:
-        cap_reference=lambda w: {"chm13": "CHM13", "grch38": "GRCh38"}[w["reference"]],
+        cap_reference=cap_reference,
         na_sample=lambda w: {"HG001": "NA12878"}[w["sample"]]
     threads: 1
     resources:
@@ -3143,7 +3168,7 @@ rule haplotype_sampling_time_giraffe:
     output:
         tsv="{root}/experiments/{expname}/{reference}/{refgraphbase}-{sampling}{linearstructure}{fragmentlinked}{extrafragments}{clipping}{full}{chopping}/giraffe-k{k}.w{w}{weightedness}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv"
     wildcard_constraints:
-        sampling="sampled[0-9]+d?",
+        sampling="sampled[0-9]+d?o?",
         weightedness="\\.W|",
         k="[0-9]+",
         w="[0-9]+",
