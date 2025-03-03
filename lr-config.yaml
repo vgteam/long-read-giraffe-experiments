@@ -818,7 +818,7 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled32do", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32do"]
       linearstructure: ["", "_linear"]
       fragmentlinked: ["", "_fragmentlinked"]
       extrafragments: ["", "_extrafragments"]
@@ -827,7 +827,7 @@ experiments:
         linearstructure: ""
         fragmentlinked: ""
         extrafragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d"]
+      - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled32do", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32do"]
         linearstructure: ""
         fragmentlinked: "_fragmentlinked"
         extrafragments: ""
