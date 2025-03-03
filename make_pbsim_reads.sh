@@ -357,7 +357,7 @@ if [[ -z "${PREMADE_ANNOTATED_GAM}" ]] ; then
 
     if [[ ! -e "${SAMPLE_WORK_DIR}/injected.gam" ]] ; then
         # Move reads into graph space
-        time "${VG}" inject -x "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME_OUT}-as-ref.gbz" "${SAMPLE_WORK_DIR}/merged.bam" -t 16 >"${SAMPLE_WORK_DIR}/injected.gam.tmp"
+        time "${VG}" inject -x "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz" "${SAMPLE_WORK_DIR}/merged.bam" -t 16 >"${SAMPLE_WORK_DIR}/injected.gam.tmp"
         mv "${SAMPLE_WORK_DIR}/injected.gam.tmp" "${SAMPLE_WORK_DIR}/injected.gam"
     fi
 
