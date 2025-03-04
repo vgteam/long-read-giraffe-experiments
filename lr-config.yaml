@@ -746,7 +746,7 @@ experiments:
       realness: sim
       mapper: "giraffe-k31.w50.W-hifi-71428e-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32o", "hprc-v1.1-mc-sampled32do", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32do"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32o", "hprc-v1.1-mc-sampled32do", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16do", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32do", "hprc-v2.prerelease.3-mc-eval-jan29-sampled64o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled64do", "hprc-v2.prerelease.3-mc-eval-jan29-sampled128o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled128do"]
       linearstructure: ["", "_linear"]
       fragmentlinked: ["", "_fragmentlinked"]
       extrafragments: ["", "_extrafragments"]
@@ -755,7 +755,7 @@ experiments:
         linearstructure: ""
         fragmentlinked: ""
         extrafragments: ""
-      - refgraph: ["hprc-v1.1-mc-sampled32o", "hprc-v1.1-mc-sampled32do", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32do"]
+      - refgraph: ["hprc-v1.1-mc-sampled32o", "hprc-v1.1-mc-sampled32do", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16do", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32do", "hprc-v2.prerelease.3-mc-eval-jan29-sampled64o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled64do", "hprc-v2.prerelease.3-mc-eval-jan29-sampled128o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled128do"]
         linearstructure: ""
         fragmentlinked: "_fragmentlinked"
         extrafragments: ""

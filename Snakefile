@@ -1615,8 +1615,8 @@ rule haplotype_sample_graph:
     threads: 8
     resources:
         mem_mb=lambda w: 120000 if w["full"] == "" else 240000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        runtime=lambda w: 60 if int(w["hapcount"]) <= 32 else 240,
+        slurm_partition=lambda w: choose_partition(60) if int(w["hapcount"]) <= 32 else choose_partition(240)
     shell:
         "{params.vg_binary} haplotypes -v 2 -t {threads} --include-reference {params.haplotype_sampling_flags} -i {input.hapl} -k {input.kmer_counts} {input.gbz} -g {output.sampled_gbz}"
 
