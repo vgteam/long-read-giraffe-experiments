@@ -827,7 +827,7 @@ experiments:
         linearstructure: ""
         fragmentlinked: ""
         extrafragments: ""
-      - refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v1.1-mc-sampled4do", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16do"]
+      - refgraph: ["hprc-v1.1-mc-sampled4o", "hprc-v1.1-mc-sampled4do", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16do"]
         linearstructure: ""
         fragmentlinked: "_fragmentlinked"
         extrafragments: ""
