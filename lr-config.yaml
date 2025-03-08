@@ -673,7 +673,7 @@ experiments:
       realness: sim
     vary:
       mapper: ["giraffe-k29.w11.W-default-default-noflags", "bwa-pe"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.2-mc-eval-nov22-d39"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
     constrain:
       -
         mapper: "giraffe-k29.w11.W-default-default-noflags"
@@ -694,7 +694,7 @@ experiments:
       truthref: chm13
     vary:
       mapper: ["giraffe-k29.w11.W-default-default-noflags", "bwa-pe"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.2-mc-eval-nov22-d39"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
     constrain:
       -
         mapper: "giraffe-k29.w11.W-default-default-noflags"
