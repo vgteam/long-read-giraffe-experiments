@@ -733,26 +733,26 @@ experiments:
 
   hifi_sim_samplingparams:
     control:
-      subset: 1m
+      subset: 10k
       tech: hifi
       reference: chm13
       sample: HG002
       realness: sim
-      mapper: "giraffe-k31.w50.W-hifi-71428e-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v1.1-mc-sampled4do", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16do"]
+      mapper: ["giraffe-k31.w50.W-hifi-71428e-noflags", "giraffe-k31.w50.W-hifi-344434-noflags"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"]
 
 
   r10_sim_samplingparams:
     control:
-      subset: 100k
+      subset: 10k
       tech: r10
       reference: chm13
       sample: HG002
       realness: sim
-      mapper: "giraffe-k31.w50.W-r10-71428e-noflags"
+      mapper: "giraffe-k31.w50.W-r10-344434-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v1.1-mc-sampled4do", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16do"]
 
   illumina_real_samplingparams:
     control:
@@ -782,7 +782,13 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v1.1-mc-sampled4do", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16do"]
+      mapper: ["giraffe-k31.w50.W-hifi-71428e-noflags", "giraffe-k31.w50.W-hifi-344434-noflags"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"]
+    constrain:
+      - mapper: "giraffe-k31.w50.W-hifi-71428e-noflags"
+        refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"]
+      - mapper: "giraffe-k31.w50.W-hifi-344434-noflags"
+        refgraph: "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"
 
   r10_real_samplingparams:
     control:
