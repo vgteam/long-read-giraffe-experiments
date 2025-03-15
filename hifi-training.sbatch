@@ -46,6 +46,7 @@ https://storage.googleapis.com/brain-genomics/awcarroll/pacbio_training_2024/fas
     mkdir -p /private/groups/patenlab/anovak/projects/hprc/lr-giraffe/training-data/hifi
     INPUT_JSON="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/training-data/hifi/${BASE_NAME}.input.json"
     JOB_STORE="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/training-data/hifi/${BASE_NAME}.tree"
+    BUS_PATH="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/training-data/hifi/${BASE_NAME}.bus"
     OUT_DIR="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/training-data/hifi/${BASE_NAME}.dir"
     OUT_FILE="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/training-data/hifi/${BASE_NAME}.output.json"
     LOG_FILE="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/training-data/hifi/${BASE_NAME}.log"
@@ -54,7 +55,7 @@ https://storage.googleapis.com/brain-genomics/awcarroll/pacbio_training_2024/fas
 
     cat >"${INPUT_JSON}" <<EOF
 {
-    "Giraffe.INPUT_READ_FILE_FIRST": "${FASTQ_URL}",
+    "Giraffe.INPUT_READ_FILE_1": "${FASTQ_URL}",
     "Giraffe.SAMPLE_NAME": "${SAMPLE_NAME}",
     "Giraffe.PAIRED_READS": false,
     "Giraffe.HAPLOTYPE_SAMPLING": true,
@@ -75,7 +76,9 @@ https://storage.googleapis.com/brain-genomics/awcarroll/pacbio_training_2024/fas
     "Giraffe.LEFTALIGN_BAM": true
 }
 EOF
+    
+    rm -Rf "${JOB_STORE}"
 
-    /private/home/anovak/workspace/toil/venv/bin/toil-wdl-runner --jobStore "${JOB_STORE}" --wdlOutputDialect miniwdl --wdlOutputDirectory "${OUT_DIR}" --wdlOutputFile "${OUT_FILE}" --clean=onSuccess --batchSystem slurm --slurmTime 11:59:59 --statePollingWait 30 --disableProgress --caching=False --retryCount 2 --logFile "${LOG_FILE}" --batchLogsDir "${LOG_DIR}" '#workflow/github.com/vgteam/vg_wdl/Giraffe:lr-giraffe' "${INPUT_JSON}"
+    /private/home/anovak1/workspace/toil/venv/bin/toil-wdl-runner --jobStore "${JOB_STORE}" --wdlOutputDialect miniwdl --wdlOutputDirectory "${OUT_DIR}" --wdlOutputFile "${OUT_FILE}" --clean=onSuccess --batchSystem slurm --slurmTime 11:59:59 --statePollingWait 30 --disableProgress --caching=False --retryCount 2 --logFile "${LOG_FILE}" --batchLogsDir "${LOG_DIR}" --writeMessages "${BUS_PATH}" --runImportsOnWorkers '#workflow/github.com/vgteam/vg_wdl/Giraffe:lr-giraffe' "${INPUT_JSON}"
 
 done
