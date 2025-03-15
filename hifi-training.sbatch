@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --array 1
+#SBATCH --array 1-19%4
 #SBATCH -c8
 #SBATCH --mem 64G
 #SBATCH --partition long
