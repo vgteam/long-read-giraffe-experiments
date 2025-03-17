@@ -79,7 +79,8 @@ https://storage.googleapis.com/brain-genomics/awcarroll/pacbio_training_2024/fas
 EOF
     
     rm -Rf "${JOB_STORE}"
-
-    /private/home/anovak1/workspace/toil/venv/bin/toil-wdl-runner --jobStore "${JOB_STORE}" --wdlOutputDialect miniwdl --wdlOutputDirectory "${OUT_DIR}" --wdlOutputFile "${OUT_FILE}" --clean=onSuccess --batchSystem slurm --slurmTime 11:59:59 --statePollingWait 30 --disableProgress --caching=False --retryCount 2 --logFile "${LOG_FILE}" --batchLogsDir "${LOG_DIR}" --writeMessages "${BUS_PATH}" --runImportsOnWorkers '#workflow/github.com/vgteam/vg_wdl/Giraffe:lr-giraffe' "${INPUT_JSON}"
+    
+    . /private/home/anovak1/workspace/toil/venv/bin/activate 
+    toil-wdl-runner --jobStore "${JOB_STORE}" --wdlOutputDialect miniwdl --wdlOutputDirectory "${OUT_DIR}" --wdlOutputFile "${OUT_FILE}" --clean=onSuccess --batchSystem slurm --slurmTime 11:59:59 --statePollingWait 30 --disableProgress --caching=False --retryCount 2 --logFile "${LOG_FILE}" --batchLogsDir "${LOG_DIR}" --writeMessages "${BUS_PATH}" --runImportsOnWorkers '#workflow/github.com/vgteam/vg_wdl/Giraffe:lr-giraffe' "${INPUT_JSON}"
 
 done
