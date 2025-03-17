@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --array 1-19%4
+#SBATCH --array 1-19%10
 #SBATCH -c8
 #SBATCH --mem 64G
 #SBATCH --partition long
@@ -67,13 +67,14 @@ https://storage.googleapis.com/brain-genomics/awcarroll/pacbio_training_2024/fas
     "Giraffe.READS_PER_CHUNK": 150000,
     "Giraffe.GBZ_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs/hprc-v2.prerelease.3-mc-chm13-eval-jan29.gbz",
     "Giraffe.HAPL_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs/hprc-v2.prerelease.3-mc-chm13-eval-jan29.fragment.hapl",
-    "Giraffe.REFERENCE_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/grch38-pansn.fa",
-    "Giraffe.REFERENCE_INDEX_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/grch38-pansn.fa.fai",
-    "Giraffe.REFERENCE_DICT_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/grch38-pansn.fa.paths.callable.dict",
-    "Giraffe.PATH_LIST_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/grch38-pansn.fa.paths.callable.txt",
+    "Giraffe.REFERENCE_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna",
+    "Giraffe.REFERENCE_INDEX_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai",
+    "Giraffe.REFERENCE_DICT_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/GCA_000001405.15_GRCh38_no_alt_analysis_set.dict",
+    "Giraffe.PATH_LIST_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.paths.callable.txt",
     "Giraffe.REFERENCE_PREFIX": "GRCh38#0#",
     "Giraffe.REALIGN_INDELS": false,
-    "Giraffe.LEFTALIGN_BAM": true
+    "Giraffe.LEFTALIGN_BAM": true,
+    "Giraffe.INDEX_MINIMIZER_MEM": 600
 }
 EOF
     
