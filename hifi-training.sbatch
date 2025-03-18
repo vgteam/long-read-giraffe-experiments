@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --array 1-19%10
+#SBATCH --array 1-19
 #SBATCH -c8
 #SBATCH --mem 64G
 #SBATCH --partition long
@@ -70,7 +70,7 @@ https://storage.googleapis.com/brain-genomics/awcarroll/pacbio_training_2024/fas
     "Giraffe.REFERENCE_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna",
     "Giraffe.REFERENCE_INDEX_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai",
     "Giraffe.REFERENCE_DICT_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/GCA_000001405.15_GRCh38_no_alt_analysis_set.dict",
-    "Giraffe.PATH_LIST_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.paths.callable.txt",
+    "Giraffe.PATH_LIST_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/grch38-pansn.fa.paths.callable.txt",
     "Giraffe.REFERENCE_PREFIX": "GRCh38#0#",
     "Giraffe.REALIGN_INDELS": false,
     "Giraffe.LEFTALIGN_BAM": true,
@@ -81,6 +81,6 @@ EOF
     rm -Rf "${JOB_STORE}"
     
     . /private/home/anovak1/workspace/toil/venv/bin/activate 
-    toil-wdl-runner --jobStore "${JOB_STORE}" --wdlOutputDialect miniwdl --wdlOutputDirectory "${OUT_DIR}" --wdlOutputFile "${OUT_FILE}" --clean=onSuccess --batchSystem slurm --slurmTime 11:59:59 --statePollingWait 30 --disableProgress --caching=False --retryCount 2 --logFile "${LOG_FILE}" --batchLogsDir "${LOG_DIR}" --writeMessages "${BUS_PATH}" --runImportsOnWorkers '#workflow/github.com/vgteam/vg_wdl/Giraffe:lr-giraffe' "${INPUT_JSON}"
+    toil-wdl-runner --jobStore "${JOB_STORE}" --wdlOutputDialect miniwdl --wdlOutputDirectory "${OUT_DIR}" --wdlOutputFile "${OUT_FILE}" --clean=onSuccess --batchSystem slurm --slurmTime 11:59:59 --statePollingWait 30 --disableProgress --caching=False --retryCount 0 --stopOnFirstFailure=True --logFile "${LOG_FILE}" --batchLogsDir "${LOG_DIR}" --writeMessages "${BUS_PATH}" --runImportsOnWorkers '#workflow/github.com/vgteam/vg_wdl/Giraffe:lr-giraffe' "${INPUT_JSON}"
 
 done
