@@ -752,7 +752,7 @@ experiments:
       realness: sim
       mapper: "giraffe-k31.w50.W-r10-344434-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v1.1-mc-sampled4do", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16do"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"]
 
   illumina_real_samplingparams:
     control:
