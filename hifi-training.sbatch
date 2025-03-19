@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #SBATCH --array 1-19
 #SBATCH -c8
-#SBATCH --mem 64G
+#SBATCH --mem 128G
 #SBATCH --partition long
 #SBATCH --time 40:00:00
 set -e

@@ -738,8 +738,8 @@ experiments:
       reference: chm13
       sample: HG002
       realness: sim
+      mapper: "giraffe-k31.w50.W-hifi-344434-noflags"
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-71428e-noflags", "giraffe-k31.w50.W-hifi-344434-noflags"]
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"]
 
 
@@ -751,6 +751,17 @@ experiments:
       sample: HG002
       realness: sim
       mapper: "giraffe-k31.w50.W-r10-344434-noflags"
+    vary:
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"]
+
+  illumina_sim_samplingparams:
+    control:
+      subset: 10k
+      tech: illumina
+      reference: chm13
+      sample: HG002
+      realness: sim
+      mapper: "giraffe-k29.w11.W-default-71428e-noflags"
     vary:
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"]
 
