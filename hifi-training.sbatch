@@ -62,7 +62,7 @@ https://storage.googleapis.com/brain-genomics/awcarroll/pacbio_training_2024/fas
     "Giraffe.DIPLOID": false,
     "Giraffe.SET_REFERENCE": "GRCh38",
     "Giraffe.HAPLOTYPE_NUMBER": 16,
-    "Giraffe.VG_DOCKER": "quay.io/vgteam/vg:ci-1792-344434952cfede3c8a34cb7584f1732db9832a4a",
+    "Giraffe.VG_DOCKER": "quay.io/vgteam/vg:ci-1799-ceb8ad76e537d66433f3078848489026709e7557",
     "Giraffe.GIRAFFE_PRESET": "hifi",
     "Giraffe.READS_PER_CHUNK": 150000,
     "Giraffe.GBZ_FILE": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs/hprc-v2.prerelease.3-mc-chm13-eval-jan29.gbz",

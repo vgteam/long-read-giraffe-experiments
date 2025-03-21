@@ -738,7 +738,7 @@ experiments:
       reference: chm13
       sample: HG002
       realness: sim
-      mapper: "giraffe-k31.w50.W-hifi-344434-noflags"
+      mapper: "giraffe-k31.w50.W-hifi-ceb8ad-noflags"
     vary:
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"]
 
@@ -750,7 +750,7 @@ experiments:
       reference: chm13
       sample: HG002
       realness: sim
-      mapper: "giraffe-k31.w50.W-r10-344434-noflags"
+      mapper: "giraffe-k31.w50.W-r10-ceb8ad-noflags"
     vary:
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"]
 
@@ -761,7 +761,7 @@ experiments:
       reference: chm13
       sample: HG002
       realness: sim
-      mapper: "giraffe-k29.w11.W-default-71428e-noflags"
+      mapper: "giraffe-k29.w11.W-default-ceb8ad-noflags"
     vary:
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"]
 
@@ -772,13 +772,13 @@ experiments:
       reference: chm13
       sample: HG002
       realness: real
-      mapper: "giraffe-k29.w11.W-default-71428e-noflags"
+      mapper: "giraffe-k29.w11.W-default-ceb8ad-noflags"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6
       truthref: chm13
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"]
 
   hifi_real_samplingparams:
     control:
@@ -787,19 +787,13 @@ experiments:
       reference: chm13
       sample: HG002
       realness: real
-      mapper: "giraffe-k31.w50.W-hifi-71428e-noflags"
+      mapper: "giraffe-k31.w50.W-hifi-ceb8ad-noflags"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6
       truthref: chm13
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-71428e-noflags", "giraffe-k31.w50.W-hifi-344434-noflags"]
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"]
-    constrain:
-      - mapper: "giraffe-k31.w50.W-hifi-71428e-noflags"
-        refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"]
-      - mapper: "giraffe-k31.w50.W-hifi-344434-noflags"
-        refgraph: "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"
 
   r10_real_samplingparams:
     control:
@@ -809,13 +803,13 @@ experiments:
       trimmedness: ".trimmed"
       sample: HG002
       realness: real
-      mapper: "giraffe-k31.w50.W-r10-71428e-noflags"
+      mapper: "giraffe-k31.w50.W-r10-ceb8ad-noflags"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6
       truthref: chm13
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc.full-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled32d", "hprc-v2.prerelease.3-mc-eval-jan29.full-sampled32d"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o"]
 
   hifi_speed:
     control:

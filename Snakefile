@@ -2554,6 +2554,22 @@ rule stat_from_happy_summary:
     run:
         shell("cat {input.happy_evaluation_summary} | grep '^" + wildcards["vartype"].upper() + ",PASS' | cut -f{params.colnum} -d',' >{output.tsv}")
 
+rule total_errors_from_fp_and_fn:
+    input:
+        snp_fn="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.snp_fn.tsv",
+        snp_fp="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.snp_fp.tsv",
+        indel_fn="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.indel_fn.tsv",
+        indel_fp="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.indel_fp.tsv"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.total_errors.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "cat {input.snp_fn} {input.snp_fp} {input.indel_fn} {input.indel_fp} | awk '{{sum += $1 }} END {{ print sum }}' >{output.tsv}"
+
 #This outputs a tsv of: tp, fn, fp, recall, precision, f1
 rule dv_summary_by_condition:
     input:
@@ -3165,7 +3181,7 @@ rule condition_experiment_stat:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{conditionstat}.tsv"
     wildcard_constraints:
         refgraph="[^/_]+",
-        conditionstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp))"
+        conditionstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp)|total_errors)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3374,6 +3390,19 @@ rule experiment_calling_plot:
         slurm_partition=choose_partition(5)
     shell:
         "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} {wildcards.vartype} {wildcards.colname}' --y_label '{wildcards.colname}' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule experiment_total_errors_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/total_errors.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/total_errors.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Total Point Variant Errors' --y_label 'Total Errors' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 
 rule experiment_calling_summary_plot:
