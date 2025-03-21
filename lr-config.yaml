@@ -557,25 +557,14 @@ experiments:
 
   hifi_sim_graphs:
     control:
-      subset: 10k
+      subset: 100k
       tech: hifi
       reference: chm13
       sample: HG002
       realness: sim
-      mapper: "giraffe-k31.w50.W-hifi-default-noflags"
+      mapper: "giraffe-k31.w50.W-hifi-ceb8ad-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prerelease.2-mc-eval-nov22-d39", "hprc-v2.prerelease.2-mc-eval-nov22-sampled16"]
-
-  hifi_sim_graphs_small:
-    control:
-      subset: 10k
-      tech: hifi
-      reference: chm13
-      sample: HG002
-      realness: sim
-      mapper: "giraffe-k31.w50.W-hifi-default-noflags"
-    vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prerelease.2-mc-eval-nov22-d39"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o", "hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o"]
 
   hifi_real_graphs:
     control:
@@ -584,13 +573,13 @@ experiments:
       reference: chm13
       sample: HG002
       realness: real
-      mapper: "giraffe-k31.w50.W-hifi-default-noflags"
+      mapper: "giraffe-k31.w50.W-hifi-ceb8ad-noflags"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6
       truthref: chm13
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prerelease.2-mc-eval-nov22-d39", "hprc-v2.prerelease.2-mc-eval-nov22-sampled16"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o", "hprc-v2.0-mc-eval-d46"]
 
   hifi_real_graphs_small:
     control:
@@ -627,14 +616,14 @@ experiments:
 
   r10_sim_graphs:
     control:
-      subset: 10k
+      subset: 100k
       tech: r10
       reference: chm13
       sample: HG002
       realness: sim
-      mapper: "giraffe-k31.w50.W-r10-default-noflags"
+      mapper: "giraffe-k31.w50.W-r10-ceb8ad-noflags"
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prerelease.2-mc-eval-nov22-d39", "hprc-v2.prerelease.2-mc-eval-nov22-sampled16"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o", "hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o"]
 
   r10_real_graphs:
     control:
@@ -644,13 +633,13 @@ experiments:
       trimmedness: ".trimmed"
       sample: HG002
       realness: real
-      mapper: "giraffe-k31.w50.W-r10-default-noflags"
+      mapper: "giraffe-k31.w50.W-r10-ceb8ad-noflags"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6
       truthref: chm13
     vary:
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prereease-mc-R2-d32", "hprc-v2.prereease-mc-R2-sampled16", "hprc-v2.prerelease.2-mc-eval-nov22-d39", "hprc-v2.prerelease.2-mc-eval-nov22-sampled16"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o", "hprc-v2.0-mc-eval-d46"]
 
   r10_real_graphs_small:
     control:
@@ -666,17 +655,17 @@ experiments:
 
   illumina_sim_graphs:
     control:
-      subset: 10k
+      subset: 100k
       tech: illumina
       reference: chm13
       sample: HG002
       realness: sim
     vary:
-      mapper: ["giraffe-k29.w11.W-default-default-noflags", "bwa-pe"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.3-mc-eval-jan29-d45"]
+      mapper: ["giraffe-k29.w11.W-default-ceb8ad-noflags", "bwa-pe"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o", "hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o"]
     constrain:
       -
-        mapper: "giraffe-k29.w11.W-default-default-noflags"
+        mapper: "giraffe-k29.w11.W-default-ceb8ad-noflags"
       - 
         mapper: "bwa-pe"
         refgraph: "hprc-v1.1-mc-d9"
