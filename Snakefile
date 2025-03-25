@@ -3979,6 +3979,25 @@ rule experiment_softclipped_or_unmapped_plot:
     shell:
         "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Softclipped or Unmapped Bases' --y_label 'Total (bp)' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
+
+rule softclipped_or_unmapped_percent:
+    input:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv",
+        unmapped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
+    params:
+        condition_name=condition_name
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped_percent.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        """
+        printf '{params.condition_name}\\t' >{output.tsv} && echo "$(cut -f 2 {input.tsv}) * 100 / $(awk '{{SUM += $2}} END {{print SUM}}' {input.unmapped})" | bc -l  >>{output.tsv}
+        """
+
  #Plot the unmapped bases but split off the high outliers 
  rule experiment_softclipped_or_unmapped_percent_split_plot:
      input:
