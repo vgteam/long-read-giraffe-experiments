@@ -3715,7 +3715,7 @@ rule experiment_mapping_stats_sim_tsv:
         slurm_partition=choose_partition(60)
     shell:
         """
-        printf "condition\tcorrect\tmapq60\twrong_mapq60\n" >> {output.tsv}
+        printf "condition\tcorrect\tmapq60\twrong_mapq60\twrong_eligible\n" >> {output.tsv}
         cat {input} /dev/null >>{output.tsv}
         """
 
@@ -4972,6 +4972,7 @@ rule mapping_accuracy:
         correct_count = 0
         mapq60_count = 0
         wrong_mapq60_count = 0
+        wrong_eligible_count = 0
 
         f = open(input.compared_tsv)
         f.readline()
@@ -4983,8 +4984,10 @@ rule mapping_accuracy:
                 mapq60_count += 1
                 if int(l[0]) == 0 and int(l[4]) == 1:
                     wrong_mapq60_count+=1
+            if int(l[0]) == 0 and int(l[4]) == 1:
+                wrong_eligible_count+=1
         f.close()
-        shell("printf \"" + str(correct_count) + "\t" + str(mapq60_count) + "\t" + str(wrong_mapq60_count) + "\" > {output}")
+        shell("printf \"" + str(correct_count) + "\t" + str(mapq60_count) + "\t" + str(wrong_mapq60_count) + "\t" + str(wrong_eligible_count) + "\" > {output}")
         
 
 rule parameter_search_mapping_stats:
