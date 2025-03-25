@@ -13,17 +13,20 @@ The general flow for using this repository is:
 ```
 GRAPH_DIR=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs
 READ_DIR=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads
+VG="/private/home/anovak1/workspace/lr-giraffe/vg_v1.64.1"
 mkdir -p "${READ_DIR}/sim/illumina/HG002"
 # Prepare a separate GBWT
-vg gbwt -o"${GRAPH_DIR}/hprc-chm-hg002-2024-03-25-mc.full.gbwt" -g "${GRAPH_DIR}/hprc-chm-hg002-2024-03-25-mc.full.gg" -Z "${GRAPH_DIR}/hprc-chm-hg002-2024-03-25-mc.full.gbz"
+"${VG}" gbwt -o"${GRAPH_DIR}/hprc-chm-hg002-v2.0.full.gbwt" -g "${GRAPH_DIR}/hprc-chm-hg002-v2.0.full.gg" -Z "${GRAPH_DIR}/hprc-chm-hg002-v2.0.full.gbz"
 # Prepare an xg graph
-vg convert --drop-haplotypes --xg-out "${GRAPH_DIR}//hprc-chm-hg002-2024-03-25-mc.full.gbz" >"${GRAPH_DIR}//hprc-chm-hg002-2024-03-25-mc.full.xg"
+"${VG}" convert --drop-haplotypes --xg-out "${GRAPH_DIR}/hprc-chm-hg002-v2.0.full.gbz" >"${GRAPH_DIR}/hprc-chm-hg002-v2.0.full.xg"
 # Simulate reads (assuming you already put 3M reads in "${READ_DIR}/real/illumina/HG002/HG002.novaseq.pcr-free.40x.3m.fq")
-vg sim -r -n 2500000 -a -s 12345 -p 570 -v 165 -i 0.00029 -x "${GRAPH_DIR}//hprc-chm-hg002-2024-03-25-mc.full.xg" -g "${GRAPH_DIR}//hprc-chm-hg002-2024-03-25-mc.full.gbwt" --sample-name HG002 -F "${READ_DIR}/real/illumina/HG002/HG002.novaseq.pcr-free.40x.3m.fq" --multi-position > "${READ_DIR}/sim/illumina/HG002/HG002-sim-illumina.gam"
+"${VG}" sim -r -n 2500000 -a -s 12345 -p 570 -v 165 -i 0.00029 -x "${GRAPH_DIR}/hprc-chm-hg002-v2.0.full.xg" -g "${GRAPH_DIR}/hprc-chm-hg002-v2.0.full.gbwt" --sample-name HG002 -F "${READ_DIR}/real/illumina/HG002/HG002.novaseq.pcr-free.40x.3m.fq" --multi-position > "${READ_DIR}/sim-v1.64.1/illumina/HG002/HG002-sim-illumina.gam"
 # Subset reads
 for READ_COUNT in 100 1000 10000 100000 1000000 ; do
-    vg filter --interleaved -t1 --max-reads "${READ_COUNT}" "${READ_DIR}/sim/illumina/HG002/HG002-sim-illumina.gam" >"${READ_DIR}/sim/illumina/HG002/HG002-sim-illumina-${READ_COUNT}.gam"
+    "${VG}" filter --interleaved -t1 --max-reads "${READ_COUNT}" "${READ_DIR}/sim-v1.64.1/illumina/HG002/HG002-sim-illumina.gam" >"${READ_DIR}/sim-v1.64.1/illumina/HG002/HG002-sim-illumina-${READ_COUNT}.gam"
 done
+
+mv "${READ_DIR}/sim-v1.64.1/illumina/HG002" "${READ_DIR}/sim/illumina/HG002"
 ```
 
 Note that the Illumina read subsets made like this won't be uniformly sampled from the full set.

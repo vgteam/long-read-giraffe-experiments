@@ -146,19 +146,23 @@ READS_DIR = config.get("reads_dir", None) or "/private/groups/patenlab/anovak/pr
 # For each reference name (here "chm13") this directory must contain:
 #
 # A FASTA file with PanSN-style (CHM13#0#chr1) contig names: 
-# chm13-pansn.fa
+# chm13-pansn-newY.fa
 #
-# Index files for Minimap2 for each preset (here "hifi", can also be "ont" or "sr", and can be generated from the FASTA):
-# chm13-pansn.hifi.mmi
-# 
-# A Winnowmap repetitive kmers file:
-# chm13-pansn.repetitive_k15.txt
+# (For grch38 we don't use the -newY part.)
 #
 # For the calling references (chm13v2.0 and grch38) we also need a plain .fa
 # and .fa.fai without pansn names, and _PAR.bed files with the pseudo-autosomal
 # regions.
 #
-# TODO: Right now these indexes must be manually generated.
+# We also use, but can generate:
+#
+# Index files for Minimap2 for each preset (here "hifi", can also be "ont" or "sr", and can be generated from the FASTA):
+# chm13-pansn-newY.hifi.mmi
+# 
+# A Winnowmap repetitive kmers file:
+# chm13-pansn-newY.repetitive_k15.txt
+#
+# Minimap2 and BWA-MEM indexes
 #
 REFS_DIR = config.get("refs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references"
 
@@ -424,7 +428,7 @@ def repetitive_kmers(wildcards):
     """
     Find the Winnowmap repetitive kmers file from a reference.
     """
-    return os.path.join(REFS_DIR, wildcards["reference"] + "-pansn.repetitive_k15.txt")
+    return reference_basename(wildcards) + ".repetitive_k15.txt"
 
 def minimap_derivative_mode(wildcards):
     """
@@ -449,13 +453,29 @@ def minimap2_index(wildcards):
     """
     
     mode_part = minimap_derivative_mode(wildcards)
-    return os.path.join(REFS_DIR, wildcards["reference"] + "-pansn." + mode_part + ".mmi")
-    
+    return reference_basename(wildcards) + "." + mode_part + ".mmi")
+
+def reference_basename(wildcards):
+    """
+    Find the linear reference base name without extension from a reference.
+
+    This reference is used for mapping. Calling may be against a different
+    calling reference (with possibly a different Y) or renamed contigs.
+
+    This reference will use PanSN contig names.
+    """
+    parts = [wildcards["reference"], "pansn"]
+    if wildcards["reference"] == "chm13":
+        # We want to use a version of the reference FASTA with the "new"
+        # non-HG002, non-GRCh38 Y contig.
+        parts.append("newY")
+    return os.path.join(REFS_DIR, "-".join(parts))
+
 def reference_fasta(wildcards):
     """
     Find the linear reference FASTA from a reference.
     """
-    return os.path.join(REFS_DIR, wildcards["reference"] + "-pansn.fa")
+    return reference_basename(wildcards) + ".fa"
 
 def reference_dict(wildcards):
     """
@@ -479,6 +499,15 @@ def reference_path_dict_callable(wildcards):
     We need this because when surjecting to a non-base reference we can't infer path lengths from the graph.
     """
     return reference_fasta(wildcards) + ".paths" + wildcards.get("region", "") + ".callable.dict"
+
+def bwa_index_set(wildcards):
+    """
+    Find a reference indexed for BWA from reference.
+
+    Doesn't actually include the FASTA itself.
+    """
+    basename = reference_basename(wildcards)
+    return {ext: basename + "." + ext for ext in ("amb", "ann", "bwt", "pac", "sa")}
 
 def reference_prefix(wildcards):
     """
@@ -544,11 +573,21 @@ def sv_calling_vntr_bed(wildcards):
 
 def uncallable_contig_regex(wildcards):
     """
-    Get a grep regex matching a substring in all uncallable contigs in the calling or PanSN reference, from reference.
+    Get a grep regex matching a substring in all uncallable contigs in the
+    calling or PanSN reference, from reference or basename.
 
-    This will be a regec compatible with non-E grep.
+    We expect basename to start with a reference identifier like "chm13", maybe
+    with other stuff after a "-".
+
+    This will be a regex compatible with non-E grep.
     """
-    match wildcards["reference"]:
+
+    wd_dict = dict(wildcards)
+    if "reference" in wc_dict:
+        reference = wc_dict["reference"]
+    else:
+        reference = wc_dict["basename"].split("-")[0]
+    match reference:
         case "chm13":
             # TODO: We don't want to try and call on Y on CHM13 because it's
             # not the same Y as CHM13v2.0, where the truth set is and where we
@@ -1838,9 +1877,9 @@ ruleorder: merge_graphaligner_gams > graphaligner_real_reads
 
 rule dict_index_reference:
     input:
-        reference_fasta=reference_fasta
+        reference_fasta=REFS_DIR + "/{basename}.fa"
     output:
-        index=REFS_DIR + "/{reference}-pansn.fa.dict"
+        index=REFS_DIR + "/{basename}.fa.dict"
     threads: 1
     resources:
         mem_mb=8000,
@@ -1852,9 +1891,9 @@ rule dict_index_reference:
 
 rule paths_index_reference:
     input:
-        reference_dict=reference_dict
+        reference_dict=REFS_DIR + "/{basename}.fa.dict"
     output:
-        index=REFS_DIR + "/{reference}-pansn.fa.paths{region}.txt"
+        index=REFS_DIR + "/{basename}.fa.paths{region}.txt"
     threads: 1
     resources:
         mem_mb=1000,
@@ -1865,9 +1904,9 @@ rule paths_index_reference:
 
 rule callable_paths_index_reference:
     input:
-        paths=REFS_DIR + "/{reference}-pansn.fa.paths{region}.txt"
+        paths=REFS_DIR + "/{basename}.fa.paths{region}.txt"
     output:
-        paths=REFS_DIR + "/{reference}-pansn.fa.paths{region}.callable.txt"
+        paths=REFS_DIR + "/{basename}.fa.paths{region}.callable.txt"
     params:
         uncallable_contig_regex=uncallable_contig_regex
     threads: 1
@@ -1879,10 +1918,10 @@ rule callable_paths_index_reference:
 
 rule callable_paths_dict_reference:
     input:
-        paths=REFS_DIR + "/{reference}-pansn.fa.paths{region}.callable.txt",
-        reference_dict=reference_dict
+        paths=REFS_DIR + "/{basename}.fa.paths{region}.callable.txt",
+        reference_dict=REFS_DIR + "/{basename}.fa.dict"
     output:
-        callable_dict=REFS_DIR + "/{reference}-pansn.fa.paths{region}.callable.dict",
+        callable_dict=REFS_DIR + "/{basename}.fa.paths{region}.callable.dict",
     threads: 1
     resources:
         mem_mb=1000,
@@ -1997,6 +2036,15 @@ rule giraffe_sim_reads_with_correctness:
 
         shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -G {input.gam} " + zipcodes_flag + " " + flags + " " + pairing_flag + " >{output.gam} 2>{log}")
 
+rule winnowmap_repetitive_kmers:
+    input:
+        fasta=REFS_DIR + "/{basename}.fa"
+    output:
+        kmers=REFS_DIR + "/{basename}.repetitive_k15.txt"
+        db=temp(REFS_DIR + "{basename}.db")
+    shell:
+        "meryl count k=15 output {output.db} {input.fasta} && meryl print greater-than distinct=0.9998 {output.db} > {output/kmers}"
+
 rule winnowmap_sim_reads:
     input:
         reference_fasta=reference_fasta,
@@ -2050,9 +2098,9 @@ rule winnowmap_real_reads:
 
 rule minimap2_index_reference:
     input:
-        reference_fasta=reference_fasta
+        reference_fasta=REFS_DIR + "/{basename}.fa"
     output:
-        index=REFS_DIR + "/{reference}-pansn.{preset}.mmi"
+        index=REFS_DIR + "/{basename}.{preset}.mmi"
     threads: 16
     resources:
         mem_mb=16000,
@@ -2100,30 +2148,29 @@ rule minimap2_real_reads:
         "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq_gz} >{output.sam} 2> {log}"
 
 
-#TODO this doesn't have an output file and bwa doesn't take the index as an input so idk how to include it
-#I just indexed it myself
-#rule bwa_index_reference:
-#    input:
-#        reference_fasta=reference_fasta
-#    output:index
-#        amb=REFS_DIR + "/{reference}-pansn.amb"
-#        ann=REFS_DIR + "/{reference}-pansn.ann"
-#        bwt=REFS_DIR + "/{reference}-pansn.bwt"
-#        pac=REFS_DIR + "/{reference}-pansn.pac"
-#        sa=REFS_DIR + "/{reference}-pansn.sa"
-#    threads: 2
-#    resources:
-#        mem_mb=16000,
-#        runtime=10,
-#        slurm_partition=choose_partition(10)
-#    shell:
-#         "bwa {input.reference_fasta}"
-#
+# The BWA index file names are implicit but can still be dependencies.
+rule bwa_index_reference:
+    input:
+        reference_fasta=REFS_DIR + "/{basename}.fa"
+    output:
+        amb=REFS_DIR + "/{basename}.amb"
+        ann=REFS_DIR + "/{basename}.ann"
+        bwt=REFS_DIR + "/{basename}.bwt"
+        pac=REFS_DIR + "/{basename}.pac"
+        sa=REFS_DIR + "/{basename}.sa"
+    threads: 2
+    resources:
+        mem_mb=16000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+         "bwa {input.reference_fasta}"
 
 rule bwa_sim_reads:
     input:
         reference_fasta=reference_fasta,
-        fastq_gz=fastq_gz
+        fastq_gz=fastq_gz,
+        unpack(bwa_index_set)
     output:
         sam=temp("{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     log:"{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
@@ -2144,7 +2191,8 @@ rule bwa_sim_reads:
 rule bwa_real_reads:
     input:
         reference_fasta=reference_fasta,
-        fastq_gz=fastq_gz
+        fastq_gz=fastq_gz,
+        unpack(bwa_index_set)
     output:
         sam=temp("{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     benchmark: "{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
@@ -2618,12 +2666,11 @@ rule compare_alignments:
         tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
         compare="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
-        # TODO: Until we settle on a non-CHM13v2.0 CHM13 reference for all the
-        # graphs involved in the comparison, we need to ignore chrY for HG002
-        # since the CHM13v2.0 version comes from HG002 itself. Also we can't
-        # compare positions from a CHM13v1.1-based truth against positions from
-        # a CHM13v2.0-based graph, and we haven't sorted out which those are.
-        ignore_flag=lambda w: "--ignore 'CHM13#0#chrY'" if "HG002" in w["sample"] else ""
+        # In the v2.0 CHM13-based graphs we now use a non-HG002 Y, and that's where our
+        # Y truth positions are. For other graphs (like v2 prerelease 3 or v1.1) we won't
+        # have the right CHM13 Y.
+        # So we just ignore Y in CHM13. 
+        ignore_flag="--ignore 'CHM13#0#chrY'"
     threads: 16
     resources:
         mem_mb=200000,
@@ -2641,13 +2688,15 @@ rule compare_alignments_category:
         gam="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.{category}.gam",
         tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.{category}.compared.tsv",
         compare="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.{category}.compare.txt"
+    params:
+        ignore_flag="--ignore 'CHM13#0#chrY'"
     threads: 24
     resources:
         mem_mb=200000,
         runtime=800,
         slurm_partition=choose_partition(800)
     shell:
-        "vg gamcompare --threads 16 --range 200 <(vg filter --threads 4 --exact-name -N {input.category_list} {input.gam}) <(vg filter --threads 4 --exact-name -N {input.category_list} {input.truth_gam}) --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
+        "vg gamcompare --threads 16 --range 200 {params.ignore_flag} <(vg filter --threads 4 --exact-name -N {input.category_list} {input.gam}) <(vg filter --threads 4 --exact-name -N {input.category_list} {input.truth_gam}) --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
 
 rule compare_alignments_not_category:
     input:
@@ -2658,13 +2707,15 @@ rule compare_alignments_not_category:
         gam="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.not_{category}.gam",
         tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.not_{category}.compared.tsv",
         compare="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.not_{category}.compare.txt"
+    params:
+        ignore_flag="--ignore 'CHM13#0#chrY'"
     threads: 24
     resources:
         mem_mb=200000,
         runtime=800,
         slurm_partition=choose_partition(800)
     shell:
-        "vg gamcompare --threads 16 --range 200 <(vg filter --complement --threads 4 --exact-name -N {input.category_list} {input.gam}) <(vg filter --complement --threads 4 --exact-name -N {input.category_list} {input.truth_gam}) --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
+        "vg gamcompare --threads 16 --range 200 {params.ignore_flag} <(vg filter --complement --threads 4 --exact-name -N {input.category_list} {input.gam}) <(vg filter --complement --threads 4 --exact-name -N {input.category_list} {input.truth_gam}) --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
 
 rule annotate_alignments:
     input:
