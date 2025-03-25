@@ -2162,7 +2162,7 @@ rule bwa_index_reference:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-         "bwa {input.reference_fasta}"
+         "bwa index {input.reference_fasta}"
 
 rule bwa_sim_reads:
     input:
