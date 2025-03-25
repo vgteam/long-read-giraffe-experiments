@@ -14,7 +14,7 @@ The general flow for using this repository is:
 GRAPH_DIR=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs
 READ_DIR=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads
 mkdir -p "${READ_DIR}/sim/illumina/HG002"
-# Prepare a separete GBWT
+# Prepare a separate GBWT
 vg gbwt -o"${GRAPH_DIR}/hprc-chm-hg002-2024-03-25-mc.full.gbwt" -g "${GRAPH_DIR}/hprc-chm-hg002-2024-03-25-mc.full.gg" -Z "${GRAPH_DIR}/hprc-chm-hg002-2024-03-25-mc.full.gbz"
 # Prepare an xg graph
 vg convert --drop-haplotypes --xg-out "${GRAPH_DIR}//hprc-chm-hg002-2024-03-25-mc.full.gbz" >"${GRAPH_DIR}//hprc-chm-hg002-2024-03-25-mc.full.xg"
