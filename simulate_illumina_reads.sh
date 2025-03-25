@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# simulate_element_reads.sh: Simulate reads to look like Element sequencing data.
+# simulate_illumina_reads.sh: Simulate reads to look like Illumina sequencing data.
 
 set -ex
 
@@ -7,10 +7,10 @@ set -ex
 : "${READ_DIR:=/private/groups/patenlab/xhchang/reads/}"
 : "${GRAPH_NAME:=hprc-chm-hg002-v2.0.full}"
 : "${SAMPLE_NAME:=HG002}"
-: "${SAMPLE_FASTQ:=${READ_DIR}/real/element/HG002/element.GAT-LI-C044.fq.gz}"
+: "${SAMPLE_FASTQ:=${READ_DIR}/real/illumina/HG002/HG002.novaseq.pcr-free.40x.3m.fq}"
 : "${VG:=vg}"
 
-mkdir -p "${READ_DIR}/sim/element/${SAMPLE_NAME}"
+mkdir -p "${READ_DIR}/sim/illumina/${SAMPLE_NAME}"
 
 if [[ ! -e "${GRAPH_DIR}/${GRAPH_NAME}.gbwt" || ! -e "${GRAPH_DIR}/${GRAPH_NAME}.gg" ]] ; then
     # Prepare a separete GBWT
@@ -24,10 +24,9 @@ if [[ ! -e "${GRAPH_DIR}/${GRAPH_NAME}.xg" ]] ; then
     mv "${GRAPH_DIR}/${GRAPH_NAME}.xg.tmp" "${GRAPH_DIR}/${GRAPH_NAME}.xg"
 fi
 
-# Simulate reads 
-# Error rates taken from https://pmc.ncbi.nlm.nih.gov/articles/PMC11316309/
-"${VG}" sim -r -n 2500000 -a -s 12345 -p 550 -v 100 -e 0.0003 -i 0.00000001 -x "${GRAPH_DIR}/${GRAPH_NAME}.xg" -g "${GRAPH_DIR}/${GRAPH_NAME}.gbwt" --sample-name ${SAMPLE_NAME} -F "${SAMPLE_FASTQ}" --multi-position > "${READ_DIR}/sim/element/${SAMPLE_NAME}/${SAMPLE_NAME}-sim-element.gam"
+# Simulate reads
+"${VG}" sim -r -n 2500000 -a -s 12345 -p 570 -v 165 -i 0.00029 -x "${GRAPH_DIR}/${GRAPH_NAME}.xg" -g "${GRAPH_DIR}/${GRAPH_NAME}.gbwt" --sample-name ${SAMPLE_NAME} -F "${SAMPLE_FASTQ}" --multi-position > "${READ_DIR}/sim/illumina/${SAMPLE_NAME}/${SAMPLE_NAME}-sim-illumina.gam"
 # Subset reads
 for READ_COUNT in 100 1000 10000 100000 1000000 ; do
-    "${VG}" filter --interleaved -t1 --max-reads "${READ_COUNT}" "${READ_DIR}/sim/element/${SAMPLE_NAME}/${SAMPLE_NAME}-sim-element.gam" >"${READ_DIR}/sim/element/${SAMPLE_NAME}/${SAMPLE_NAME}-sim-element-${READ_COUNT}.gam"
+    "${VG}" filter --interleaved -t1 --max-reads "${READ_COUNT}" "${READ_DIR}/sim/illumina/${SAMPLE_NAME}/${SAMPLE_NAME}-sim-illumina.gam" >"${READ_DIR}/sim/illumina/${SAMPLE_NAME}/${SAMPLE_NAME}-sim-illumina-${READ_COUNT}.gam"
 done
