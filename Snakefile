@@ -318,8 +318,6 @@ def auto_mapping_memory(wildcards):
     # Scale down memory with threads
     return scale_mb / 64 * thread_count + base_mb
 
-
-
 def choose_partition(minutes):
     """
     Get a Slurm partition that can fit a job running for the given number of
@@ -453,7 +451,7 @@ def minimap2_index(wildcards):
     """
     
     mode_part = minimap_derivative_mode(wildcards)
-    return reference_basename(wildcards) + "." + mode_part + ".mmi")
+    return reference_basename(wildcards) + "." + mode_part + ".mmi"
 
 def reference_basename(wildcards):
     """
@@ -2040,7 +2038,7 @@ rule winnowmap_repetitive_kmers:
     input:
         fasta=REFS_DIR + "/{basename}.fa"
     output:
-        kmers=REFS_DIR + "/{basename}.repetitive_k15.txt"
+        kmers=REFS_DIR + "/{basename}.repetitive_k15.txt",
         db=temp(REFS_DIR + "{basename}.db")
     shell:
         "meryl count k=15 output {output.db} {input.fasta} && meryl print greater-than distinct=0.9998 {output.db} > {output/kmers}"
@@ -2153,10 +2151,10 @@ rule bwa_index_reference:
     input:
         reference_fasta=REFS_DIR + "/{basename}.fa"
     output:
-        amb=REFS_DIR + "/{basename}.amb"
-        ann=REFS_DIR + "/{basename}.ann"
-        bwt=REFS_DIR + "/{basename}.bwt"
-        pac=REFS_DIR + "/{basename}.pac"
+        amb=REFS_DIR + "/{basename}.amb",
+        ann=REFS_DIR + "/{basename}.ann",
+        bwt=REFS_DIR + "/{basename}.bwt",
+        pac=REFS_DIR + "/{basename}.pac",
         sa=REFS_DIR + "/{basename}.sa"
     threads: 2
     resources:
@@ -2168,9 +2166,9 @@ rule bwa_index_reference:
 
 rule bwa_sim_reads:
     input:
+        unpack(bwa_index_set),
         reference_fasta=reference_fasta,
         fastq_gz=fastq_gz,
-        unpack(bwa_index_set)
     output:
         sam=temp("{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     log:"{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
@@ -2190,9 +2188,9 @@ rule bwa_sim_reads:
 
 rule bwa_real_reads:
     input:
+        unpack(bwa_index_set),
         reference_fasta=reference_fasta,
-        fastq_gz=fastq_gz,
-        unpack(bwa_index_set)
+        fastq_gz=fastq_gz
     output:
         sam=temp("{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     benchmark: "{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"

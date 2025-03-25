@@ -7,7 +7,7 @@ set -ex
 : "${READ_DIR:=/private/groups/patenlab/xhchang/reads/}"
 : "${GRAPH_NAME:=hprc-chm-hg002-v2.0.full}"
 : "${SAMPLE_NAME:=HG002}"
-: "${SAMPLE_FASTQ:=${READ_DIR}/real/element/HG002/element.GAT-LI-C044.fq.gz}"
+: "${SAMPLE_FASTQ:=${READ_DIR}/real/element/HG002/HG002.GAT-LI-C044.fq.gz}"
 : "${VG:=vg}"
 
 mkdir -p "${READ_DIR}/sim/element/${SAMPLE_NAME}"

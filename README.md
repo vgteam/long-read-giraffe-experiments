@@ -10,7 +10,7 @@ The general flow for using this repository is:
 
 2. Use `make_pbsim_reads.sh` to simulate reads with plausible base qualities, for a sample in a sample-and-reference graph. Use `simulate_illumina_reads.sh` to make Illumina reads and `simulate_element_reads.sh` to make Element reads. All scripts take their input configuration via environment variables. For example:
 ```
-SAMPLE_FASTQ=/private/groups/patenlab/xhchang/reads/real/element/HG002/GAT-LI-C044.fq.gz VG="${HOME}/workspace/lr-giraffe/vg_v1.64.1" READ_DIR=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads GRAPH_DIR=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs ./simulate_element_reads.sh
+SAMPLE_FASTQ=/private/groups/patenlab/xhchang/reads/real/element/HG002/HG002.GAT-LI-C044.fq.gz VG="${HOME}/workspace/lr-giraffe/vg_v1.64.1" READ_DIR=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads GRAPH_DIR=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs ./simulate_element_reads.sh
 ```
 
 Note that the Illumina and Element read subsets won't be uniformly sampled from the full set.
