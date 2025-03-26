@@ -580,7 +580,7 @@ def uncallable_contig_regex(wildcards):
     This will be a regex compatible with non-E grep.
     """
 
-    wd_dict = dict(wildcards)
+    wc_dict = dict(wildcards)
     if "reference" in wc_dict:
         reference = wc_dict["reference"]
     else:
@@ -2546,7 +2546,7 @@ rule call_variants_dv:
         slurm_partition=choose_partition(8640)
     run:
         import json
-        wf_url = "https://raw.githubusercontent.com/vgteam/vg_wdl/1845a89d5bd314e09f364cf48523a3bf546c0c79/workflows/deepvariant.wdl"
+        wf_source = "#workflow/github.com/vgteam/vg_wdl/GiraffeDeepVariant:lr-giraffe"
         wf_inputs = {
             "DeepVariant.MERGED_BAM_FILE": input.sorted_bam,
             "DeepVariant.MERGED_BAM_FILE_INDEX": input.sorted_bam_index,
@@ -2559,18 +2559,19 @@ rule call_variants_dv:
             "DeepVariant.LEFTALIGN_BAM": True,
             # Indel realignment tools aren't available for long reads.
             # Also, we can't realign indels on our CHM13 non-2.0 mapping
-            # reference when usiong our CHM13v2.0 calling reference.
-            # TODO: Turn indel realignment back on when we manage to ditch CHM13 non-2.0.
+            # reference when using our CHM13v2.0 calling reference.
+            # TODO: Turn indel realignment back on if we ever we manage to use
+            # CHM13v2.0. Which we probably won't because it uses HG002 Y and
+            # we hold that out of the eval graphs.
             "DeepVariant.REALIGN_INDELS": False,
             "DeepVariant.DV_MODEL_TYPE": {"hifi": "PACBIO", "r10": "ONT_R104", "illumina": "WGS"}[wildcards.tech],
             "DeepVariant.MIN_MAPQ": 0,
             # TODO: Should we use legacy AC like in the paper?
             "DeepVariant.DV_KEEP_LEGACY_AC": False,
-            "DeepVariant.DV_NORM_READS": False, # TODO: should this be off for R10 or Illunina?
-            # TODO: When we get a DV with a trained model that can also run everything, plug it in here.
-            "DeepVariant.DV_GPU_DOCKER": "google/deepvariant:1.6.1-gpu",
-            "DeepVariant.DV_NO_GPU_DOCKER": "google/deepvariant:1.6.1",
-            "DeepVariant.DV_IS_1_7_OR_NEWER": False,
+            "DeepVariant.DV_NORM_READS": True, # TODO: should this be off for R10 or Illunina?
+            "DeepVariant.DV_GPU_DOCKER": "google/deepvariant:1.8.0-gpu",
+            "DeepVariant.DV_NO_GPU_DOCKER": "google/deepvariant:1.8.0",
+            "DeepVariant.DV_IS_1_7_OR_NEWER": True,
             "DeepVariant.TRUTH_VCF": to_local(input.truth_vcf),
             "DeepVariant.TRUTH_VCF_INDEX": to_local(input.truth_vcf_index),
             "DeepVariant.EVALUATION_REGIONS_BED": to_local(input.truth_bed),
@@ -2588,7 +2589,7 @@ rule call_variants_dv:
         # Run and keep the first manageable amount of logs not sent to the log
         # file in case we can't start. Don't stop when we hit the log limit.
         # See https://superuser.com/a/1531706
-        shell("MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT={FILL_WDL_CACHE} MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner " + wf_url + " {params.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False --logFile={log.logfile} 2>&1 | (head -c1000000; cat >/dev/null)")
+        shell("MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT={FILL_WDL_CACHE} MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner " + wf_source + " {params.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False --logFile={log.logfile} 2>&1 | (head -c1000000; cat >/dev/null)")
         wdl_result=json.load(open(output.wdl_output_file))
         shell("cp " + wdl_result["DeepVariant.output_vcf"] + " {output.vcf}")
         shell("cp " + wdl_result["DeepVariant.output_vcf_index"] + " {output.vcf_index}")
@@ -2640,6 +2641,20 @@ rule total_errors_from_fp_and_fn:
         slurm_partition=choose_partition(5)
     shell:
         "cat {input.snp_fn} {input.snp_fp} {input.indel_fn} {input.indel_fp} | awk '{{sum += $1 }} END {{ print sum }}' >{output.tsv}"
+
+rule snp_errors_from_fp_and_fn:
+    input:
+        snp_fn="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.snp_fn.tsv",
+        snp_fp="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.snp_fp.tsv",
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.snp_errors.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "cat {input.snp_fn} {input.snp_fp} | awk '{{sum += $1 }} END {{ print sum }}' >{output.tsv}"
 
 #This outputs a tsv of: tp, fn, fp, recall, precision, f1
 rule dv_summary_by_condition:
@@ -3255,7 +3270,7 @@ rule condition_experiment_stat:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{conditionstat}.tsv"
     wildcard_constraints:
         refgraph="[^/_]+",
-        conditionstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp)|total_errors)"
+        conditionstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp)|total_errors|snp_errors)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3478,6 +3493,18 @@ rule experiment_total_errors_plot:
     shell:
         "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Total Point Variant Errors' --y_label 'Total Errors' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
+rule experiment_snp_errors_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/snp_errors.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/snp_errors.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} SNP Errors' --y_label 'Errors' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule experiment_calling_summary_plot:
     input:
