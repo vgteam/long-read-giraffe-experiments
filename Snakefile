@@ -504,8 +504,8 @@ def bwa_index_set(wildcards):
 
     Doesn't actually include the FASTA itself.
     """
-    basename = reference_basename(wildcards)
-    return {ext: basename + "." + ext for ext in ("amb", "ann", "bwt", "pac", "sa")}
+    fasta_name = reference_fasta(wildcards)
+    return {ext: fasta_name + "." + ext for ext in ("amb", "ann", "bwt", "pac", "sa")}
 
 def reference_prefix(wildcards):
     """
@@ -2151,11 +2151,11 @@ rule bwa_index_reference:
     input:
         reference_fasta=REFS_DIR + "/{basename}.fa"
     output:
-        amb=REFS_DIR + "/{basename}.amb",
-        ann=REFS_DIR + "/{basename}.ann",
-        bwt=REFS_DIR + "/{basename}.bwt",
-        pac=REFS_DIR + "/{basename}.pac",
-        sa=REFS_DIR + "/{basename}.sa"
+        amb=REFS_DIR + "/{basename}.fa.amb",
+        ann=REFS_DIR + "/{basename}.fa.ann",
+        bwt=REFS_DIR + "/{basename}.fa.bwt",
+        pac=REFS_DIR + "/{basename}.fa.pac",
+        sa=REFS_DIR + "/{basename}.fa.sa"
     threads: 2
     resources:
         mem_mb=16000,
