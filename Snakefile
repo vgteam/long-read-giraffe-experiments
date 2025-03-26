@@ -1490,7 +1490,7 @@ rule gbz_index_primary_graph:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg gbwt -t {threads} -x {input.vg} -E --gbz-format -g {output.gbz}"
+        "vg gbwt --num-threads {threads} -x {input.vg} -E --gbz-format -g {output.gbz}"
 
 rule distance_index_graph:
     input:
