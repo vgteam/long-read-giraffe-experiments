@@ -24,7 +24,7 @@ if [[ ! -e "${GRAPH_DIR}/${GRAPH_NAME}.xg" ]] ; then
     mv "${GRAPH_DIR}/${GRAPH_NAME}.xg.tmp" "${GRAPH_DIR}/${GRAPH_NAME}.xg"
 fi
 
-# Simulate reads 
+# Simulate reads
 # Error rates taken from https://pmc.ncbi.nlm.nih.gov/articles/PMC11316309/
 "${VG}" sim -r -n 2500000 -a -s 12345 -p 550 -v 100 -e 0.0003 -i 0.00000001 -x "${GRAPH_DIR}/${GRAPH_NAME}.xg" -g "${GRAPH_DIR}/${GRAPH_NAME}.gbwt" --sample-name ${SAMPLE_NAME} -F "${SAMPLE_FASTQ}" --multi-position > "${READ_DIR}/sim/element/${SAMPLE_NAME}/${SAMPLE_NAME}-sim-element.gam"
 # Subset reads

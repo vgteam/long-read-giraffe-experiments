@@ -1466,6 +1466,31 @@ rule hg_to_gfa:
     shell:
         "vg convert -f -t {threads} {input.hgfile} > {output.gfa}"
 
+rule make_primary_graph:
+    input:
+        reference_fasta=reference_fasta
+    output:
+        vg="{graphs_dir}/primary-{reference}.vg"
+    threads: 16
+    resources:
+        mem_mb=60000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg construct -t {threads} -m 1024 -p -r {input.reference_fasta} >{output.vg}"
+
+rule gbz_index_primary_graph:
+    input:
+        vg="{graphs_dir}/primary-{reference}.vg"
+    output:
+        gbz="{graphs_dir}/primary-{reference}.gbz"
+    threads: 16
+    resources:
+        mem_mb=60000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg gbwt -t {threads} -x {input.vg} -E --gbz-format -g {output.gbz}"
 
 rule distance_index_graph:
     input:
