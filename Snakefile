@@ -2170,6 +2170,45 @@ rule minimap2_real_reads:
     shell:
         "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq_gz} >{output.sam} 2> {log}"
 
+# pbmm2 uses the same indexes as minimap2
+rule pbmm2_sim_reads:
+    input:
+        pbmm2_index=minimap2_index,
+        fastq=fastq
+    output:
+        sam=temp("{root}/aligned-secsup/{reference}/pbmm2/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
+    log:"{root}/aligned-secsup/{reference}/pbmm2/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    wildcard_constraints:
+        realness="sim",
+        tech="hifi"
+    threads: auto_mapping_threads
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "pbmm2 align --num-threads {threads} --preset HiFi --best-n 1 --unmapped {input.pbmm2_index} {input.fastq} >{output.sam} 2> {log}"
+
+rule pbmm2_real_reads:
+    input:
+        pbmm2_index=minimap2_index,
+        fastq_gz=fastq_gz
+    output:
+        sam=temp("{root}/aligned-secsup/{reference}/pbmm2/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
+    benchmark: "{root}/aligned-secsup/{reference}/pbmm2/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    log: "{root}/aligned-secsup/{reference}/pbmm2/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    wildcard_constraints:
+        realness="real",
+        tech="hifi"
+    threads: auto_mapping_threads
+    resources:
+        mem_mb=300000,
+        runtime=1200,
+        slurm_partition=choose_partition(1200),
+        slurm_extra=auto_mapping_slurm_extra,
+        full_cluster_nodes=auto_mapping_full_cluster_nodes
+    shell:
+        "pbmm2 align --num-threads {threads} --preset HiFi --best-n 1 --unmapped {input.pbmm2_index} {input.fastq} >{output.sam} 2> {log}"
 
 # The BWA index file names are implicit but can still be dependencies.
 rule bwa_index_reference:
@@ -2237,7 +2276,7 @@ rule bwa_real_reads:
 
 # Minimap2 and Winnowmap include secondary alignments in the output by default, and Winnowmap doesn't quite have a way to limit them (minimap2 has -N)
 # Also they only speak SAM and we don't want to benchmark the BAM-ification time.
-# So drop secondary and supplementary alignments and conver tto BAM.
+# So drop secondary and supplementary alignments and convert to BAM.
 # TODO: Get the downstream stats tools to be able to do things like measure average softclips when there are supplementary alignments.
 rule drop_secondary_and_supplementary:
     input:
@@ -2245,7 +2284,7 @@ rule drop_secondary_and_supplementary:
     output:
         bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
-        mapper="(minimap2-.*|winnowmap|bwa(-pe)?)"
+        mapper="(minimap2-.*|winnowmap|bwa(-pe)?|pbmm2)"
     threads: 16
     resources:
         mem_mb=30000,
@@ -2443,7 +2482,7 @@ rule inject_bam:
     output:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
-        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?|pbmm2)"
     threads: 64
     resources:
         mem_mb=300000,
@@ -2482,7 +2521,7 @@ rule alias_bam_graph:
     output:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
-        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?|pbmm2)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2980,7 +3019,7 @@ rule speed_from_log_bam:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="(minimap2-.*|winnowmap)"
+        mapper="(minimap2-.*|winnowmap|pbmm2)"
     threads: 1
     resources:
         mem_mb=200,
@@ -3049,7 +3088,7 @@ rule memory_from_log_bam:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="(minimap2-.*|winnowmap|bwa(-pe)?)"
+        mapper="(minimap2-.*|winnowmap|bwa(-pe)?|pbmm2)"
     threads: 1
     resources:
         mem_mb=200,
@@ -3132,7 +3171,7 @@ rule index_load_time_from_log_bam:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="(minimap2-.*|winnowmap)"
+        mapper="(minimap2-.*|winnowmap|pbmm2)"
     threads: 1
     resources:
         mem_mb=200,
@@ -3524,7 +3563,7 @@ rule experiment_calling_summary_plot:
 
 rule experiment_speed_from_log_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and any(m in condition["mapper"] for m in ("giraffe", "minimap2", "winnowmap", "bwa", "pbmm2", "minigraph", "panaligner"))
     output:
         tsv="{root}/experiments/{expname}/results/speed_from_log.tsv"
     threads: 1
@@ -3552,7 +3591,7 @@ rule experiment_speed_from_log_plot:
 
 rule experiment_memory_from_log_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and any(m in condition["mapper"] for m in ("giraffe", "minimap2", "winnowmap", "bwa", "pbmm2", "minigraph", "panaligner"))
     output:
         tsv="{root}/experiments/{expname}/results/memory_from_log.tsv"
     threads: 1
@@ -4589,7 +4628,7 @@ rule memory_usage_sam:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_usage.tsv"
     wildcard_constraints:
         realness="real",
-        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?|pbmm2)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -4609,7 +4648,7 @@ rule runtime_from_benchmark_bam:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?|pbmm2)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -4681,7 +4720,7 @@ rule memory_from_benchmark_sam:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?|pbmm2)"
     threads: 1
     resources:
         mem_mb=1000,

@@ -69,6 +69,7 @@ To run all the rules, you will need to have installations of:
 * curl
 * vg
 * minimap2
+* pbmm2
 * winnowmap
 * GraphAligner
 * samtools

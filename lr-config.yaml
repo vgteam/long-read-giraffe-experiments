@@ -595,7 +595,7 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-v1.64.1-noflags", "minimap2-map-hifi"]
+      mapper: ["giraffe-k31.w50.W-hifi-v1.64.1-noflags", "minimap2-map-hifi", "pbmm2"]
 
   illumina_real_samples_grch38:
     control:
