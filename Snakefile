@@ -2607,7 +2607,11 @@ rule call_variants_dv:
             "DeepVariant.MIN_MAPQ": 0,
             # TODO: Should we use legacy AC like in the paper?
             "DeepVariant.DV_KEEP_LEGACY_AC": False,
-            "DeepVariant.DV_NORM_READS": True, # TODO: should this be off for R10 or Illunina?
+            # Read normalization is broken for long reads as of DV1.8 and is
+            # not expexted to help anyway. See
+            # <https://ucsc-gi.slack.com/archives/C01D0M09G5D/p1743024424154459?thread_ts=1743005730.523199&cid=C01D0M09G5D>
+            # from Pi-Chuan Chang.
+            "DeepVariant.DV_NORM_READS": True if wildcards.tech in ("illumina", "element") else False
             "DeepVariant.DV_GPU_DOCKER": "google/deepvariant:1.8.0-gpu",
             "DeepVariant.DV_NO_GPU_DOCKER": "google/deepvariant:1.8.0",
             "DeepVariant.DV_IS_1_7_OR_NEWER": True,
