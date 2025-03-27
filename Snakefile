@@ -2611,7 +2611,7 @@ rule call_variants_dv:
             # not expexted to help anyway. See
             # <https://ucsc-gi.slack.com/archives/C01D0M09G5D/p1743024424154459?thread_ts=1743005730.523199&cid=C01D0M09G5D>
             # from Pi-Chuan Chang.
-            "DeepVariant.DV_NORM_READS": True if wildcards.tech in ("illumina", "element") else False
+            "DeepVariant.DV_NORM_READS": True if wildcards.tech in ("illumina", "element") else False,
             "DeepVariant.DV_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head739994921",
             "DeepVariant.DV_NO_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head739994921",
             "DeepVariant.DV_IS_1_7_OR_NEWER": True,
