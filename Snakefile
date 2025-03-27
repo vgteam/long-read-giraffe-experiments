@@ -2639,7 +2639,7 @@ rule call_variants_dv:
         # Run and keep the first manageable amount of logs not sent to the log
         # file in case we can't start. Don't stop when we hit the log limit.
         # See https://superuser.com/a/1531706
-        shell("MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT={FILL_WDL_CACHE} MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner " + wf_source + " {params.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False --logFile={log.logfile} 2>&1 | (head -c1000000; cat >/dev/null)")
+        shell("MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT={FILL_WDL_CACHE} MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner '" + wf_source + "' {params.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False --logFile={log.logfile} 2>&1 | (head -c1000000; cat >/dev/null)")
         wdl_result=json.load(open(output.wdl_output_file))
         shell("cp " + wdl_result["DeepVariant.output_vcf"] + " {output.vcf}")
         shell("cp " + wdl_result["DeepVariant.output_vcf_index"] + " {output.vcf_index}")
