@@ -2585,7 +2585,7 @@ rule call_variants_dv:
         slurm_partition=choose_partition(8640)
     run:
         import json
-        wf_source = "#workflow/github.com/vgteam/vg_wdl/GiraffeDeepVariant:lr-giraffe"
+        wf_source = "#workflow/github.com/vgteam/vg_wdl/DeepVariant:lr-giraffe"
         wf_inputs = {
             "DeepVariant.MERGED_BAM_FILE": input.sorted_bam,
             "DeepVariant.MERGED_BAM_FILE_INDEX": input.sorted_bam_index,
@@ -2612,8 +2612,8 @@ rule call_variants_dv:
             # <https://ucsc-gi.slack.com/archives/C01D0M09G5D/p1743024424154459?thread_ts=1743005730.523199&cid=C01D0M09G5D>
             # from Pi-Chuan Chang.
             "DeepVariant.DV_NORM_READS": True if wildcards.tech in ("illumina", "element") else False
-            "DeepVariant.DV_GPU_DOCKER": "google/deepvariant:1.8.0-gpu",
-            "DeepVariant.DV_NO_GPU_DOCKER": "google/deepvariant:1.8.0",
+            "DeepVariant.DV_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head739994921",
+            "DeepVariant.DV_NO_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head739994921",
             "DeepVariant.DV_IS_1_7_OR_NEWER": True,
             "DeepVariant.TRUTH_VCF": to_local(input.truth_vcf),
             "DeepVariant.TRUTH_VCF_INDEX": to_local(input.truth_vcf_index),
@@ -2628,6 +2628,13 @@ rule call_variants_dv:
             "DeepVariant.OUTPUT_CALLING_BAMS": False,
             "DeepVariant.CALL_CORES": 32,
         }
+        if wildcards.tech == "hifi" and "giraffe" in wildcards.mapper:
+            wf_inputs["DeepVariant.DV_MODEL_FILES"] = [
+                "gs://pepper-deepvariant/pichuan/xm_experiments/156193069/wu_1/best/checkpoint",
+                "gs://pepper-deepvariant/pichuan/xm_experiments/156193069/wu_1/best/checkpoint-140800-0.98024-1.data-00000-of-00001",
+                "gs://pepper-deepvariant/pichuan/xm_experiments/156193069/wu_1/best/checkpoint-140800-0.98024-1.index",
+                "gs://pepper-deepvariant/pichuan/xm_experiments/156193069/wu_1/best/example_info.json"
+            ]
         json.dump(wf_inputs, open(params["wdl_input_file"], "w"))
         # Run and keep the first manageable amount of logs not sent to the log
         # file in case we can't start. Don't stop when we hit the log limit.
