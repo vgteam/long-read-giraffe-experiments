@@ -2585,7 +2585,7 @@ rule call_variants_dv:
         slurm_partition=choose_partition(8640)
     run:
         import json
-        wf_source = "#workflow/github.com/vgteam/vg_wdl/DeepVariant:lr-giraffe"
+        wf_source = "https://raw.githubusercontent.com/vgteam/vg_wdl/refs/heads/lr-giraffe/workflows/deepvariant.wdl"
         wf_inputs = {
             "DeepVariant.MERGED_BAM_FILE": input.sorted_bam,
             "DeepVariant.MERGED_BAM_FILE_INDEX": input.sorted_bam_index,
@@ -2630,10 +2630,10 @@ rule call_variants_dv:
         }
         if wildcards.tech == "hifi" and "giraffe" in wildcards.mapper:
             wf_inputs["DeepVariant.DV_MODEL_FILES"] = [
-                "gs://pepper-deepvariant/pichuan/xm_experiments/156193069/wu_1/best/checkpoint",
-                "gs://pepper-deepvariant/pichuan/xm_experiments/156193069/wu_1/best/checkpoint-140800-0.98024-1.data-00000-of-00001",
-                "gs://pepper-deepvariant/pichuan/xm_experiments/156193069/wu_1/best/checkpoint-140800-0.98024-1.index",
-                "gs://pepper-deepvariant/pichuan/xm_experiments/156193069/wu_1/best/example_info.json"
+                "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/models/hifi/2025-03-26/checkpoint",
+                "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/models/hifi/2025-03-26/checkpoint-140800-0.98024-1.data-00000-of-00001",
+                "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/models/hifi/2025-03-26/checkpoint-140800-0.98024-1.index",
+                "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/models/hifi/2025-03-26/example_info.json"
             ]
         json.dump(wf_inputs, open(params["wdl_input_file"], "w"))
         # Run and keep the first manageable amount of logs not sent to the log
