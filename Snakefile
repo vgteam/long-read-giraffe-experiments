@@ -2545,6 +2545,20 @@ rule sort_bam:
         with tempfile.TemporaryDirectory() as sort_scratch:
             shell("samtools sort -T " + os.path.join(sort_scratch, "scratch") + " --threads {threads} {input.bam} -O BAM > {output.bam} && samtools index -b {output.bam} {output.bai}")
 
+rule reheader_bam:
+    input:
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam"
+    output:
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.reheadered.bam",
+        bai="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.reheadered.bam.bai"
+    threads: 1
+    resources:
+        mem_mb=4000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "samtools reheader -c 'sed s/[^#]*#0#//g' {input.bam} >{output.bam} && samtools index -b {output.bam} {output.bai}"
+
 rule call_variants_dv:
     input:
         sorted_bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
@@ -2614,7 +2628,6 @@ rule call_variants_dv:
             "DeepVariant.DV_NORM_READS": True if wildcards.tech in ("illumina", "element") else False,
             "DeepVariant.DV_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head739994921",
             "DeepVariant.DV_NO_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head739994921",
-            "DeepVariant.DV_IS_1_7_OR_NEWER": True,
             "DeepVariant.TRUTH_VCF": to_local(input.truth_vcf),
             "DeepVariant.TRUTH_VCF_INDEX": to_local(input.truth_vcf_index),
             "DeepVariant.EVALUATION_REGIONS_BED": to_local(input.truth_bed),
@@ -2695,19 +2708,21 @@ rule total_errors_from_fp_and_fn:
     shell:
         "cat {input.snp_fn} {input.snp_fp} {input.indel_fn} {input.indel_fp} | awk '{{sum += $1 }} END {{ print sum }}' >{output.tsv}"
 
-rule snp_errors_from_fp_and_fn:
+rule vartype_errors_from_fp_and_fn:
     input:
-        snp_fn="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.snp_fn.tsv",
-        snp_fp="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.snp_fp.tsv",
+        vartype_fn="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.{vartype}_fn.tsv",
+        vartype_fp="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.{vartype}_fp.tsv",
     output:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.snp_errors.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.{vartype}_errors.tsv"
+    wildcard_constraints:
+        vartype="(snp|indel)"
     threads: 1
     resources:
         mem_mb=1000,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
-        "cat {input.snp_fn} {input.snp_fp} | awk '{{sum += $1 }} END {{ print sum }}' >{output.tsv}"
+        "cat {input.vartype_fn} {input.vartype_fp} | awk '{{sum += $1 }} END {{ print sum }}' >{output.tsv}"
 
 #This outputs a tsv of: tp, fn, fp, recall, precision, f1
 rule dv_summary_by_condition:
@@ -3323,7 +3338,7 @@ rule condition_experiment_stat:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{conditionstat}.tsv"
     wildcard_constraints:
         refgraph="[^/_]+",
-        conditionstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp)|total_errors|snp_errors)"
+        conditionstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp)|(snp|indel|total)_errors)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3558,6 +3573,19 @@ rule experiment_snp_errors_plot:
         slurm_partition=choose_partition(5)
     shell:
         "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} SNP Errors' --y_label 'Errors' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule experiment_indel_errors_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/indel_errors.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/indel_errors.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Indel Errors' --y_label 'Errors' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule experiment_calling_summary_plot:
     input:
