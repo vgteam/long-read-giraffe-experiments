@@ -2494,9 +2494,13 @@ rule inject_bam:
 rule surject_gam:
     input:
         gbz=gbz,
-        # We leave out paths we can't call on, like Y in CHM13 (due to different Ys being used in different graphs).
-        # TODO: Fix this when we fix chrY somehow. CHM13v2.0 has HG002's Y.
-        reference_path_dict_callable=reference_path_dict_callable,
+        # We surject onto all target reference paths, even those we can't call
+        # on, like Y in CHM13 (due to different Ys being used in different
+        # graphs), and the _random contigs in GRCh38. Otherwise mappers mapping
+        # against GRCh38 with its _random contigs have an advantage when
+        # calling there, because Giraffe will stick all the _random reads in
+        # the main genome.
+        reference_dict=reference_dict,
         gam=surjectable_gam
     output:
         # Don't keep this around because we're going to keep the sorted version and use that for most things.
@@ -2512,7 +2516,7 @@ rule surject_gam:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg surject -F {input.reference_path_dict_callable} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
+        "vg surject -F {input.reference_dict} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
 
 rule alias_bam_graph:
     # For BAM-generating mappers we can view their BAMs as if they mapped to any reference graph for a reference
