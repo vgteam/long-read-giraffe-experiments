@@ -2557,7 +2557,7 @@ rule reheader_bam:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "samtools reheader -c 'sed \"s/[^#]*#0#//g\"' {input.bam} >{output.bam} && samtools index -b {output.bam} {output.bai}"
+        "samtools reheader -c 'sed -e \"s/SN:[^\\t#]*#0#/SN:/g\"' {input.bam} >{output.bam} && samtools index -b {output.bam} {output.bai}"
 
 rule call_variants_dv:
     input:
