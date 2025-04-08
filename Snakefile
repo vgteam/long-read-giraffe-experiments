@@ -2066,7 +2066,7 @@ rule winnowmap_repetitive_kmers:
         kmers=REFS_DIR + "/{basename}.repetitive_k15.txt",
         db=temp(REFS_DIR + "{basename}.db")
     shell:
-        "meryl count k=15 output {output.db} {input.fasta} && meryl print greater-than distinct=0.9998 {output.db} > {output/kmers}"
+        "meryl count k=15 output {output.db} {input.fasta} && meryl print greater-than distinct=0.9998 {output.db} > {output.kmers}"
 
 rule winnowmap_sim_reads:
     input:

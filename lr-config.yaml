@@ -308,7 +308,7 @@ experiments:
       realness: sim
     vary:
       mapper: ["minimap2-map-pb", "minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "minigraph", "giraffe-k31.w50.W-hifi-e9fa19-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc" "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
+      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16", "hprc-v1.0-minigraph", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
           mapper: ["minimap2-map-hifi", "pbmm2", "winnowmap", "giraffe-k31.w50.W-hifi-e9fa19-noflags"]
