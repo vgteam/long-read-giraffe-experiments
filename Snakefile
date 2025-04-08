@@ -146,19 +146,23 @@ READS_DIR = config.get("reads_dir", None) or "/private/groups/patenlab/anovak/pr
 # For each reference name (here "chm13") this directory must contain:
 #
 # A FASTA file with PanSN-style (CHM13#0#chr1) contig names: 
-# chm13-pansn.fa
+# chm13-pansn-newY.fa
 #
-# Index files for Minimap2 for each preset (here "hifi", can also be "ont" or "sr", and can be generated from the FASTA):
-# chm13-pansn.hifi.mmi
-# 
-# A Winnowmap repetitive kmers file:
-# chm13-pansn.repetitive_k15.txt
+# (For grch38 we don't use the -newY part.)
 #
 # For the calling references (chm13v2.0 and grch38) we also need a plain .fa
 # and .fa.fai without pansn names, and _PAR.bed files with the pseudo-autosomal
 # regions.
 #
-# TODO: Right now these indexes must be manually generated.
+# We also use, but can generate:
+#
+# Index files for Minimap2 for each preset (here "hifi", can also be "ont" or "sr", and can be generated from the FASTA):
+# chm13-pansn-newY.hifi.mmi
+# 
+# A Winnowmap repetitive kmers file:
+# chm13-pansn-newY.repetitive_k15.txt
+#
+# Minimap2 and BWA-MEM indexes
 #
 REFS_DIR = config.get("refs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references"
 
@@ -220,11 +224,11 @@ IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["spee
 NON_ZIPCODE_GIRAFFE_VERSIONS = set(config.get("non_zipcode_giraffe_versions")) if "non_zipcode_giraffe_versions" in config else set()
 
 # What version of vg should be used to make fragment-aware haplotype indexes?
-VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="5cfcdb"
+VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="v1.64.1"
 # What version of vg should be used to haplotype-sample graphs?
-VG_HAPLOTYPE_SAMPLING_VERSION="5cfcdb"
+VG_HAPLOTYPE_SAMPLING_VERSION="v1.64.1"
 # What version of vg should be used to haplotype-sample graphs when we want to keep just one reference?
-VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="8145be"
+VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="v1.64.1"
 
 wildcard_constraints:
     expname="[^/]+",
@@ -313,8 +317,6 @@ def auto_mapping_memory(wildcards):
 
     # Scale down memory with threads
     return scale_mb / 64 * thread_count + base_mb
-
-
 
 def choose_partition(minutes):
     """
@@ -424,7 +426,7 @@ def repetitive_kmers(wildcards):
     """
     Find the Winnowmap repetitive kmers file from a reference.
     """
-    return os.path.join(REFS_DIR, wildcards["reference"] + "-pansn.repetitive_k15.txt")
+    return reference_basename(wildcards) + ".repetitive_k15.txt"
 
 def minimap_derivative_mode(wildcards):
     """
@@ -449,13 +451,29 @@ def minimap2_index(wildcards):
     """
     
     mode_part = minimap_derivative_mode(wildcards)
-    return os.path.join(REFS_DIR, wildcards["reference"] + "-pansn." + mode_part + ".mmi")
-    
+    return reference_basename(wildcards) + "." + mode_part + ".mmi"
+
+def reference_basename(wildcards):
+    """
+    Find the linear reference base name without extension from a reference.
+
+    This reference is used for mapping. Calling may be against a different
+    calling reference (with possibly a different Y) or renamed contigs.
+
+    This reference will use PanSN contig names.
+    """
+    parts = [wildcards["reference"], "pansn"]
+    if wildcards["reference"] == "chm13":
+        # We want to use a version of the reference FASTA with the "new"
+        # non-HG002, non-GRCh38 Y contig.
+        parts.append("newY")
+    return os.path.join(REFS_DIR, "-".join(parts))
+
 def reference_fasta(wildcards):
     """
     Find the linear reference FASTA from a reference.
     """
-    return os.path.join(REFS_DIR, wildcards["reference"] + "-pansn.fa")
+    return reference_basename(wildcards) + ".fa"
 
 def reference_dict(wildcards):
     """
@@ -479,6 +497,15 @@ def reference_path_dict_callable(wildcards):
     We need this because when surjecting to a non-base reference we can't infer path lengths from the graph.
     """
     return reference_fasta(wildcards) + ".paths" + wildcards.get("region", "") + ".callable.dict"
+
+def bwa_index_set(wildcards):
+    """
+    Find a reference indexed for BWA from reference.
+
+    Doesn't actually include the FASTA itself.
+    """
+    fasta_name = reference_fasta(wildcards)
+    return {ext: fasta_name + "." + ext for ext in ("amb", "ann", "bwt", "pac", "sa")}
 
 def reference_prefix(wildcards):
     """
@@ -544,11 +571,21 @@ def sv_calling_vntr_bed(wildcards):
 
 def uncallable_contig_regex(wildcards):
     """
-    Get a grep regex matching a substring in all uncallable contigs in the calling or PanSN reference, from reference.
+    Get a grep regex matching a substring in all uncallable contigs in the
+    calling or PanSN reference, from reference or basename.
 
-    This will be a regec compatible with non-E grep.
+    We expect basename to start with a reference identifier like "chm13", maybe
+    with other stuff after a "-".
+
+    This will be a regex compatible with non-E grep.
     """
-    match wildcards["reference"]:
+
+    wc_dict = dict(wildcards)
+    if "reference" in wc_dict:
+        reference = wc_dict["reference"]
+    else:
+        reference = wc_dict["basename"].split("-")[0]
+    match reference:
         case "chm13":
             # TODO: We don't want to try and call on Y on CHM13 because it's
             # not the same Y as CHM13v2.0, where the truth set is and where we
@@ -1429,6 +1466,31 @@ rule hg_to_gfa:
     shell:
         "vg convert -f -t {threads} {input.hgfile} > {output.gfa}"
 
+rule make_primary_graph:
+    input:
+        reference_fasta=reference_fasta
+    output:
+        vg="{graphs_dir}/primary-{reference}.vg"
+    threads: 16
+    resources:
+        mem_mb=60000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg construct -t {threads} -m 1024 -p -r {input.reference_fasta} >{output.vg}"
+
+rule gbz_index_primary_graph:
+    input:
+        vg="{graphs_dir}/primary-{reference}.vg"
+    output:
+        gbz="{graphs_dir}/primary-{reference}.gbz"
+    threads: 16
+    resources:
+        mem_mb=60000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg gbwt --progress --num-threads {threads} -x {input.vg} -E --gbz-format -g {output.gbz}"
 
 rule distance_index_graph:
     input:
@@ -1838,9 +1900,9 @@ ruleorder: merge_graphaligner_gams > graphaligner_real_reads
 
 rule dict_index_reference:
     input:
-        reference_fasta=reference_fasta
+        reference_fasta=REFS_DIR + "/{basename}.fa"
     output:
-        index=REFS_DIR + "/{reference}-pansn.fa.dict"
+        index=REFS_DIR + "/{basename}.fa.dict"
     threads: 1
     resources:
         mem_mb=8000,
@@ -1852,9 +1914,9 @@ rule dict_index_reference:
 
 rule paths_index_reference:
     input:
-        reference_dict=reference_dict
+        reference_dict=REFS_DIR + "/{basename}.fa.dict"
     output:
-        index=REFS_DIR + "/{reference}-pansn.fa.paths{region}.txt"
+        index=REFS_DIR + "/{basename}.fa.paths{region}.txt"
     threads: 1
     resources:
         mem_mb=1000,
@@ -1865,9 +1927,9 @@ rule paths_index_reference:
 
 rule callable_paths_index_reference:
     input:
-        paths=REFS_DIR + "/{reference}-pansn.fa.paths{region}.txt"
+        paths=REFS_DIR + "/{basename}.fa.paths{region}.txt"
     output:
-        paths=REFS_DIR + "/{reference}-pansn.fa.paths{region}.callable.txt"
+        paths=REFS_DIR + "/{basename}.fa.paths{region}.callable.txt"
     params:
         uncallable_contig_regex=uncallable_contig_regex
     threads: 1
@@ -1879,10 +1941,10 @@ rule callable_paths_index_reference:
 
 rule callable_paths_dict_reference:
     input:
-        paths=REFS_DIR + "/{reference}-pansn.fa.paths{region}.callable.txt",
-        reference_dict=reference_dict
+        paths=REFS_DIR + "/{basename}.fa.paths{region}.callable.txt",
+        reference_dict=REFS_DIR + "/{basename}.fa.dict"
     output:
-        callable_dict=REFS_DIR + "/{reference}-pansn.fa.paths{region}.callable.dict",
+        callable_dict=REFS_DIR + "/{basename}.fa.paths{region}.callable.dict",
     threads: 1
     resources:
         mem_mb=1000,
@@ -1997,6 +2059,15 @@ rule giraffe_sim_reads_with_correctness:
 
         shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -G {input.gam} " + zipcodes_flag + " " + flags + " " + pairing_flag + " >{output.gam} 2>{log}")
 
+rule winnowmap_repetitive_kmers:
+    input:
+        fasta=REFS_DIR + "/{basename}.fa"
+    output:
+        kmers=REFS_DIR + "/{basename}.repetitive_k15.txt",
+        db=temp(REFS_DIR + "{basename}.db")
+    shell:
+        "meryl count k=15 output {output.db} {input.fasta} && meryl print greater-than distinct=0.9998 {output.db} > {output/kmers}"
+
 rule winnowmap_sim_reads:
     input:
         reference_fasta=reference_fasta,
@@ -2050,9 +2121,9 @@ rule winnowmap_real_reads:
 
 rule minimap2_index_reference:
     input:
-        reference_fasta=reference_fasta
+        reference_fasta=REFS_DIR + "/{basename}.fa"
     output:
-        index=REFS_DIR + "/{reference}-pansn.{preset}.mmi"
+        index=REFS_DIR + "/{basename}.{preset}.mmi"
     threads: 16
     resources:
         mem_mb=16000,
@@ -2099,31 +2170,69 @@ rule minimap2_real_reads:
     shell:
         "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq_gz} >{output.sam} 2> {log}"
 
+# pbmm2 uses the same indexes as minimap2
+rule pbmm2_sim_reads:
+    input:
+        pbmm2_index=minimap2_index,
+        fastq=fastq
+    output:
+        sam=temp("{root}/aligned-secsup/{reference}/pbmm2/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
+    log:"{root}/aligned-secsup/{reference}/pbmm2/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    wildcard_constraints:
+        realness="sim",
+        tech="hifi"
+    threads: auto_mapping_threads
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "pbmm2 align --num-threads {threads} --preset HiFi --best-n 1 --unmapped {input.pbmm2_index} {input.fastq} >{output.sam} 2> {log}"
 
-#TODO this doesn't have an output file and bwa doesn't take the index as an input so idk how to include it
-#I just indexed it myself
-#rule bwa_index_reference:
-#    input:
-#        reference_fasta=reference_fasta
-#    output:index
-#        amb=REFS_DIR + "/{reference}-pansn.amb"
-#        ann=REFS_DIR + "/{reference}-pansn.ann"
-#        bwt=REFS_DIR + "/{reference}-pansn.bwt"
-#        pac=REFS_DIR + "/{reference}-pansn.pac"
-#        sa=REFS_DIR + "/{reference}-pansn.sa"
-#    threads: 2
-#    resources:
-#        mem_mb=16000,
-#        runtime=10,
-#        slurm_partition=choose_partition(10)
-#    shell:
-#         "bwa {input.reference_fasta}"
-#
+rule pbmm2_real_reads:
+    input:
+        pbmm2_index=minimap2_index,
+        fastq_gz=fastq_gz
+    output:
+        sam=temp("{root}/aligned-secsup/{reference}/pbmm2/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
+    benchmark: "{root}/aligned-secsup/{reference}/pbmm2/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    log: "{root}/aligned-secsup/{reference}/pbmm2/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    wildcard_constraints:
+        realness="real",
+        tech="hifi"
+    threads: auto_mapping_threads
+    resources:
+        mem_mb=300000,
+        runtime=1200,
+        slurm_partition=choose_partition(1200),
+        slurm_extra=auto_mapping_slurm_extra,
+        full_cluster_nodes=auto_mapping_full_cluster_nodes
+    shell:
+        "pbmm2 align --num-threads {threads} --preset HiFi --best-n 1 --unmapped {input.pbmm2_index} {input.fastq_gz} >{output.sam} 2> {log}"
+
+# The BWA index file names are implicit but can still be dependencies.
+rule bwa_index_reference:
+    input:
+        reference_fasta=REFS_DIR + "/{basename}.fa"
+    output:
+        amb=REFS_DIR + "/{basename}.fa.amb",
+        ann=REFS_DIR + "/{basename}.fa.ann",
+        bwt=REFS_DIR + "/{basename}.fa.bwt",
+        pac=REFS_DIR + "/{basename}.fa.pac",
+        sa=REFS_DIR + "/{basename}.fa.sa"
+    threads: 2
+    resources:
+        mem_mb=16000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+         "bwa index {input.reference_fasta}"
 
 rule bwa_sim_reads:
     input:
+        unpack(bwa_index_set),
         reference_fasta=reference_fasta,
-        fastq_gz=fastq_gz
+        fastq_gz=fastq_gz,
     output:
         sam=temp("{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     log:"{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
@@ -2143,6 +2252,7 @@ rule bwa_sim_reads:
 
 rule bwa_real_reads:
     input:
+        unpack(bwa_index_set),
         reference_fasta=reference_fasta,
         fastq_gz=fastq_gz
     output:
@@ -2166,7 +2276,7 @@ rule bwa_real_reads:
 
 # Minimap2 and Winnowmap include secondary alignments in the output by default, and Winnowmap doesn't quite have a way to limit them (minimap2 has -N)
 # Also they only speak SAM and we don't want to benchmark the BAM-ification time.
-# So drop secondary and supplementary alignments and conver tto BAM.
+# So drop secondary and supplementary alignments and convert to BAM.
 # TODO: Get the downstream stats tools to be able to do things like measure average softclips when there are supplementary alignments.
 rule drop_secondary_and_supplementary:
     input:
@@ -2174,7 +2284,7 @@ rule drop_secondary_and_supplementary:
     output:
         bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
-        mapper="(minimap2-.*|winnowmap|bwa(-pe)?)"
+        mapper="(minimap2-.*|winnowmap|bwa(-pe)?|pbmm2)"
     threads: 16
     resources:
         mem_mb=30000,
@@ -2372,7 +2482,7 @@ rule inject_bam:
     output:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
-        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?|pbmm2)"
     threads: 64
     resources:
         mem_mb=300000,
@@ -2384,9 +2494,13 @@ rule inject_bam:
 rule surject_gam:
     input:
         gbz=gbz,
-        # We leave out paths we can't call on, like Y in CHM13 (due to different Ys being used in different graphs).
-        # TODO: Fix this when we fix chrY somehow. CHM13v2.0 has HG002's Y.
-        reference_path_dict_callable=reference_path_dict_callable,
+        # We surject onto all target reference paths, even those we can't call
+        # on, like Y in CHM13 (due to different Ys being used in different
+        # graphs), and the _random contigs in GRCh38. Otherwise mappers mapping
+        # against GRCh38 with its _random contigs have an advantage when
+        # calling there, because Giraffe will stick all the _random reads in
+        # the main genome.
+        reference_dict=reference_dict,
         gam=surjectable_gam
     output:
         # Don't keep this around because we're going to keep the sorted version and use that for most things.
@@ -2402,7 +2516,7 @@ rule surject_gam:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg surject -F {input.reference_path_dict_callable} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
+        "vg surject -F {input.reference_dict} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
 
 rule alias_bam_graph:
     # For BAM-generating mappers we can view their BAMs as if they mapped to any reference graph for a reference
@@ -2411,7 +2525,7 @@ rule alias_bam_graph:
     output:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     wildcard_constraints:
-        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?|pbmm2)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2434,6 +2548,20 @@ rule sort_bam:
     run:
         with tempfile.TemporaryDirectory() as sort_scratch:
             shell("samtools sort -T " + os.path.join(sort_scratch, "scratch") + " --threads {threads} {input.bam} -O BAM > {output.bam} && samtools index -b {output.bam} {output.bai}")
+
+rule reheader_bam:
+    input:
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam"
+    output:
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.reheadered.bam",
+        bai="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.reheadered.bam.bai"
+    threads: 1
+    resources:
+        mem_mb=4000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "samtools reheader -c 'sed -e \"s/SN:[^\\t#]*#0#/SN:/g\"' {input.bam} >{output.bam} && samtools index -b {output.bam} {output.bai}"
 
 rule call_variants_dv:
     input:
@@ -2475,7 +2603,7 @@ rule call_variants_dv:
         slurm_partition=choose_partition(8640)
     run:
         import json
-        wf_url = "https://raw.githubusercontent.com/vgteam/vg_wdl/1845a89d5bd314e09f364cf48523a3bf546c0c79/workflows/deepvariant.wdl"
+        wf_source = "https://raw.githubusercontent.com/vgteam/vg_wdl/refs/heads/lr-giraffe/workflows/deepvariant.wdl"
         wf_inputs = {
             "DeepVariant.MERGED_BAM_FILE": input.sorted_bam,
             "DeepVariant.MERGED_BAM_FILE_INDEX": input.sorted_bam_index,
@@ -2488,18 +2616,22 @@ rule call_variants_dv:
             "DeepVariant.LEFTALIGN_BAM": True,
             # Indel realignment tools aren't available for long reads.
             # Also, we can't realign indels on our CHM13 non-2.0 mapping
-            # reference when usiong our CHM13v2.0 calling reference.
-            # TODO: Turn indel realignment back on when we manage to ditch CHM13 non-2.0.
+            # reference when using our CHM13v2.0 calling reference.
+            # TODO: Turn indel realignment back on if we ever we manage to use
+            # CHM13v2.0. Which we probably won't because it uses HG002 Y and
+            # we hold that out of the eval graphs.
             "DeepVariant.REALIGN_INDELS": False,
             "DeepVariant.DV_MODEL_TYPE": {"hifi": "PACBIO", "r10": "ONT_R104", "illumina": "WGS"}[wildcards.tech],
             "DeepVariant.MIN_MAPQ": 0,
             # TODO: Should we use legacy AC like in the paper?
             "DeepVariant.DV_KEEP_LEGACY_AC": False,
-            "DeepVariant.DV_NORM_READS": False, # TODO: should this be off for R10 or Illunina?
-            # TODO: When we get a DV with a trained model that can also run everything, plug it in here.
-            "DeepVariant.DV_GPU_DOCKER": "google/deepvariant:1.6.1-gpu",
-            "DeepVariant.DV_NO_GPU_DOCKER": "google/deepvariant:1.6.1",
-            "DeepVariant.DV_IS_1_7_OR_NEWER": False,
+            # Read normalization is broken for long reads as of DV1.8 and is
+            # not expexted to help anyway. See
+            # <https://ucsc-gi.slack.com/archives/C01D0M09G5D/p1743024424154459?thread_ts=1743005730.523199&cid=C01D0M09G5D>
+            # from Pi-Chuan Chang.
+            "DeepVariant.DV_NORM_READS": True if wildcards.tech in ("illumina", "element") else False,
+            "DeepVariant.DV_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head739994921",
+            "DeepVariant.DV_NO_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head739994921",
             "DeepVariant.TRUTH_VCF": to_local(input.truth_vcf),
             "DeepVariant.TRUTH_VCF_INDEX": to_local(input.truth_vcf_index),
             "DeepVariant.EVALUATION_REGIONS_BED": to_local(input.truth_bed),
@@ -2513,11 +2645,21 @@ rule call_variants_dv:
             "DeepVariant.OUTPUT_CALLING_BAMS": False,
             "DeepVariant.CALL_CORES": 32,
         }
+        if wildcards.tech == "hifi" and "giraffe" in wildcards.mapper:
+            wf_inputs["DeepVariant.DV_MODEL_FILES"] = [
+                "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/models/hifi/2025-03-26/checkpoint",
+                "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/models/hifi/2025-03-26/checkpoint-140800-0.98024-1.data-00000-of-00001",
+                "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/models/hifi/2025-03-26/checkpoint-140800-0.98024-1.index",
+                "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/models/hifi/2025-03-26/example_info.json"
+            ]
         json.dump(wf_inputs, open(params["wdl_input_file"], "w"))
         # Run and keep the first manageable amount of logs not sent to the log
         # file in case we can't start. Don't stop when we hit the log limit.
         # See https://superuser.com/a/1531706
-        shell("MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT={FILL_WDL_CACHE} MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner " + wf_url + " {params.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False --logFile={log.logfile} 2>&1 | (head -c1000000; cat >/dev/null)")
+        toil_command = "MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT={FILL_WDL_CACHE} MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner '" + wf_source + "' {params.wdl_input_file} --clean=never --jobStore {output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False --logFile={log.logfile} 2>&1 | (head -c1000000; cat >/dev/null)"
+        print("Running Toil: " + toil_command)
+        shell(toil_command)
+
         wdl_result=json.load(open(output.wdl_output_file))
         shell("cp " + wdl_result["DeepVariant.output_vcf"] + " {output.vcf}")
         shell("cp " + wdl_result["DeepVariant.output_vcf_index"] + " {output.vcf_index}")
@@ -2570,6 +2712,22 @@ rule total_errors_from_fp_and_fn:
     shell:
         "cat {input.snp_fn} {input.snp_fp} {input.indel_fn} {input.indel_fp} | awk '{{sum += $1 }} END {{ print sum }}' >{output.tsv}"
 
+rule vartype_errors_from_fp_and_fn:
+    input:
+        vartype_fn="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.{vartype}_fn.tsv",
+        vartype_fp="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.{vartype}_fp.tsv",
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.{vartype}_errors.tsv"
+    wildcard_constraints:
+        vartype="(snp|indel)"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "cat {input.vartype_fn} {input.vartype_fp} | awk '{{sum += $1 }} END {{ print sum }}' >{output.tsv}"
+
 #This outputs a tsv of: tp, fn, fp, recall, precision, f1
 rule dv_summary_by_condition:
     input:
@@ -2618,12 +2776,11 @@ rule compare_alignments:
         tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
         compare="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
     params:
-        # TODO: Until we settle on a non-CHM13v2.0 CHM13 reference for all the
-        # graphs involved in the comparison, we need to ignore chrY for HG002
-        # since the CHM13v2.0 version comes from HG002 itself. Also we can't
-        # compare positions from a CHM13v1.1-based truth against positions from
-        # a CHM13v2.0-based graph, and we haven't sorted out which those are.
-        ignore_flag=lambda w: "--ignore 'CHM13#0#chrY'" if "HG002" in w["sample"] else ""
+        # In the v2.0 CHM13-based graphs we now use a non-HG002 Y, and that's where our
+        # Y truth positions are. For other graphs (like v2 prerelease 3 or v1.1) we won't
+        # have the right CHM13 Y.
+        # So we just ignore Y in CHM13. 
+        ignore_flag="--ignore 'CHM13#0#chrY'"
     threads: 16
     resources:
         mem_mb=200000,
@@ -2641,13 +2798,15 @@ rule compare_alignments_category:
         gam="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.{category}.gam",
         tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.{category}.compared.tsv",
         compare="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.{category}.compare.txt"
+    params:
+        ignore_flag="--ignore 'CHM13#0#chrY'"
     threads: 24
     resources:
         mem_mb=200000,
         runtime=800,
         slurm_partition=choose_partition(800)
     shell:
-        "vg gamcompare --threads 16 --range 200 <(vg filter --threads 4 --exact-name -N {input.category_list} {input.gam}) <(vg filter --threads 4 --exact-name -N {input.category_list} {input.truth_gam}) --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
+        "vg gamcompare --threads 16 --range 200 {params.ignore_flag} <(vg filter --threads 4 --exact-name -N {input.category_list} {input.gam}) <(vg filter --threads 4 --exact-name -N {input.category_list} {input.truth_gam}) --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
 
 rule compare_alignments_not_category:
     input:
@@ -2658,13 +2817,15 @@ rule compare_alignments_not_category:
         gam="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.not_{category}.gam",
         tsv="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.not_{category}.compared.tsv",
         compare="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.not_{category}.compare.txt"
+    params:
+        ignore_flag="--ignore 'CHM13#0#chrY'"
     threads: 24
     resources:
         mem_mb=200000,
         runtime=800,
         slurm_partition=choose_partition(800)
     shell:
-        "vg gamcompare --threads 16 --range 200 <(vg filter --complement --threads 4 --exact-name -N {input.category_list} {input.gam}) <(vg filter --complement --threads 4 --exact-name -N {input.category_list} {input.truth_gam}) --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
+        "vg gamcompare --threads 16 --range 200 {params.ignore_flag} <(vg filter --complement --threads 4 --exact-name -N {input.category_list} {input.gam}) <(vg filter --complement --threads 4 --exact-name -N {input.category_list} {input.truth_gam}) --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
 
 rule annotate_alignments:
     input:
@@ -2891,7 +3052,7 @@ rule speed_from_log_bam:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="(minimap2-.*|winnowmap)"
+        mapper="(minimap2-.*|winnowmap|pbmm2)"
     threads: 1
     resources:
         mem_mb=200,
@@ -2960,7 +3121,7 @@ rule memory_from_log_bam:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="(minimap2-.*|winnowmap|bwa(-pe)?)"
+        mapper="(minimap2-.*|winnowmap|bwa(-pe)?|pbmm2)"
     threads: 1
     resources:
         mem_mb=200,
@@ -3043,7 +3204,7 @@ rule index_load_time_from_log_bam:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="(minimap2-.*|winnowmap)"
+        mapper="(minimap2-.*|winnowmap|pbmm2)"
     threads: 1
     resources:
         mem_mb=200,
@@ -3181,7 +3342,7 @@ rule condition_experiment_stat:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{conditionstat}.tsv"
     wildcard_constraints:
         refgraph="[^/_]+",
-        conditionstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp)|total_errors)"
+        conditionstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp)|(snp|indel|total)_errors)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3404,6 +3565,31 @@ rule experiment_total_errors_plot:
     shell:
         "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Total Point Variant Errors' --y_label 'Total Errors' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
+rule experiment_snp_errors_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/snp_errors.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/snp_errors.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} SNP Errors' --y_label 'Errors' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule experiment_indel_errors_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/indel_errors.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/indel_errors.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Indel Errors' --y_label 'Errors' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule experiment_calling_summary_plot:
     input:
@@ -3423,7 +3609,7 @@ rule experiment_calling_summary_plot:
 
 rule experiment_speed_from_log_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and any(m in condition["mapper"] for m in ("giraffe", "minimap2", "winnowmap", "bwa", "pbmm2", "minigraph", "panaligner")))
     output:
         tsv="{root}/experiments/{expname}/results/speed_from_log.tsv"
     threads: 1
@@ -3451,7 +3637,7 @@ rule experiment_speed_from_log_plot:
 
 rule experiment_memory_from_log_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and ("giraffe" in condition["mapper"] or "minimap2" in condition["mapper"] or "winnowmap" in condition["mapper"] or "bwa" in condition["mapper"] or "minigraph" in condition["mapper"] or "panaligner" in condition["mapper"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and any(m in condition["mapper"] for m in ("giraffe", "minimap2", "winnowmap", "bwa", "pbmm2", "minigraph", "panaligner")))
     output:
         tsv="{root}/experiments/{expname}/results/memory_from_log.tsv"
     threads: 1
@@ -4503,7 +4689,7 @@ rule memory_usage_sam:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_usage.tsv"
     wildcard_constraints:
         realness="real",
-        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?|pbmm2)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -4523,7 +4709,7 @@ rule runtime_from_benchmark_bam:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?|pbmm2)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -4595,7 +4781,7 @@ rule memory_from_benchmark_sam:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="(minimap2.+|winnowmap|bwa(-pe)?)"
+        mapper="(minimap2.+|winnowmap|bwa(-pe)?|pbmm2)"
     threads: 1
     resources:
         mem_mb=1000,

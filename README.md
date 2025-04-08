@@ -8,27 +8,17 @@ The general flow for using this repository is:
 
 1. Obtain some real long reads for your sequencing technologies.
 
-2. Use `make_pbsim_reads.sh` to simulate reads with similar base qualities for a sample with set genotypes. For Illumina reads, you should simulate paired-end reads manually with `vg sim` like this:
-
+2. Use `make_pbsim_reads.sh` to simulate reads with plausible base qualities, for a sample in a sample-and-reference graph. Use `simulate_illumina_reads.sh` to make Illumina reads and `simulate_element_reads.sh` to make Element reads. All scripts take their input configuration via environment variables. For example:
 ```
-GRAPH_DIR=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs
-READ_DIR=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads
-mkdir -p "${READ_DIR}/sim/illumina/HG002"
-# Prepare a separate GBWT
-vg gbwt -o"${GRAPH_DIR}/hprc-chm-hg002-2024-03-25-mc.full.gbwt" -g "${GRAPH_DIR}/hprc-chm-hg002-2024-03-25-mc.full.gg" -Z "${GRAPH_DIR}/hprc-chm-hg002-2024-03-25-mc.full.gbz"
-# Prepare an xg graph
-vg convert --drop-haplotypes --xg-out "${GRAPH_DIR}//hprc-chm-hg002-2024-03-25-mc.full.gbz" >"${GRAPH_DIR}//hprc-chm-hg002-2024-03-25-mc.full.xg"
-# Simulate reads (assuming you already put 3M reads in "${READ_DIR}/real/illumina/HG002/HG002.novaseq.pcr-free.40x.3m.fq")
-vg sim -r -n 2500000 -a -s 12345 -p 570 -v 165 -i 0.00029 -x "${GRAPH_DIR}//hprc-chm-hg002-2024-03-25-mc.full.xg" -g "${GRAPH_DIR}//hprc-chm-hg002-2024-03-25-mc.full.gbwt" --sample-name HG002 -F "${READ_DIR}/real/illumina/HG002/HG002.novaseq.pcr-free.40x.3m.fq" --multi-position > "${READ_DIR}/sim/illumina/HG002/HG002-sim-illumina.gam"
-# Subset reads
-for READ_COUNT in 100 1000 10000 100000 1000000 ; do
-    vg filter --interleaved -t1 --max-reads "${READ_COUNT}" "${READ_DIR}/sim/illumina/HG002/HG002-sim-illumina.gam" >"${READ_DIR}/sim/illumina/HG002/HG002-sim-illumina-${READ_COUNT}.gam"
-done
+SAMPLE_FASTQ=/private/groups/patenlab/xhchang/reads/real/element/HG002/HG002.GAT-LI-C044.fq.gz VG="${HOME}/workspace/lr-giraffe/vg_v1.64.1" READ_DIR=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads GRAPH_DIR=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs ./simulate_element_reads.sh
 ```
 
-Note that the Illumina read subsets made like this won't be uniformly sampled from the full set.
+Note that the Illumina and Element read subsets won't be uniformly sampled from the full set.
 
-3. Lay out your input files in the expected format, including a GBZ graph and distance index, the reads, a linear reference FASTA, and Winnowmap indexes, and any Minimap2 indexes. See `Snakefile` for a description of the required layout for input data.
+3. Lay out your input files in the expected format, including a GBZ graph and distance index, the reads, a linear reference FASTA, and Winnowmap indexes, and any Minimap2 indexes. See `Snakefile` for a description of the required layout for input data. If you need to get a linear reference from a graph, you can run something like:
+```
+vg paths --extract-fasta --sample CHM13 -x graphs/hprc-v2.0-mc-chm13-eval.gbz > references/chm13-pansn-newY.fa
+```
 
 4. Write a YAML configuration file defining one or more experiments in which different variables (sequencing technology, number of reads, read aligner used, etc.) are either held constant or varied. See `lr-config.yaml`, the default config file, for an example and documentation for all the experimental variables and their possible values. You can also use the config file to set `graphs_dir`, `reads_dir`, and `refs_dir` to directories where your graphs, reads, and Winnowmap2/Minimap indexed linear references are stored, if not running with access to the UCSC Genomics Institute `/private/groups` directory hierarchy. 
 
@@ -79,6 +69,7 @@ To run all the rules, you will need to have installations of:
 * curl
 * vg
 * minimap2
+* pbmm2
 * winnowmap
 * GraphAligner
 * samtools
