@@ -64,8 +64,8 @@ dat$aligner <- factor(dat$aligner, levels=aligner.names)
 name.lists <- name.lists[name.order]
 
 # Determine colors for aligners
- bold.colors <- c("#27A974","#9B8BF4","#33a02c","#C44601","#ff8000","#F2C300","#458b74","#698b22","#008b8b")
- light.colors <- c("#27A974","#9B8BF4","#33a02c","#C44601","#ff8000","#F2C300","#458b74","#698b22","#008b8b")
+bold.colors <- c("#27A974","#9B8BF4","#33a02c","#C44601","#ff8000","#F2C300","#458b74","#698b22","#008b8b")
+light.colors <- c("#27A974","#9B8BF4","#33a02c","#C44601","#ff8000","#F2C300","#458b74","#698b22","#008b8b")
 # We have to go through both lists together when assigning colors, because pe and non-pe versions of a condition need corresponding colors.
 cursor <- 1
 

@@ -4184,42 +4184,42 @@ rule softclipped_or_unmapped_percent:
         printf '{params.condition_name}\\t' >{output.tsv} && echo "$(cut -f 2 {input.tsv}) * 100 / $(awk '{{SUM += $2}} END {{print SUM}}' {input.unmapped})" | bc -l  >>{output.tsv}
         """
 
- #Plot the unmapped bases but split off the high outliers 
- rule experiment_softclipped_or_unmapped_percent_split_plot:
-     input:
-         tsv="{root}/experiments/{expname}/results/softclipped_or_unmapped_percent.tsv"
-     output:
-         low="{root}/experiments/{expname}/plots/softclipped_or_unmapped_percent_low.{ext}",
-         high="{root}/experiments/{expname}/plots/softclipped_or_unmapped_percent_high.{ext}"
-     threads: 1
-     resources:
-         mem_mb=10000,
-         runtime=30,
-         slurm_partition=choose_partition(30)
-     run:
-         values = []
-         with open(input.tsv) as in_file:
-             for line in in_file:
-                 values.append(float(line.split()[1]))
- 
- 
-         iqr = np.percentile(values, 75) - np.percentile(values, 25)
-         cutoff = np.percentile(values, 75) + (1.5 * iqr)
-         bigs = list(filter(lambda x : x > cutoff, values))
-         smalls = list(filter(lambda x : x <= cutoff, values))
- 
-         if not len(bigs) == 0:
- 
-             lower_limit = min(bigs) * 0.80
- 
-             shell("python3 barchart.py {input.tsv} --min " + str(lower_limit) + " --title '{wildcards.expname} Softclipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --save {output.low}")
- 
- 
-         if not len(smalls) == 0:
- 
-             upper_limit = max(smalls) * 1.1
- 
-             shell("python3 barchart.py {input.tsv} --max " + str(upper_limit) + " --title '{wildcards.expname} Softclipped or unmapped bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --save {output.high}")
+#Plot the unmapped bases but split off the high outliers 
+rule experiment_softclipped_or_unmapped_percent_split_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/softclipped_or_unmapped_percent.tsv"
+    output:
+        low="{root}/experiments/{expname}/plots/softclipped_or_unmapped_percent_low.{ext}",
+        high="{root}/experiments/{expname}/plots/softclipped_or_unmapped_percent_high.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    run:
+        values = []
+        with open(input.tsv) as in_file:
+            for line in in_file:
+                values.append(float(line.split()[1]))
+
+
+        iqr = np.percentile(values, 75) - np.percentile(values, 25)
+        cutoff = np.percentile(values, 75) + (1.5 * iqr)
+        bigs = list(filter(lambda x : x > cutoff, values))
+        smalls = list(filter(lambda x : x <= cutoff, values))
+
+        if not len(bigs) == 0:
+
+            lower_limit = min(bigs) * 0.80
+
+            shell("python3 barchart.py {input.tsv} --min " + str(lower_limit) + " --title '{wildcards.expname} Softclipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --save {output.low}")
+
+
+        if not len(smalls) == 0:
+
+            upper_limit = max(smalls) * 1.1
+
+            shell("python3 barchart.py {input.tsv} --max " + str(upper_limit) + " --title '{wildcards.expname} Softclipped or unmapped bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --save {output.high}")
 
 
 rule chain_coverage_from_mean_best_chain_coverage:
