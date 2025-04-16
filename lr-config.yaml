@@ -595,7 +595,26 @@ experiments:
       truthref: chm13
     vary:
       mapper: ["giraffe-k31.w50.W-hifi-v1.64.1-noflags", "pbmm2"]
-      refgraph: ["hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.clip.1000000.46-sampled16o", "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"]
+      refgraph: ["hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"]
+    constrain:
+      - refgraph: "hprc-v2.0-mc-eval-sampled16o"
+        mapper: ["giraffe-k31.w50.W-hifi-v1.64.1-noflags", "pbmm2"]
+      - mapper: "giraffe-k31.w50.W-hifi-v1.64.1-noflags"
+
+  hifi_real_dvdebug_chm13:
+    control:
+      subset: full
+      tech: hifi
+      reference: chm13
+      sample: HG002
+      realness: real
+      # SV specific parameters with generic names
+      caller: vgcall
+      truthset: giab6
+      truthref: chm13
+    vary:
+      mapper: ["giraffe-k31.w50.W-hifi-v1.64.1-noflags", "pbmm2"]
+      refgraph: ["hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"]
     constrain:
       - refgraph: "hprc-v2.0-mc-eval-sampled16o"
         mapper: ["giraffe-k31.w50.W-hifi-v1.64.1-noflags", "pbmm2"]
