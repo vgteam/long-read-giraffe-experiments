@@ -453,6 +453,16 @@ def minimap2_index(wildcards):
     mode_part = minimap_derivative_mode(wildcards)
     return reference_basename(wildcards) + "." + mode_part + ".mmi"
 
+def pbmm2_hifi_index(wildcards):
+    """
+    Find the index for pbmm2's HiFI preset, from reference and tech.
+
+    This will always be the same as minimap2's map-hifi preset index, because
+    they use the same k, w, and holopolymer compression. It will NOT be the
+    same as minimap2's map-pb preset index, which uses different settings.
+    """
+    return reference_basename(wildcards) + ".map-hifi.mmi"
+
 def reference_basename(wildcards):
     """
     Find the linear reference base name without extension from a reference.
@@ -2173,7 +2183,7 @@ rule minimap2_real_reads:
 # pbmm2 uses the same indexes as minimap2
 rule pbmm2_sim_reads:
     input:
-        pbmm2_index=minimap2_index,
+        pbmm2_index=pbmm2_hifi_index,
         fastq=fastq
     output:
         sam=temp("{root}/aligned-secsup/{reference}/pbmm2/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
@@ -2191,7 +2201,7 @@ rule pbmm2_sim_reads:
 
 rule pbmm2_real_reads:
     input:
-        pbmm2_index=minimap2_index,
+        pbmm2_index=pbmm2_hifi_index,
         fastq_gz=fastq_gz
     output:
         sam=temp("{root}/aligned-secsup/{reference}/pbmm2/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
@@ -2576,7 +2586,7 @@ rule call_variants_dv:
         truth_vcf_index=lambda w: remote_or_local(truth_vcf_index_url(w)),
         truth_bed=lambda w: remote_or_local(truth_bed_url(w))
     output:
-       wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.json",
+        wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.json",
         # TODO: make this temp so we can delete it?
         wdl_output_directory=directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.wdlrun"),
         # Treat the job store as an output so it can live on the right filesystem.
