@@ -2528,6 +2528,22 @@ rule surject_gam:
     shell:
         "vg surject -F {input.reference_dict} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
 
+rule sort_gam:
+    input:
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output: 
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.gam",
+        gam_index="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.gam.gai"
+    wildcard_constraints:
+        mapper="(giraffe.*|graphaligner-.*)"
+    threads: 8
+    resources:
+        mem_mb=60000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "vg gamsort -t {threads} -i {output.gam_index} {input.gam} >{output.gam}"
+
 rule alias_bam_graph:
     # For BAM-generating mappers we can view their BAMs as if they mapped to any reference graph for a reference
     input:
