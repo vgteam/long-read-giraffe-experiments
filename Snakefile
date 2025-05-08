@@ -2656,7 +2656,7 @@ rule call_variants_dv:
             # <https://ucsc-gi.slack.com/archives/C01D0M09G5D/p1743024424154459?thread_ts=1743005730.523199&cid=C01D0M09G5D>
             # from Pi-Chuan Chang.
             "DeepVariant.DV_NORM_READS": True if wildcards.tech in ("illumina", "element") else False,
-            "DeepVariant.DV_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head739994921",
+            "DeepVariant.DV_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head739994921-gpu",
             "DeepVariant.DV_NO_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head739994921",
             "DeepVariant.TRUTH_VCF": to_local(input.truth_vcf),
             "DeepVariant.TRUTH_VCF_INDEX": to_local(input.truth_vcf_index),
