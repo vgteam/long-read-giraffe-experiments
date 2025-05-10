@@ -541,13 +541,38 @@ experiments:
       reference: grch38
       sample: HG002
       realness: real
-      refgraph: "hprc-v2.0-mc-eval-sampled16o"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6
       truthref: chm13
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-v1.64.1-noflags", "pbmm2"]
+      mapper: ["giraffe-k31.w50.W-hifi-v1.64.1-noflags", "giraffe-k31.w50.W-hifi-548d64-noflags", "pbmm2", "minimap2-map-hifi"]
+      refgraph: ["hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"]
+    constrain:
+      - refgraph: "hprc-v2.0-mc-eval-sampled16o"
+        mapper: ["pbmm2", "minimap2-map-hifi"]
+      - refgraph: "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"
+        mapper: ["giraffe-k31.w50.W-hifi-v1.64.1-noflags", "giraffe-k31.w50.W-hifi-548d64-noflags"]
+          
+  hifi_real_dvdebug_chm13:
+    control:
+      subset: full
+      tech: hifi
+      reference: chm13
+      sample: HG002
+      realness: real
+      # SV specific parameters with generic names
+      caller: vgcall
+      truthset: giab6
+      truthref: chm13
+    vary:
+      mapper: ["giraffe-k31.w50.W-hifi-548d64-noflags", "giraffe-k31.w50.W-hifi-424f24-noflags", "pbmm2", "minimap2-map-hifi"]
+      refgraph: ["hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"]
+    constrain:
+      - refgraph: "hprc-v2.0-mc-eval-sampled16o"
+        mapper: ["pbmm2", "minimap2-map-hifi", "giraffe-k31.w50.W-hifi-424f24-noflags"]
+      - refgraph: "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"
+        mapper: ["giraffe-k31.w50.W-hifi-548d64-noflags", "giraffe-k31.w50.W-hifi-424f24-noflags"]
 
   illumina_real_samples_grch38:
     control:
@@ -639,18 +664,18 @@ experiments:
 
   illumina_real_vgversion:
     control:
-      subset: full
+      subset: 10k
       tech: illumina
       reference: chm13
       sample: HG002
       realness: real
-      refgraph: "hprc-v2.prerelease.2-mc-eval-nov22-d39"
+      refgraph: "hprc-v2.0-mc-eval-d46"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6
       truthref: chm13
     vary:
-      mapper: ["giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11.W-default-230872-noflags"]
+      mapper: ["giraffe-k29.w11.W-default-v1.63.0-noflags", "giraffe-k29.w11.W-default-v1.64.0-noflags"]
 
   illumina_sim_samplingparams:
     control:

@@ -235,7 +235,7 @@ wildcard_constraints:
     refgraphbase="[^/]+?",
     reference="chm13|grch38|chm13v1",
     # We can have multiple versions of graphs with different modifications and clipping regimes
-    modifications="(-[^.-]+(\\.trimmed)?)*",
+    modifications="(-[^.-]+(\\.trimmed)?(\\.clip\\.[0-9]*\\.[0-9]*)?)*",
     clipping="\\.d[0-9]+|",
     full="\\.full|",
     chopping="\\.unchopped|",
@@ -452,6 +452,16 @@ def minimap2_index(wildcards):
     
     mode_part = minimap_derivative_mode(wildcards)
     return reference_basename(wildcards) + "." + mode_part + ".mmi"
+
+def pbmm2_hifi_index(wildcards):
+    """
+    Find the index for pbmm2's HiFI preset, from reference and tech.
+
+    This will always be the same as minimap2's map-hifi preset index, because
+    they use the same k, w, and holopolymer compression. It will NOT be the
+    same as minimap2's map-pb preset index, which uses different settings.
+    """
+    return reference_basename(wildcards) + ".map-hifi.mmi"
 
 def reference_basename(wildcards):
     """
@@ -2197,7 +2207,7 @@ rule minimap2_real_reads:
 # pbmm2 uses the same indexes as minimap2
 rule pbmm2_sim_reads:
     input:
-        pbmm2_index=minimap2_index,
+        pbmm2_index=pbmm2_hifi_index,
         fastq=fastq
     output:
         sam=temp("{root}/aligned-secsup/{reference}/pbmm2/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
@@ -2215,7 +2225,7 @@ rule pbmm2_sim_reads:
 
 rule pbmm2_real_reads:
     input:
-        pbmm2_index=minimap2_index,
+        pbmm2_index=pbmm2_hifi_index,
         fastq_gz=fastq_gz
     output:
         sam=temp("{root}/aligned-secsup/{reference}/pbmm2/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
@@ -2542,6 +2552,22 @@ rule surject_gam:
     shell:
         "vg surject -F {input.reference_dict} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
 
+rule sort_gam:
+    input:
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output: 
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.gam",
+        gam_index="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.gam.gai"
+    wildcard_constraints:
+        mapper="(giraffe.*|graphaligner-.*)"
+    threads: 8
+    resources:
+        mem_mb=60000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "vg gamsort -t {threads} -i {output.gam_index} {input.gam} >{output.gam}"
+
 rule alias_bam_graph:
     # For BAM-generating mappers we can view their BAMs as if they mapped to any reference graph for a reference
     input:
@@ -2600,7 +2626,7 @@ rule call_variants_dv:
         truth_vcf_index=lambda w: remote_or_local(truth_vcf_index_url(w)),
         truth_bed=lambda w: remote_or_local(truth_bed_url(w))
     output:
-       wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.json",
+        wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.json",
         # TODO: make this temp so we can delete it?
         wdl_output_directory=directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.wdlrun"),
         # Treat the job store as an output so it can live on the right filesystem.
@@ -2654,7 +2680,7 @@ rule call_variants_dv:
             # <https://ucsc-gi.slack.com/archives/C01D0M09G5D/p1743024424154459?thread_ts=1743005730.523199&cid=C01D0M09G5D>
             # from Pi-Chuan Chang.
             "DeepVariant.DV_NORM_READS": True if wildcards.tech in ("illumina", "element") else False,
-            "DeepVariant.DV_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head739994921",
+            "DeepVariant.DV_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head739994921-gpu",
             "DeepVariant.DV_NO_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head739994921",
             "DeepVariant.TRUTH_VCF": to_local(input.truth_vcf),
             "DeepVariant.TRUTH_VCF_INDEX": to_local(input.truth_vcf_index),
