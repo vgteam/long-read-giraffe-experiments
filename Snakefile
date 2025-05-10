@@ -3236,7 +3236,7 @@ rule index_load_time_from_log_bam:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="(minimap2-.*|winnowmap|pbmm2)"
+        mapper="(minimap2-.*|winnowmap)"
     threads: 1
     resources:
         mem_mb=200,
