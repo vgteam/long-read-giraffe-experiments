@@ -233,7 +233,7 @@ VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="v1.64.1"
 wildcard_constraints:
     expname="[^/]+",
     refgraphbase="[^/]+?",
-    reference="chm13|grch38",
+    reference="chm13|grch38|chm13v1",
     # We can have multiple versions of graphs with different modifications and clipping regimes
     modifications="(-[^.-]+(\\.trimmed)?)*",
     clipping="\\.d[0-9]+|",
@@ -467,6 +467,9 @@ def reference_basename(wildcards):
         # We want to use a version of the reference FASTA with the "new"
         # non-HG002, non-GRCh38 Y contig.
         parts.append("newY")
+    elif wildcards["reference"] == "chm13v1":
+        # Use this for the older version, so just chm13 without the v1 and without the newY
+        parts[0] = "chm13"
     return os.path.join(REFS_DIR, "-".join(parts))
 
 def reference_fasta(wildcards):
@@ -514,6 +517,7 @@ def reference_prefix(wildcards):
     """
     return {
         "chm13": "CHM13#0#",
+        "chm13v1": "CHM13#0#",
         "grch38": "GRCh38#0#"
     }[wildcards["reference"]]
 
@@ -523,6 +527,7 @@ def reference_sample(wildcards):
     """
     return {
         "chm13": "CHM13",
+        "chm13v1": "CHM13",
         "grch38": "GRCh38"
     }[wildcards["truthref"]]
 
@@ -536,6 +541,8 @@ def calling_reference_fasta(wildcards):
     """
     match wildcards["reference"]:
         case "chm13":
+            return os.path.join(REFS_DIR, "chm13v2.0.fa")
+        case "chm13v1":
             return os.path.join(REFS_DIR, "chm13v2.0.fa")
         case reference:
             return os.path.join(REFS_DIR, reference + ".fa")
@@ -565,6 +572,8 @@ def sv_calling_vntr_bed(wildcards):
     match wildcards["reference"]:
         case "chm13":
             return os.path.join(SV_DATA_DIR, "human_chm13v2.0_maskedY_rCRS.trf.bed")
+        case "chm13v1":
+            return os.path.join(SV_DATA_DIR, "human_chm13v2.0_maskedY_rCRS.trf.bed")
         case reference:
             return os.path.join(SV_DATA_DIR, "human_GRCh38_no_alt_analysis_set.trf.bed")
 
@@ -587,6 +596,11 @@ def uncallable_contig_regex(wildcards):
         reference = wc_dict["basename"].split("-")[0]
     match reference:
         case "chm13":
+            # TODO: We don't want to try and call on Y on CHM13 because it's
+            # not the same Y as CHM13v2.0, where the truth set is and where we
+            # will do the calling.
+            return "chr[YM]"
+        case "chm13v1":
             # TODO: We don't want to try and call on Y on CHM13 because it's
             # not the same Y as CHM13v2.0, where the truth set is and where we
             # will do the calling.
@@ -628,12 +642,15 @@ def truth_vcf_url(wildcards):
         # These are available online directly
         return  {
             "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1.vcf.gz",
+            "chm13v1": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1.vcf.gz",
             "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark.vcf.gz"
         }[wildcards["reference"]]
     elif wildcards["sample"] == "HG001":
         return  {
             # On CHM13 we don't have a real benchmark set, so we have to use the raw Platinum Pedigree dipcall calls.
             "chm13": os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".dip.vcf.gz"),
+            # On CHM13 we don't have a real benchmark set, so we have to use the raw Platinum Pedigree dipcall calls.
+            "chm13v1": os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".dip.vcf.gz"),
             # On GRCh38 there's a GIAB truth set
             "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/NA12878_HG001/NISTv4.2.1/GRCh38/HG001_GRCh38_1_22_v4.2.1_benchmark.vcf.gz"
         }[wildcards["reference"]]
@@ -657,6 +674,7 @@ def truth_bed_url(wildcards):
         # For HG002, these are available online directly.
         return {
             "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
+            "chm13v1": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
             "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed"
         }[wildcards["reference"]]
     elif wildcards["sample"] == "HG001":
@@ -664,6 +682,9 @@ def truth_bed_url(wildcards):
             # TODO: On CHM13 we don't have Platinum Pedigree high-confidence regions, so
             # we need to just use the HG002 ones for other samples and hope they're close enough.
             "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
+            # TODO: On CHM13 we don't have Platinum Pedigree high-confidence regions, so
+            # we need to just use the HG002 ones for other samples and hope they're close enough.
+            "chm13v1": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
             # On GRCh38 there's a GIAB truth set
             "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/NA12878_HG001/NISTv4.2.1/GRCh38/HG001_GRCh38_1_22_v4.2.1_benchmark.bed"
         }[wildcards["reference"]]
@@ -693,6 +714,9 @@ def graph_base(wildcards):
     # For membership testing, we need a set of wildcard keys
     wc_keys = set(wildcards.keys())
     reference = wildcards["reference"]
+    # TODO: This sucks
+    if reference == "chm13.v1":
+        reference = "chm13"
     modifications = []
 
     if "refgraphbase" in wc_keys and "modifications" in wc_keys:
@@ -1362,7 +1386,7 @@ def cap_reference(wildcards):
     We expect reference to be all lower-case.
     """
 
-    return {"chm13": "CHM13", "grch38": "GRCh38"}[wildcards["reference"]]
+    return {"chm13": "CHM13", "chm13v1": "CHM13", "grch38": "GRCh38"}[wildcards["reference"]]
 
 
 def haplotype_sampling_flags(wildcards):
@@ -1683,7 +1707,7 @@ rule get_dipcall_truth_vcf:
         index=TRUTH_DIR + "/{reference}/{sample}/{sample}.dip.vcf.gz.tbi"
     wildcard_constraints:
         sample="HG001",
-        reference="(chm13|grch38)"
+        reference="(chm13|grch38|chm13v1)"
     params:
         cap_reference=cap_reference,
         na_sample=lambda w: {"HG001": "NA12878"}[w["sample"]]
@@ -2064,7 +2088,7 @@ rule winnowmap_repetitive_kmers:
         fasta=REFS_DIR + "/{basename}.fa"
     output:
         kmers=REFS_DIR + "/{basename}.repetitive_k15.txt",
-        db=temp(REFS_DIR + "{basename}.db")
+        db=temp(directory(REFS_DIR + "{basename}.db"))
     shell:
         "meryl count k=15 output {output.db} {input.fasta} && meryl print greater-than distinct=0.9998 {output.db} > {output.kmers}"
 
