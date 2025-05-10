@@ -2088,7 +2088,7 @@ rule winnowmap_repetitive_kmers:
         fasta=REFS_DIR + "/{basename}.fa"
     output:
         kmers=REFS_DIR + "/{basename}.repetitive_k15.txt",
-        db=temp(directory(REFS_DIR + "{basename}.db"))
+        db=temp(directory(REFS_DIR + "/{basename}.db"))
     shell:
         "meryl count k=15 output {output.db} {input.fasta} && meryl print greater-than distinct=0.9998 {output.db} > {output.kmers}"
 
@@ -2864,25 +2864,7 @@ rule annotate_alignments:
         slurm_partition=choose_partition(600)
     shell:
         "vg annotate -t16 -a {input.gam} -x {input.gbz} -m --search-limit=-1 >{output.gam}"
-
-#Since we're using the unchopped graph for graphaligner, use the unchopped hg to annotate instead of the gbz
-rule annotate_alignments_with_hg:
-    input:
-        hg=hg,
-        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    output:
-        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    threads: 16
-    resources:
-        mem_mb=100000,
-        runtime=600,
-        slurm_partition=choose_partition(600)
-    shell:
-        "vg annotate -t16 -a {input.gam} -x {input.hg} -m --search-limit=-1 >{output.gam}"
-
 ruleorder: giraffe_sim_reads > annotate_alignments
-ruleorder: giraffe_sim_reads > annotate_alignments_with_hg
-ruleorder:  annotate_alignments > annotate_alignments_with_hg
 
 rule de_annotate_sim_alignments:
     input:
@@ -3270,7 +3252,7 @@ rule index_load_time_from_log_graphaligner:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="graphaligner-.*|bwa(-pe)?"
+        mapper="graphaligner-.*|bwa(-pe)?|pbmm2"
     threads: 1
     resources:
         mem_mb=200,
