@@ -614,13 +614,13 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-548d64-noflags", "giraffe-k31.w50.W-hifi-72afe1-noflags", "pbmm2", "minimap2-map-hifi"]
+      mapper: ["giraffe-k31.w50.W-hifi-e957445-noflags", "pbmm2", "minimap2-map-hifi"]
       refgraph: ["hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"]
     constrain:
       - refgraph: "hprc-v2.0-mc-eval-sampled16o"
-        mapper: ["pbmm2", "minimap2-map-hifi", "giraffe-k31.w50.W-hifi-72afe1-noflags"]
+        mapper: ["pbmm2", "minimap2-map-hifi"]
       - refgraph: "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"
-        mapper: ["giraffe-k31.w50.W-hifi-548d64-noflags", "giraffe-k31.w50.W-hifi-72afe1-noflags"]
+        mapper: ["giraffe-k31.w50.W-hifi-e957445-noflags"]
 
   illumina_real_samples_grch38:
     control:
