@@ -2520,9 +2520,9 @@ rule surject_gam:
     params:
         # The default preset is paired
         paired_flag=lambda w: "-i" if re.match("giraffe-[^-]*-default-[^-]*-[^-]*", w["mapper"]) else ""
-    threads: 64
+    threads: 40
     resources:
-        mem_mb=lambda w: 600000 if w["tech"] == "r10" else 150000,
+        mem_mb=lambda w: (600000 / 64 * 40) if w["tech"] == "r10" else (150000 / 64 * 40),
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
