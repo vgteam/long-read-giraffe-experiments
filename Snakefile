@@ -210,7 +210,7 @@ EXCLUSIVE_TIMING = config.get("exclusive_timing", True)
 
 # How many threads do we want mapping to use?
 # TODO: If we're reserving whole nodes we want to use all of the node actually, but only on exclusive runs.
-MAPPER_THREADS = 64 if EXCLUSIVE_TIMING else 64
+MAPPER_THREADS = 64 if EXCLUSIVE_TIMING else 32
 
 # We may not want to populate the MiniWDL task cache because it makes us take
 # more shared disk space.
@@ -311,7 +311,7 @@ def auto_mapping_memory(wildcards):
     if wildcards["tech"] == "illumina":
         scale_mb = 200000
     elif wildcards["tech"] == "hifi":
-        scale_mb = 300000
+        scale_mb = 240000
     else:
         scale_mb = 600000
 
