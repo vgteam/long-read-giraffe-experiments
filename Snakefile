@@ -725,7 +725,7 @@ def graph_base(wildcards):
     wc_keys = set(wildcards.keys())
     reference = wildcards["reference"]
     # TODO: This sucks
-    if reference == "chm13.v1":
+    if reference == "chm13v1":
         reference = "chm13"
     modifications = []
 
