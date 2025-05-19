@@ -233,7 +233,7 @@ VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="v1.64.1"
 wildcard_constraints:
     expname="[^/]+",
     refgraphbase="[^/]+?",
-    reference="chm13|grch38",
+    reference="chm13|grch38|chm13v1",
     # We can have multiple versions of graphs with different modifications and clipping regimes
     modifications="(-[^.-]+(\\.trimmed)?(\\.clip\\.[0-9]*\\.[0-9]*)?)*",
     clipping="\\.d[0-9]+|",
@@ -477,6 +477,9 @@ def reference_basename(wildcards):
         # We want to use a version of the reference FASTA with the "new"
         # non-HG002, non-GRCh38 Y contig.
         parts.append("newY")
+    elif wildcards["reference"] == "chm13v1":
+        # Use this for the older version, so just chm13 without the v1 and without the newY
+        parts[0] = "chm13"
     return os.path.join(REFS_DIR, "-".join(parts))
 
 def reference_fasta(wildcards):
@@ -524,6 +527,7 @@ def reference_prefix(wildcards):
     """
     return {
         "chm13": "CHM13#0#",
+        "chm13v1": "CHM13#0#",
         "grch38": "GRCh38#0#"
     }[wildcards["reference"]]
 
@@ -533,6 +537,7 @@ def reference_sample(wildcards):
     """
     return {
         "chm13": "CHM13",
+        "chm13v1": "CHM13",
         "grch38": "GRCh38"
     }[wildcards["truthref"]]
 
@@ -546,6 +551,8 @@ def calling_reference_fasta(wildcards):
     """
     match wildcards["reference"]:
         case "chm13":
+            return os.path.join(REFS_DIR, "chm13v2.0.fa")
+        case "chm13v1":
             return os.path.join(REFS_DIR, "chm13v2.0.fa")
         case reference:
             return os.path.join(REFS_DIR, reference + ".fa")
@@ -575,6 +582,8 @@ def sv_calling_vntr_bed(wildcards):
     match wildcards["reference"]:
         case "chm13":
             return os.path.join(SV_DATA_DIR, "human_chm13v2.0_maskedY_rCRS.trf.bed")
+        case "chm13v1":
+            return os.path.join(SV_DATA_DIR, "human_chm13v2.0_maskedY_rCRS.trf.bed")
         case reference:
             return os.path.join(SV_DATA_DIR, "human_GRCh38_no_alt_analysis_set.trf.bed")
 
@@ -597,6 +606,11 @@ def uncallable_contig_regex(wildcards):
         reference = wc_dict["basename"].split("-")[0]
     match reference:
         case "chm13":
+            # TODO: We don't want to try and call on Y on CHM13 because it's
+            # not the same Y as CHM13v2.0, where the truth set is and where we
+            # will do the calling.
+            return "chr[YM]"
+        case "chm13v1":
             # TODO: We don't want to try and call on Y on CHM13 because it's
             # not the same Y as CHM13v2.0, where the truth set is and where we
             # will do the calling.
@@ -638,12 +652,15 @@ def truth_vcf_url(wildcards):
         # These are available online directly
         return  {
             "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1.vcf.gz",
+            "chm13v1": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1.vcf.gz",
             "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark.vcf.gz"
         }[wildcards["reference"]]
     elif wildcards["sample"] == "HG001":
         return  {
             # On CHM13 we don't have a real benchmark set, so we have to use the raw Platinum Pedigree dipcall calls.
             "chm13": os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".dip.vcf.gz"),
+            # On CHM13 we don't have a real benchmark set, so we have to use the raw Platinum Pedigree dipcall calls.
+            "chm13v1": os.path.join(TRUTH_DIR, wildcards["reference"], wildcards["sample"], wildcards["sample"] + ".dip.vcf.gz"),
             # On GRCh38 there's a GIAB truth set
             "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/NA12878_HG001/NISTv4.2.1/GRCh38/HG001_GRCh38_1_22_v4.2.1_benchmark.vcf.gz"
         }[wildcards["reference"]]
@@ -667,6 +684,7 @@ def truth_bed_url(wildcards):
         # For HG002, these are available online directly.
         return {
             "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
+            "chm13v1": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
             "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed"
         }[wildcards["reference"]]
     elif wildcards["sample"] == "HG001":
@@ -674,6 +692,9 @@ def truth_bed_url(wildcards):
             # TODO: On CHM13 we don't have Platinum Pedigree high-confidence regions, so
             # we need to just use the HG002 ones for other samples and hope they're close enough.
             "chm13": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
+            # TODO: On CHM13 we don't have Platinum Pedigree high-confidence regions, so
+            # we need to just use the HG002 ones for other samples and hope they're close enough.
+            "chm13v1": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/analysis/NIST_HG002_DraftBenchmark_defrabbV0.018-20240716/CHM13v2.0_HG2-T2TQ100-V1.1_smvar.benchmark.bed",
             # On GRCh38 there's a GIAB truth set
             "grch38": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/NA12878_HG001/NISTv4.2.1/GRCh38/HG001_GRCh38_1_22_v4.2.1_benchmark.bed"
         }[wildcards["reference"]]
@@ -703,6 +724,9 @@ def graph_base(wildcards):
     # For membership testing, we need a set of wildcard keys
     wc_keys = set(wildcards.keys())
     reference = wildcards["reference"]
+    # TODO: This sucks
+    if reference == "chm13v1":
+        reference = "chm13"
     modifications = []
 
     if "refgraphbase" in wc_keys and "modifications" in wc_keys:
@@ -1372,7 +1396,7 @@ def cap_reference(wildcards):
     We expect reference to be all lower-case.
     """
 
-    return {"chm13": "CHM13", "grch38": "GRCh38"}[wildcards["reference"]]
+    return {"chm13": "CHM13", "chm13v1": "CHM13", "grch38": "GRCh38"}[wildcards["reference"]]
 
 
 def haplotype_sampling_flags(wildcards):
@@ -1693,7 +1717,7 @@ rule get_dipcall_truth_vcf:
         index=TRUTH_DIR + "/{reference}/{sample}/{sample}.dip.vcf.gz.tbi"
     wildcard_constraints:
         sample="HG001",
-        reference="(chm13|grch38)"
+        reference="(chm13|grch38|chm13v1)"
     params:
         cap_reference=cap_reference,
         na_sample=lambda w: {"HG001": "NA12878"}[w["sample"]]
@@ -2074,9 +2098,9 @@ rule winnowmap_repetitive_kmers:
         fasta=REFS_DIR + "/{basename}.fa"
     output:
         kmers=REFS_DIR + "/{basename}.repetitive_k15.txt",
-        db=temp(REFS_DIR + "{basename}.db")
+        db=temp(directory(REFS_DIR + "/{basename}.db"))
     shell:
-        "meryl count k=15 output {output.db} {input.fasta} && meryl print greater-than distinct=0.9998 {output.db} > {output/kmers}"
+        "meryl count k=15 output {output.db} {input.fasta} && meryl print greater-than distinct=0.9998 {output.db} > {output.kmers}"
 
 rule winnowmap_sim_reads:
     input:
@@ -2863,25 +2887,7 @@ rule annotate_alignments:
         slurm_partition=choose_partition(600)
     shell:
         "vg annotate -t16 -a {input.gam} -x {input.gbz} -m --search-limit=-1 >{output.gam}"
-
-#Since we're using the unchopped graph for graphaligner, use the unchopped hg to annotate instead of the gbz
-rule annotate_alignments_with_hg:
-    input:
-        hg=hg,
-        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    output:
-        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    threads: 16
-    resources:
-        mem_mb=100000,
-        runtime=600,
-        slurm_partition=choose_partition(600)
-    shell:
-        "vg annotate -t16 -a {input.gam} -x {input.hg} -m --search-limit=-1 >{output.gam}"
-
 ruleorder: giraffe_sim_reads > annotate_alignments
-ruleorder: giraffe_sim_reads > annotate_alignments_with_hg
-ruleorder:  annotate_alignments > annotate_alignments_with_hg
 
 rule de_annotate_sim_alignments:
     input:
@@ -3227,7 +3233,7 @@ rule index_load_time_from_log_bam:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="(minimap2-.*|winnowmap|pbmm2)"
+        mapper="(minimap2-.*|winnowmap)"
     threads: 1
     resources:
         mem_mb=200,
@@ -3269,7 +3275,7 @@ rule index_load_time_from_log_graphaligner:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="graphaligner-.*|bwa(-pe)?"
+        mapper="graphaligner-.*|bwa(-pe)?|pbmm2"
     threads: 1
     resources:
         mem_mb=200,
@@ -3773,13 +3779,13 @@ rule experiment_run_and_index_time_plot:
     shell:
         "python3 barchart.py {input.runtime} --width 8 --height 8 --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
 
-#Plot only the slow runtimes- the top part of the bar plot
-rule experiment_run_and_index_time_slow_plot:
+rule experiment_run_and_index_time_split_plot:
     input:
         runtime=rules.experiment_run_and_sampling_time_from_benchmark_tsv.output.tsv,
         index_time=rules.experiment_index_load_and_sampling_time_tsv.output.tsv
     output:
-        "{root}/experiments/{expname}/plots/run_and_index_slow_time.{ext}"
+        slow="{root}/experiments/{expname}/plots/run_and_index_slow_time.{ext}",
+        fast="{root}/experiments/{expname}/plots/run_and_index_fast_time.{ext}"
     threads: 1
     resources:
         mem_mb=10000,
@@ -3800,37 +3806,15 @@ rule experiment_run_and_index_time_slow_plot:
 
             lower_limit = min(bigs) * 0.80
 
-            shell("python3 barchart.py {input.runtime} --width 8 --height 8 --min " + str(lower_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+            shell("python3 barchart.py {input.runtime} --width 8 --height 8 --min " + str(lower_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output.slow}")
 
-
-
-#Plot only the fast runtimes- the bottom part of the bar plot
-rule experiment_run_and_index_time_fast_plot:
-    input:
-        runtime=rules.experiment_run_and_sampling_time_from_benchmark_tsv.output.tsv,
-        index_time=rules.experiment_index_load_and_sampling_time_tsv.output.tsv
-    output:
-        "{root}/experiments/{expname}/plots/run_and_index_fast_time.{ext}"
-    threads: 1
-    resources:
-        mem_mb=10000,
-        runtime=30,
-        slurm_partition=choose_partition(30)
-    run:
-        runtimes = []
-        with open(input.runtime) as in_file:
-            for line in in_file:
-                runtimes.append(float(line.split()[1]))
-        iqr = np.percentile(runtimes, 75) - np.percentile(runtimes, 25)
-        cutoff = np.percentile(runtimes, 75) + (1.5 * iqr)
         smalls = list(filter(lambda x : x <= cutoff, runtimes))
-
 
         if not len(smalls) == 0:
 
             upper_limit = max(smalls) * 1.1
 
-            shell("python3 barchart.py {input.runtime} --width 8 --height 8 --max " + str(upper_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+            shell("python3 barchart.py {input.runtime} --width 8 --height 8 --max " + str(upper_limit) + " --divisions {input.index_time} --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (minutes)' --x_label 'Mapper' --x_sideways --no_n --save {output.fast}")
 
 rule experiment_run_and_index_time_hours_plot:
     input:
@@ -3846,13 +3830,14 @@ rule experiment_run_and_index_time_hours_plot:
     shell:
         "python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --width 8 --height 8 --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}"
 
-#Plot only the slow runtimes- the top part of the bar plot
-rule experiment_run_and_index_time_slow_hours_plot:
+#Plot the slower and faster times separately
+rule experiment_run_and_index_time_split_hours_plot:
     input:
         runtime=rules.experiment_run_and_sampling_time_from_benchmark_tsv.output.tsv,
         index_time=rules.experiment_index_load_and_sampling_time_tsv.output.tsv
     output:
-        "{root}/experiments/{expname}/plots/run_and_index_slow_time_hours.{ext}"
+        slow="{root}/experiments/{expname}/plots/run_and_index_slow_time_hours.{ext}",
+        fast="{root}/experiments/{expname}/plots/run_and_index_fast_time_hours.{ext}"
     threads: 1
     resources:
         mem_mb=10000,
@@ -3873,28 +3858,8 @@ rule experiment_run_and_index_time_slow_hours_plot:
 
             lower_limit = (min(bigs) / 60.0 * 0.80)
 
-            shell("python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --min " + str(lower_limit) + " --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --width 8 --height 8 --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
+            shell("python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --min " + str(lower_limit) + " --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}'      {input.index_time}) --width 8 --height 8 --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output.slow}")
 
-
-#Plot only the fast runtimes- the bottom part of the bar plot
-rule experiment_run_and_index_time_fast_hours_plot:
-    input:
-        runtime=rules.experiment_run_and_sampling_time_from_benchmark_tsv.output.tsv,
-        index_time=rules.experiment_index_load_and_sampling_time_tsv.output.tsv
-    output:
-        "{root}/experiments/{expname}/plots/run_and_index_fast_time_hours.{ext}"
-    threads: 1
-    resources:
-        mem_mb=10000,
-        runtime=30,
-        slurm_partition=choose_partition(30)
-    run:
-        runtimes = []
-        with open(input.runtime) as in_file:
-            for line in in_file:
-                runtimes.append(float(line.split()[1]))
-        iqr = np.percentile(runtimes, 75) - np.percentile(runtimes, 25)
-        cutoff = np.percentile(runtimes, 75) + (1.5 * iqr)
         smalls = list(filter(lambda x : x <= cutoff, runtimes))
 
 
@@ -3902,8 +3867,7 @@ rule experiment_run_and_index_time_fast_hours_plot:
 
             upper_limit = (max(smalls) * 1.1) / 60
 
-            shell("python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --max " + str(upper_limit) + " --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.index_time}) --width 8 --height 8 --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output}")
-
+            shell("python3 barchart.py <(awk -v OFS='\\t' '{{print $1,$2/60}}' {input.runtime}) --max " + str(upper_limit) + " --divisions <(awk -v OFS='\\t' '{{print $1,$2/60}}'      {input.index_time}) --width 8 --height 8 --title '{wildcards.expname} Runtime and Index Load Time' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --save {output.fast}")
 
 
 rule experiment_memory_from_benchmark_tsv:
@@ -3966,7 +3930,7 @@ rule experiment_mapping_stats_sim_tsv:
         slurm_partition=choose_partition(60)
     shell:
         """
-        printf "condition\tcorrect\tmapq60\twrong_mapq60\n" >> {output.tsv}
+        printf "condition\tcorrect\tmapq60\twrong_mapq60\twrong_eligible\n" >> {output.tsv}
         cat {input} /dev/null >>{output.tsv}
         """
 
@@ -4229,6 +4193,63 @@ rule experiment_softclipped_or_unmapped_plot:
         slurm_partition=choose_partition(5)
     shell:
         "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Softclipped or Unmapped Bases' --y_label 'Total (bp)' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+
+rule softclipped_or_unmapped_percent:
+    input:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv",
+        unmapped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
+    params:
+        condition_name=condition_name
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped_percent.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        """
+        printf '{params.condition_name}\\t' >{output.tsv} && echo "$(cut -f 2 {input.tsv}) * 100 / $(awk '{{SUM += $2}} END {{print SUM}}' {input.unmapped})" | bc -l  >>{output.tsv}
+        """
+
+#Plot the unmapped bases but split off the high outliers 
+rule experiment_softclipped_or_unmapped_percent_split_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/softclipped_or_unmapped_percent.tsv"
+    output:
+        low="{root}/experiments/{expname}/plots/softclipped_or_unmapped_percent_low.{ext}",
+        high="{root}/experiments/{expname}/plots/softclipped_or_unmapped_percent_high.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    run:
+        values = []
+        with open(input.tsv) as in_file:
+            for line in in_file:
+                values.append(float(line.split()[1]))
+
+
+        iqr = np.percentile(values, 75) - np.percentile(values, 25)
+        cutoff = np.percentile(values, 75) + (1.5 * iqr)
+        bigs = list(filter(lambda x : x > cutoff, values))
+        smalls = list(filter(lambda x : x <= cutoff, values))
+
+        if not len(bigs) == 0:
+
+            lower_limit = min(bigs) * 0.80
+
+            shell("python3 barchart.py {input.tsv} --min " + str(lower_limit) + " --title '{wildcards.expname} Softclipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --save {output.low}")
+
+
+        if not len(smalls) == 0:
+
+            upper_limit = max(smalls) * 1.1
+
+            shell("python3 barchart.py {input.tsv} --max " + str(upper_limit) + " --title '{wildcards.expname} Softclipped or unmapped bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --save {output.high}")
+
 
 rule chain_coverage_from_mean_best_chain_coverage:
     input:
@@ -4600,7 +4621,7 @@ rule softclips_by_name_other:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        r"samtools view {input.bam} | cut -f1,2,6 | sed 's/\t\(\([0-9]*\)S\)\?\([0-9]*[IDMH]\|\*\)*\(\([0-9]*\)S\)\?$/\t\2\t\5/g' | sed 's/\t\t/\t0\t/g' | sed 's/\t$/\t0/g' | sed 's/16\t\([0-9]*\)\t\([0-9]*\)/\2\t\1/g' | sed 's/\t[0-9]\+\t\([0-9]*\t[0-9]*\)$/\t\1/g' > {output}"
+        r"samtools view {input.bam} | cut -f1,2,6 | sed 's/\t\(\([0-9]*\)S\)\?\([0-9]*[IDMH=X]\|\*\)*\(\([0-9]*\)S\)\?$/\t\2\t\5/g' | sed 's/\t\t/\t0\t/g' | sed 's/\t$/\t0/g' | sed 's/16\t\([0-9]*\)\t\([0-9]*\)/\2\t\1/g' | sed 's/\t[0-9]\+\t\([0-9]*\t[0-9]*\)$/\t\1/g' > {output}"
 
 ruleorder: softclips_by_name_gam > softclips_by_name_other
 
@@ -5166,6 +5187,7 @@ rule mapping_accuracy:
         correct_count = 0
         mapq60_count = 0
         wrong_mapq60_count = 0
+        wrong_eligible_count = 0
 
         f = open(input.compared_tsv)
         f.readline()
@@ -5177,8 +5199,10 @@ rule mapping_accuracy:
                 mapq60_count += 1
                 if int(l[0]) == 0 and int(l[4]) == 1:
                     wrong_mapq60_count+=1
+            if int(l[0]) == 0 and int(l[4]) == 1:
+                wrong_eligible_count+=1
         f.close()
-        shell("printf \"" + str(correct_count) + "\t" + str(mapq60_count) + "\t" + str(wrong_mapq60_count) + "\" > {output}")
+        shell("printf \"" + str(correct_count) + "\t" + str(mapq60_count) + "\t" + str(wrong_mapq60_count) + "\t" + str(wrong_eligible_count) + "\" > {output}")
         
 
 rule parameter_search_mapping_stats:
@@ -5601,14 +5625,12 @@ ruleorder: sv_summary_table > experiment_stat_table
 rule all_paper_figures:
     input:
         mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.latex.tsv", expname=config["real_exps"]),
-        softclipped_plot=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/softclipped_or_unmapped.pdf", expname=config["headline_real_exps"]),
-        runtime_slow=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_slow_time_hours.pdf", expname=config["headline_real_exps"]),
-        runtime_fast=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_fast_time_hours.pdf", expname=config["headline_real_exps"]),
-        runtime=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/run_and_index_time_hours.pdf", expname=config["headline_real_exps"]),
-        memory=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/memory_from_benchmark.pdf", expname=config["real_exps"]),
-        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.latex.tsv", expname=config["sim_exps"]),
-        qq=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/qq.pdf", expname=config["headline_sim_exps"]),
-        roc=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/roc.pdf", expname=config["headline_sim_exps"]),
+        softclippeds=expand(ALL_OUT_DIR + "/experiments/{expname}/results/softclipped_or_unmapped_percent.tsv", expname=config["headline_real_exps"]),
+        runtime=expand(ALL_OUT_DIR + "/experiments/{expname}/results/run_and_sampling_time_from_benchmark.tsv", expname=config["headline_real_exps"]),
+        index_time=expand(ALL_OUT_DIR + "/experiments/{expname}/results/index_load_time.tsv", expname=config["headline_real_exps"]),
+        memory=expand(ALL_OUT_DIR + "/experiments/{expname}/results/memory_from_benchmark.tsv", expname=config["headline_real_exps"]),
+        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=config["headline_sim_exps"]),
+        compared_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/compared.tsv", expname=config["headline_sim_exps"]),
         dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_indel_summary.pdf", expname=config["dv_exps"]),
         dv_snp=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_snp_summary.pdf", expname=config["dv_exps"]),
         svs=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/sv_summary.pdf", expname=config["sv_exps"])
