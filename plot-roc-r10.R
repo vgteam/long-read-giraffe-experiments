@@ -64,8 +64,8 @@ dat$aligner <- factor(dat$aligner, levels=aligner.names)
 name.lists <- name.lists[name.order]
 
 # Determine colors for aligners
-bold.colors <- c("#27A974","#9B8BF4","#33a02c","#C44601","#ff8000","#F2C300","#458b74","#698b22","#008b8b")
-light.colors <- c("#27A974","#9B8BF4","#33a02c","#C44601","#ff8000","#F2C300","#458b74","#698b22","#008b8b")
+ bold.colors <- c("#27A974","#9B8BF4","#33a02c","#C44601","#ff8000","#F2C300","#458b74","#698b22","#008b8b")
+ light.colors <- c("#27A974","#9B8BF4","#33a02c","#C44601","#ff8000","#F2C300","#458b74","#698b22","#008b8b")
 # We have to go through both lists together when assigning colors, because pe and non-pe versions of a condition need corresponding colors.
 cursor <- 1
 
@@ -131,7 +131,7 @@ dat.plot <- ggplot(dat.roc, aes( x= FPR, y = TPR, color = aligner, label=mq)) +
     geom_point(aes(size=Positive+Negative)) +
     scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
     scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
-    scale_x_log10(limits=c(range.unlogged[1],range.unlogged[length(range.unlogged)]), breaks=range.unlogged, oob=squish) +
+    coord_trans(xlim = c(0.004, 0.010), x = "log",ylim = c(0.990, 0.994)) +
     geom_vline(xintercept=1/total.reads) + # vertical line at one wrong read
     theme_bw() + 
     theme(legend.position=c(1,0), legend.justification=c(1,0)) +
