@@ -439,6 +439,7 @@ def minimap_derivative_mode(wildcards):
     MODE_BY_TECH = {
         "r9": "map-ont",
         "r10": "map-ont",
+        "r10y2025": "map-ont",
         "hifi": "map-pb",
         "illumina": "sr" # Only Minimap2 has this one, Winnowmap doesn't.
     }
@@ -750,7 +751,7 @@ def graph_base(wildcards):
            
             # TODO: We always sample for the full real trimmed-if-R10 version
             # of whatever reads we're going to map, so we can consistently use
-            # one graph.
+            # one graph. Note r10y2025 doesn't get trimmed.
             sampling_trimmedness = ".trimmed" if wildcards["tech"] == "r10" else ""
             modifications.append(f"-{last}_fragmentlinked-for-real-{wildcards['tech']}-{wildcards['sample']}{sampling_trimmedness}-full")
             parts.pop()
@@ -1425,7 +1426,8 @@ def param_search_tsvs(wildcards, statname="time_used.mean", realness="real"):
     Needs to be used like:
         lambda w: param_search_tsv(w, "time_used.mean")
     """
-
+    
+    # Note r10y2025 doesn't get trimmed
     trimmedness = ".trimmed" if wildcards["tech"] in ("r9", "r10", "q27") and realness == "real" else wildcards["trimmedness"]
     values = dict(wildcards)
     values["trimmedness"] = trimmedness
@@ -2522,7 +2524,7 @@ rule surject_gam:
         paired_flag=lambda w: "-i" if re.match("giraffe-[^-]*-default-[^-]*-[^-]*", w["mapper"]) else ""
     threads: 40
     resources:
-        mem_mb=lambda w: (600000 / 64 * 40) if w["tech"] == "r10" else (150000 / 64 * 40),
+        mem_mb=lambda w: (600000 / 64 * 40) if w["tech"] in ("r10", "r10y2025") else (150000 / 64 * 40),
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
@@ -2647,7 +2649,7 @@ rule call_variants_dv:
             # CHM13v2.0. Which we probably won't because it uses HG002 Y and
             # we hold that out of the eval graphs.
             "DeepVariant.REALIGN_INDELS": False,
-            "DeepVariant.DV_MODEL_TYPE": {"hifi": "PACBIO", "r10": "ONT_R104", "illumina": "WGS"}[wildcards.tech],
+            "DeepVariant.DV_MODEL_TYPE": {"hifi": "PACBIO", "r10": "ONT_R104", "r10y2025": "ONT_R104", "illumina": "WGS"}[wildcards.tech],
             "DeepVariant.MIN_MAPQ": 0,
             # TODO: Should we use legacy AC like in the paper?
             "DeepVariant.DV_KEEP_LEGACY_AC": False,
