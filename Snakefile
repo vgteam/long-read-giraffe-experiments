@@ -2692,7 +2692,8 @@ rule call_variants_dv:
             # We also don't need BAMs.
             "DeepVariant.OUTPUT_SINGLE_BAM": False,
             "DeepVariant.OUTPUT_CALLING_BAMS": False,
-            "DeepVariant.CALL_CORES": 32,
+            "DeepVariant.CALL_CORES": 8 * 4,
+            "DeepVariant.CALL_MEM": 50 * 4
         }
         if wildcards.tech == "hifi" and "giraffe" in wildcards.mapper:
             wf_inputs["DeepVariant.DV_MODEL_FILES"] = [
