@@ -170,6 +170,10 @@ REFS_DIR = config.get("refs_dir", None) or "/private/groups/patenlab/anovak/proj
 # These are organized by reference and then sample
 TRUTH_DIR = config.get("truth_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/truth-sets"
 
+# Where are custom trained DeepVariant models for Giraffe?
+# Models should be in directories by tech and then by date in YYYY-MM-DD format.
+MODELS_DIR = config.get("models_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/models/"
+
 # When we "snakemake all_paper_figures", where should the results go?
 ALL_OUT_DIR = config.get("all_out_dir", None) or "/private/groups/patenlab/project-lrg"
 
@@ -250,6 +254,7 @@ wildcard_constraints:
     region="(|chr21)",
     # We use this for an optional separating dot, so we can leave it out if we also leave the field empty
     dot="\\.?",
+    callparams="(|.model[0-9-]+(.legacy)?)",
     tech="[a-zA-Z0-9]+",
     statname="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(?<!mapping_stats_real)(?<!mapping_stats_sim)(.mean|.total)?",
     statnamex="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(?<!mapping_stats_real)(?<!mapping_stats_sim)(.mean|.total)?",
@@ -643,6 +648,31 @@ def wdl_cache(wildcards):
     Get a WDL workflow step cache directory path from root.
     """
     return os.path.join(os.path.abspath("."), wildcards["root"], "miniwdl-cache")
+
+def model_files(wildcards):
+    """
+    Get the DV model files to use, or None, from tech, mapper, and callparams.
+    """
+
+    if wildcards.tech == "hifi" and "giraffe" in wildcards.mapper:
+        if wildcards.callparams.startswith(".model"):
+            # Grab the date; we assume we always use dates as model names.
+            model_name = wildcards.callparams[len(".model"):len(".model") + 10]
+        else:
+            # Use a particular trained model when not specified.
+            model_name = "2025-03-26"
+        model_base_path = os.path.join(MODELS_DIR, wildcards.tech, model_name)
+        # Get all the files as absolute paths in sorted order, minus any README.
+        # We want to be the same as the manual order so we don't get WDL cache misses.
+        model_files = sorted([os.path.join(model_base_path, f) for f in os.listdir(model_base_path) if f != "README.txt"])
+        return model_files
+    return None
+
+def legacy_ac(wildcards):
+    """
+    Get whether to use legacy allele counts from callparams.
+    """
+    return "legacy" in wildcards.callparams
 
 def truth_vcf_url(wildcards):
     """
@@ -1083,7 +1113,7 @@ def all_experiment_conditions(expname, filter_function=None, debug=False):
         # For each combination of independent variables on top of the base condition
 
         # Fill in optional experiment variables with empty strings
-        for optional_key in ["trimmedness"]:
+        for optional_key in ["trimmedness", "callparams"]:
             if optional_key not in condition:
                 condition[optional_key] = ""
 
@@ -2628,22 +2658,24 @@ rule call_variants_dv:
         truth_vcf_index=lambda w: remote_or_local(truth_vcf_index_url(w)),
         truth_bed=lambda w: remote_or_local(truth_bed_url(w))
     output:
-        wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.json",
+        wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.json",
         # TODO: make this temp so we can delete it?
-        wdl_output_directory=directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.wdlrun"),
+        wdl_output_directory=directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.wdlrun"),
         # Treat the job store as an output so it can live on the right filesystem.
         # Mark it temp so it will be deleted because no rules actually use it.
-        job_store=temp(directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.jobstore")),
-        vcf="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.vcf.gz",
-        vcf_index="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.vcf.gz.tbi",
-        happy_evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.happy_results.tar.gz"
+        job_store=temp(directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.jobstore")),
+        vcf="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.vcf.gz",
+        vcf_index="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.vcf.gz.tbi",
+        happy_evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.happy_results.tar.gz"
     log:
-        logfile="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.log"
+        logfile="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.log"
     params:
         reference_prefix=reference_prefix,
         haploid_contigs=haploid_contigs,
         wdl_cache=wdl_cache,
-        wdl_input_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.input.json"
+        wdl_input_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.input.json",
+        model_files=model_files,
+        legacy_ac=legacy_ac
     threads: 8
     resources:
         mem_mb=60000,
@@ -2676,7 +2708,7 @@ rule call_variants_dv:
             "DeepVariant.DV_MODEL_TYPE": {"hifi": "PACBIO", "r10": "ONT_R104", "r10y2025": "ONT_R104", "illumina": "WGS"}[wildcards.tech],
             "DeepVariant.MIN_MAPQ": 0,
             # TODO: Should we use legacy AC like in the paper?
-            "DeepVariant.DV_KEEP_LEGACY_AC": False,
+            "DeepVariant.DV_KEEP_LEGACY_AC": params.legacy_ac,
             # Read normalization should work for long reads as of gcr.io/deepvariant-docker/deepvariant:head756846963 (which is post-1.9)
             "DeepVariant.DV_NORM_READS": True, 
             "DeepVariant.DV_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head756846963-gpu",
@@ -2696,13 +2728,9 @@ rule call_variants_dv:
             "DeepVariant.CALL_MEM": 50 * 4,
             "DeepVariant.MAKE_EXAMPLES_MEM": 50
         }
-        if wildcards.tech == "hifi" and "giraffe" in wildcards.mapper:
-            wf_inputs["DeepVariant.DV_MODEL_FILES"] = [
-                "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/models/hifi/2025-03-26/checkpoint",
-                "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/models/hifi/2025-03-26/checkpoint-140800-0.98024-1.data-00000-of-00001",
-                "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/models/hifi/2025-03-26/checkpoint-140800-0.98024-1.index",
-                "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/models/hifi/2025-03-26/example_info.json"
-            ]
+        if params.model_files:
+            # Use a model that's not built in.
+            wf_inputs["DeepVariant.DV_MODEL_FILES"] = model_files
         json.dump(wf_inputs, open(params["wdl_input_file"], "w"))
         # Run and keep the first manageable amount of logs not sent to the log
         # file in case we can't start. Don't stop when we hit the log limit.
@@ -2718,9 +2746,9 @@ rule call_variants_dv:
         
 rule extract_happy_summary:
     input:
-        happy_evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.happy_results.tar.gz"
+        happy_evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.happy_results.tar.gz"
     output:
-        happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}.eval.summary.csv"
+        happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.eval.summary.csv"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2731,9 +2759,9 @@ rule extract_happy_summary:
 
 rule stat_from_happy_summary:
     input:
-        happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.eval.summary.csv"
+        happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.eval.summary.csv"
     output:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.{vartype}_{colname}.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}{dot}{category}.{vartype}_{colname}.tsv"
     wildcard_constraints:
         vartype="(snp|indel)",
         colname="(f1|precision|recall|fn|fp|tp)"
@@ -2749,12 +2777,12 @@ rule stat_from_happy_summary:
 
 rule total_errors_from_fp_and_fn:
     input:
-        snp_fn="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.snp_fn.tsv",
-        snp_fp="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.snp_fp.tsv",
-        indel_fn="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.indel_fn.tsv",
-        indel_fp="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.indel_fp.tsv"
+        snp_fn="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}{dot}{category}.snp_fn.tsv",
+        snp_fp="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}{dot}{category}.snp_fp.tsv",
+        indel_fn="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}{dot}{category}.indel_fn.tsv",
+        indel_fp="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}{dot}{category}.indel_fp.tsv"
     output:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.total_errors.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}{dot}{category}.total_errors.tsv"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2765,10 +2793,10 @@ rule total_errors_from_fp_and_fn:
 
 rule vartype_errors_from_fp_and_fn:
     input:
-        vartype_fn="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.{vartype}_fn.tsv",
-        vartype_fp="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.{vartype}_fp.tsv",
+        vartype_fn="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}{dot}{category}.{vartype}_fn.tsv",
+        vartype_fp="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}{dot}{category}.{vartype}_fp.tsv",
     output:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{dot}{category}.{vartype}_errors.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}{dot}{category}.{vartype}_errors.tsv"
     wildcard_constraints:
         vartype="(snp|indel)"
     threads: 1
@@ -2782,11 +2810,11 @@ rule vartype_errors_from_fp_and_fn:
 #This outputs a tsv of: tp, fn, fp, recall, precision, f1
 rule dv_summary_by_condition:
     input:
-        happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.eval.summary.csv"
+        happy_evaluation_summary="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{callparams}.eval.summary.csv"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/stats/deepvariant/{mapper}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.dv_{vartype}_summary.tsv"
+        tsv="{root}/experiments/{expname}/stats/deepvariant/{mapper}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}{callparams}.dv_{vartype}_summary.tsv"
     wildcard_constraints:
         refgraph="[^/_]+",
         vartype="(snp|indel)"
@@ -2800,7 +2828,7 @@ rule dv_summary_by_condition:
 
 rule dv_summary_table:
     input:
-        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/deepvariant/{mapper}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.dv_{vartype}_summary.tsv")
+        tsv=lambda w: all_experiment(w, "{root}/experiments/{expname}/stats/deepvariant/{mapper}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}{callparams}.dv_{vartype}_summary.tsv")
     output:
         tsv="{root}/experiments/{expname}/results/dv_{vartype}_summary.tsv"
     wildcard_constraints:
@@ -3368,11 +3396,11 @@ rule index_load_and_sampling_time:
 # Some experiment stats can come straight from stats for the individual conditions
 rule condition_experiment_stat:
     input:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{conditionstat}.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{callparams}{dot}{category}.{conditionstat}.tsv"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{conditionstat}.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{callparams}{dot}{category}.{conditionstat}.tsv"
     wildcard_constraints:
         refgraph="[^/_]+",
         conditionstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp)|(snp|indel|total)_errors)"
@@ -3386,7 +3414,7 @@ rule condition_experiment_stat:
 
 rule experiment_stat_table:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{statname}.tsv", filter_function=has_stat_filter(w["statname"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{callparams}{dot}{category}.{statname}.tsv", filter_function=has_stat_filter(w["statname"]))
     output:
         table="{root}/experiments/{expname}/results/{statname}.tsv"
     threads: 1
@@ -3519,7 +3547,7 @@ rule compared_named_from_compared:
 
 rule experiment_compared_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.compared.tsv", lambda condition: condition["realness"] == "sim")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{callparams}{dot}{category}.compared.tsv", lambda condition: condition["realness"] == "sim")
     output:
         tsv="{root}/experiments/{expname}/results/compared.tsv"
     threads: 1
@@ -3642,7 +3670,7 @@ rule experiment_calling_summary_plot:
 
 rule experiment_speed_from_log_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and any(m in condition["mapper"] for m in ("giraffe", "minimap2", "winnowmap", "bwa", "pbmm2", "minigraph", "panaligner")))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.speed_from_log.tsv", lambda condition: condition["realness"] == "real" and any(m in condition["mapper"] for m in ("giraffe", "minimap2", "winnowmap", "bwa", "pbmm2", "minigraph", "panaligner")))
     output:
         tsv="{root}/experiments/{expname}/results/speed_from_log.tsv"
     threads: 1
@@ -3670,7 +3698,7 @@ rule experiment_speed_from_log_plot:
 
 rule experiment_memory_from_log_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and any(m in condition["mapper"] for m in ("giraffe", "minimap2", "winnowmap", "bwa", "pbmm2", "minigraph", "panaligner")))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.memory_from_log.tsv", lambda condition: condition["realness"] == "real" and any(m in condition["mapper"] for m in ("giraffe", "minimap2", "winnowmap", "bwa", "pbmm2", "minigraph", "panaligner")))
     output:
         tsv="{root}/experiments/{expname}/results/memory_from_log.tsv"
     threads: 1
@@ -3696,7 +3724,7 @@ rule experiment_memory_from_log_plot:
 
 rule experiment_runtime_from_benchmark_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv", lambda condition: condition["realness"] == "real")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.runtime_from_benchmark.tsv", lambda condition: condition["realness"] == "real")
     output:
         tsv="{root}/experiments/{expname}/results/runtime_from_benchmark.tsv"
     threads: 1
@@ -3711,7 +3739,7 @@ ruleorder: experiment_runtime_from_benchmark_tsv > experiment_stat_table
 
 rule experiment_run_and_sampling_time_from_benchmark_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.run_and_sampling_time_from_benchmark.tsv", lambda condition: condition["realness"] == "real"),
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.run_and_sampling_time_from_benchmark.tsv", lambda condition: condition["realness"] == "real"),
     output:
         tsv="{root}/experiments/{expname}/results/run_and_sampling_time_from_benchmark.tsv"
     threads: 1
@@ -3743,7 +3771,7 @@ rule experiment_runtime_from_benchmark_plot:
 #This includes the time for haplotype sampling
 rule experiment_index_load_and_sampling_time_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_and_sampling_time_from_log.tsv", lambda condition: condition["realness"] == "real")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.index_load_and_sampling_time_from_log.tsv", lambda condition: condition["realness"] == "real")
     output:
         tsv="{root}/experiments/{expname}/results/index_load_time.tsv"
     threads: 1
@@ -3756,7 +3784,7 @@ rule experiment_index_load_and_sampling_time_tsv:
 
 rule experiment_index_load_time_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.index_load_time_from_log.tsv", lambda condition: condition["realness"] == "real")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.index_load_time_from_log.tsv", lambda condition: condition["realness"] == "real")
     output:
         tsv="{root}/experiments/{expname}/results/index_load_time.tsv"
     threads: 1
@@ -3876,7 +3904,7 @@ rule experiment_run_and_index_time_split_hours_plot:
 
 rule experiment_memory_from_benchmark_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv", lambda condition: condition["realness"] == "real")
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.memory_from_benchmark.tsv", lambda condition: condition["realness"] == "real")
     output:
         tsv="{root}/experiments/{expname}/results/memory_from_benchmark.tsv"
     threads: 1
@@ -3968,7 +3996,7 @@ rule experiment_mapping_stats_real_tsv_from_stats:
 #Get the speed, memory use, and softclips from real reads
 rule experiment_mapping_stats_real_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv", lambda condition: condition["realness"] == "real", empty_ok=True)
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.mapping_stats_real.tsv", lambda condition: condition["realness"] == "real", empty_ok=True)
     output:
         tsv="{root}/experiments/{expname}/results/mapping_stats_real.tsv"
     wildcard_constraints:
