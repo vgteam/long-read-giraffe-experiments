@@ -2730,7 +2730,7 @@ rule call_variants_dv:
         }
         if params.model_files:
             # Use a model that's not built in.
-            wf_inputs["DeepVariant.DV_MODEL_FILES"] = model_files
+            wf_inputs["DeepVariant.DV_MODEL_FILES"] = params.model_files
         json.dump(wf_inputs, open(params["wdl_input_file"], "w"))
         # Run and keep the first manageable amount of logs not sent to the log
         # file in case we can't start. Don't stop when we hit the log limit.
