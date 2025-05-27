@@ -4587,7 +4587,20 @@ rule length_by_correctness:
         runtime=120,
         slurm_partition=choose_partition(120)
     shell:
-        "vg filter -t {threads} -T \"correctness;sequence\" {input.gam} | grep -v \"#\" | awk -v OFS='\t' '{{print $1, length($2)}}' > {output}"
+        "vg filter -t {threads} -T \"correctness;length\" {input.gam} | grep -v \"#\" > {output}"
+
+rule mapq_by_correctness:
+    input:
+        gam="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapq_by_correctness.tsv"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=120,
+        slurm_partition=choose_partition(120)
+    shell:
+        "vg filter -t {threads} -T \"correctness;mapping_quality\" {input.gam} | grep -v \"#\" > {output}"
 
 rule softclips_by_name_gam:
     input:
@@ -5201,7 +5214,20 @@ rule mapq_histogram:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "python3 histogram.py {input.tsv} --log_counts --bins 100 --title \"{wildcards.tech} {wildcards.realness} Mapping Quality)\" --y_label 'Items' --x_label 'MAPQ (Phred)' --no_n --save {output}"
+        "python3 histogram.py {input.tsv} --log_counts --bins 61 --title \"{wildcards.tech} {wildcards.realness} Mapping Quality)\" --y_label 'Items' --x_label 'MAPQ (Phred)' --no_n --save {output}"
+
+rule mapq_by_correctness_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapq_by_correctness.tsv"
+    output:
+        "{root}/plots/{reference}/{refgraph}/{mapper}/mapq_by_correctness-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 histogram.py {input.tsv} --log_counts --bins 61 --title '{wildcards.tech} {wildcards.realness} MAPQ for {wildcards.mapper}' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories correct incorrect off-reference --category_labels Correct Incorrect 'Off Reference' --legend_overlay 'best' --line --save {output}"
 
 
 rule mapping_accuracy:
