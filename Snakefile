@@ -1397,6 +1397,8 @@ def get_vg_flags(wildcard_flag):
             return "--downsample-min " + downsample_number[10:]
         case "mapqscale":
             return "--mapq-score-scale 0.01"
+        case scorescale_number if scorescale_number[0:10] == "scorescale":
+            return "--mapq-score-scale " + scorescale_number[10:]
         case "moreseeds":
             return "--downsample-window-length 400"
         case "mqWindow":

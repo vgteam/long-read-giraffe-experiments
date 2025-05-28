@@ -614,9 +614,9 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-e95744-noflags", "pbmm2"]
-      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"]
-      callparams: ["", ".model2025-05-21", ".model2025-05-21.legacy"]
+      mapper: ["giraffe-k31.w50.W-hifi-e95744-noflags", "giraffe-k31.w50.W-hifi-e95744-scorescale0.03", "pbmm2"]
+      refgraph: ["hprc-v2.0-mc-eval-sampled16o"]
+      callparams: ["", ".model2025-05-21"]
     constrain:
       - refgraph: "hprc-v2.0-mc-eval-sampled16o"
         mapper: "pbmm2"
@@ -624,6 +624,21 @@ experiments:
       - refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"]
         mapper: "giraffe-k31.w50.W-hifi-e95744-noflags"
         callparams: ["", ".model2025-05-21", ".model2025-05-21.legacy"]
+
+  hifi_sim_scorescale_chm13:
+    control:
+      subset: 100k
+      tech: hifi
+      reference: chm13
+      sample: HG002
+      realness: sim
+      # SV specific parameters with generic names
+      caller: vgcall
+      truthset: giab6
+      truthref: chm13
+      refgraph: "hprc-v2.0-mc-eval-sampled16o"
+    vary:
+      mapper: ["giraffe-k31.w50.W-hifi-e95744-noflags", "giraffe-k31.w50.W-hifi-e95744-scorescale0.03", "giraffe-k31.w50.W-hifi-e95744-scorescale0.02", "pbmm2"]
 
   illumina_real_samples_grch38:
     control:
