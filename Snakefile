@@ -2239,6 +2239,7 @@ rule minimap2_real_reads:
         "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq_gz} >{output.sam} 2> {log}"
 
 # pbmm2 uses the same indexes as minimap2
+# TODO: pbmm2 makes BAM output but we're calling it SAM here.
 rule pbmm2_sim_reads:
     input:
         pbmm2_index=pbmm2_hifi_index,
@@ -4591,6 +4592,19 @@ rule length_by_correctness:
     shell:
         "vg filter -t {threads} -T \"correctness;length\" {input.gam} | grep -v \"#\" > {output}"
 
+rule effective_mismatch_rate_by_correctness:
+    input:
+        gam="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.effective_mismatch_rate_by_correctness.tsv"
+    threads: 5
+    resources:
+        mem_mb=2000,
+        runtime=120,
+        slurm_partition=choose_partition(120)
+    shell:
+        "vg filter -t {threads} -T \"correctness;annotation.effective_mismatch_rate\" {input.gam} | grep -v \"#\" > {output}"
+
 rule mapq_by_correctness:
     input:
         gam="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
@@ -5190,6 +5204,20 @@ rule length_by_correctness_histogram:
         slurm_partition=choose_partition(10)
     shell:
         "python3 histogram.py {input.tsv} --log_counts --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length for {wildcards.mapper}' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories correct incorrect off-reference --category_labels Correct Incorrect 'Off Reference' --legend_overlay 'best' --stack --save {output}"
+
+rule effective_mismatch_rate_by_correctness_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.effective_mismatch_rate_by_correctness.tsv"
+    output:
+        "{root}/plots/{reference}/{refgraph}/{mapper}/effective_mismatch_rate_by_correctness-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "python3 histogram.py {input.tsv} --normalize --line --bins 100 --title '{wildcards.tech} {wildcards.realness} Effective Mismatch Rate for {wildcards.mapper}' --y_label 'Density' --x_label 'Effective Mismatch Rate' --no_n --categories correct incorrect off-reference --category_labels Correct Incorrect 'Off Reference' --legend_overlay 'best' --save {output}"
+
 
 rule softclips_histogram:
     input:
