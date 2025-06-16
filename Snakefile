@@ -4521,50 +4521,27 @@ rule length:
     shell:
         "vg filter -t {threads} -T \"length\" {input.gam} >{output}"
 
-rule length_by_name:
-    input:
-        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
-    output:
-        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"
-    threads: 5
-    resources:
-        mem_mb=2000,
-        runtime=120,
-        slurm_partition=choose_partition(120)
-    shell:
-        "vg filter -t {threads} -T \"name;length\" {input.gam} | grep -v \"#\" >{output}"
-
+# tsv of "mapped"/"unmapped" and the length of the original read
 rule length_by_mapping:
     input:
         fastq=fastq,
-        lengths="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     output:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv",
+        length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"),
+        mapped_names=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv")
     threads: 2
     resources:
-        mem_mb=16000,
-        runtime=360,
-        slurm_partition=choose_partition(360)
-    run:
-        mapped_names = set()
-        with open(input.lengths) as in_file:
-            for line in in_file:
-                mapped_names.add(line.split()[0])
+        mem_mb=2000,
+        runtime=720,
+        slurm_partition=choose_partition(720)
+    shell:
+        """
+        vg filter -t {threads} -T "name" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_names}
+        seqkit fx2tab -n -l {input.fastq} | sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' > {output.length_by_name}
+        join -j 1 -a 2 {output.length_by_name} {output.mapped_names} | awk -v OFS='\t' '{{if (NF == 1) {{print "unmapped",$1}} else {{print "mapped",$2}}}}' > {output.tsv}
+        """
 
-        with open(input.fastq) as read_file:
-            with open(output.tsv, "w") as out_file:
-                name = ""
-                for line in read_file:
-                    if (not line == "") and line[0] == "@":
-                        name = line.split()[0][1:]
-                    elif name != "": 
-                        if name in mapped_names:
-                            out_file.write("mapped\t"+str(len(line.strip()))+"\n")
-                        else:
-                            out_file.write("unmapped\t"+str(len(line.strip()))+"\n")
-                        name = ""
-                    else:
-                        name = ""
 
 rule unmapped_length:
     input:
@@ -4633,40 +4610,26 @@ rule softclips_by_name_gam:
     shell:
         "vg filter -t {threads} -T \"name;softclip_start;softclip_end\" {input.gam} | grep -v \"#\" > {output}"
 
-
 #Graphaligner doesn't always map the entire read. This outputs a tsv of the read name and the number of bases that didn't get put in the final alignment
 rule unmapped_ends_by_name:
     input:
         fastq=fastq,
-        lengths="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     output:
-        unmapped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends_by_name.tsv",
-    threads: 5
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends_by_name.tsv",
+        read_length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
+        mapped_length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_length_by_name.tsv")
+    threads: 2
     resources:
-        mem_mb=4000,
-        runtime=360,
-        slurm_partition=choose_partition(360)
-    run:
-        read_to_length = dict()
-        with open(input.fastq) as read_file:
-            name = ""
-            for line in read_file:
-                if (not line == "") and line[0] == "@":
-                    name = line.split()[0][1:]
-                elif name != "": 
-                    read_to_length[name] = len(line.strip())
-                    name = ""
-                else:
-                    name = ""
-
-        with open(input.lengths) as mapped_lengths:
-            with open(output.unmapped, 'w') as outfile:
-                for line in mapped_lengths:
-                    length = int(line.split()[1])
-                    name = line.split()[0]
-                    unmapped = read_to_length[name] - length
-
-                    outfile.write(name + "\t" + str(unmapped) + "\n")
+        mem_mb=2000,
+        runtime=720,
+        slurm_partition=choose_partition(720)
+    shell:
+        """
+        vg filter -t {threads} -T "name,length" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_length_by_name}
+        seqkit fx2tab -n -l {input.fastq} | sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' > {output.read_length_by_name}
+        join -a 2 {output.read_length_by_name} {output.mapped_by_name} | awk -v OFS='\t' '{{print $1,$2-$3}}' > {output.tsv}
+        """
 
 
 rule softclips_by_name_other:
