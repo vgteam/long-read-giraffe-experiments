@@ -239,7 +239,7 @@ wildcard_constraints:
     refgraphbase="[^/]+?",
     reference="chm13|grch38|chm13v1",
     # We can have multiple versions of graphs with different modifications and clipping regimes
-    modifications="(-[^.-]+(\\.trimmed)?(\\.clip\\.[0-9]*\\.[0-9]*)?)*",
+    modifications="(-[^.-]+(\\.trimmed)?(\\.clip\\.[0-9]*\\.[0-9]*)?(\\.ec[0-9kmKM]+)?)*",
     clipping="\\.d[0-9]+|",
     full="\\.full|",
     chopping="\\.unchopped|",
