@@ -254,7 +254,7 @@ wildcard_constraints:
     region="(|chr21)",
     # We use this for an optional separating dot, so we can leave it out if we also leave the field empty
     dot="\\.?",
-    callparams="(|.model[0-9-]+(.legacy)?)",
+    callparams="(|(\\.model[0-9-]+|\\.nomodel)(\\.legacy)?)",
     tech="[a-zA-Z0-9]+",
     statname="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(?<!mapping_stats_real)(?<!mapping_stats_sim)(.mean|.total)?",
     statnamex="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(?<!mapping_stats_real)(?<!mapping_stats_sim)(.mean|.total)?",
@@ -658,6 +658,9 @@ def model_files(wildcards):
         if wildcards.callparams.startswith(".model"):
             # Grab the date; we assume we always use dates as model names.
             model_name = wildcards.callparams[len(".model"):len(".model") + 10]
+        elif wildcards.callparams.startswith(".nomodel"):
+            # Just use the model as shipped in DV
+            return None
         else:
             # Use a particular trained model when not specified.
             model_name = "2025-03-26"

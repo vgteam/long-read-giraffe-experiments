@@ -601,7 +601,7 @@ experiments:
         mapper: ["pbmm2", "minimap2-map-hifi"]
       - refgraph: "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"
         mapper: ["giraffe-k31.w50.W-hifi-v1.64.1-noflags", "giraffe-k31.w50.W-hifi-548d64-noflags"]
-          
+   
   hifi_real_dvdebug_chm13:
     control:
       subset: full
@@ -614,16 +614,14 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-e95744-noflags", "giraffe-k31.w50.W-hifi-e95744-scorescale0.03", "giraffe-k31.w50.W-hifi-e95744-scorescale1", "pbmm2"]
-      refgraph: ["hprc-v2.0-mc-eval-sampled16o"]
-      callparams: ["", ".model2025-05-21"]
+      mapper: ["giraffe-k31.w50.W-hifi-791547-noflags", "pbmm2"]
+      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
+      callparams: [".model2025-03-26", ".model2025-05-21", ".nomodel"]
     constrain:
       - refgraph: "hprc-v2.0-mc-eval-sampled16o"
         mapper: "pbmm2"
-        callparams: ""
-      - refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"]
-        mapper: ["giraffe-k31.w50.W-hifi-e95744-noflags", "giraffe-k31.w50.W-hifi-e95744-scorescale0.03", "giraffe-k31.w50.W-hifi-e95744-scorescale1"]
-        callparams: ["", ".model2025-05-21", ".model2025-05-21.legacy"]
+        callparams: ".nomodel"
+      - mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
 
   hifi_sim_scorescale_chm13:
     control:
