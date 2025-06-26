@@ -582,26 +582,6 @@ experiments:
     vary:
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled4o", "hprc-v2.prerelease.3-mc-eval-jan29-d45", "hprc-v2.prerelease.3-mc-eval-jan29-sampled16o", "hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o"]
 
-  hifi_real_dvdebug:
-    control:
-      subset: full
-      tech: hifi
-      reference: grch38
-      sample: HG002
-      realness: real
-      # SV specific parameters with generic names
-      caller: vgcall
-      truthset: giab6
-      truthref: chm13
-    vary:
-      mapper: ["giraffe-k31.w50.W-hifi-v1.64.1-noflags", "giraffe-k31.w50.W-hifi-548d64-noflags", "pbmm2", "minimap2-map-hifi"]
-      refgraph: ["hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"]
-    constrain:
-      - refgraph: "hprc-v2.0-mc-eval-sampled16o"
-        mapper: ["pbmm2", "minimap2-map-hifi"]
-      - refgraph: "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"
-        mapper: ["giraffe-k31.w50.W-hifi-v1.64.1-noflags", "giraffe-k31.w50.W-hifi-548d64-noflags"]
-   
   hifi_real_dvdebug_chm13:
     control:
       subset: full
@@ -688,21 +668,6 @@ experiments:
     vary:
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v2.prerelease.2-mc-eval-nov22-masked38-masked19-d39", "hprc-v1.1-mc-sampled16", "hprc-v2.prerelease.2-mc-eval-nov22-masked38-masked19-sampled16"]
 
-  r10y2025_real_dvdebug_chm13_tiny:
-    control:
-      subset: 10k
-      tech: r10y2025
-      reference: chm13
-      sample: HG002
-      realness: real
-      # SV specific parameters with generic names
-      caller: vgcall
-      truthset: giab6
-      truthref: chm13
-      refgraph: "hprc-v2.0-mc-eval-d46"
-    vary:
-      mapper: ["giraffe-k31.w50.W-r10-e95744-noflags", "minimap2-lr:hqae"]
-
   r10y2025_real_dvdebug_chm13:
     control:
       subset: full
@@ -715,13 +680,14 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-e95744-noflags", "minimap2-lr:hqae"]
-      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"]
+      mapper: ["giraffe-k31.w50.W-r10-791547-noflags", "minimap2-lr:hqae"]
+      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
+      callparams: [".nomodel"]
     constrain:
       - refgraph: "hprc-v2.0-mc-eval-sampled16o"
         mapper: "minimap2-lr:hqae"
-      - refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.clip.1000000.2-sampled16o"]
-        mapper: "giraffe-k31.w50.W-r10-e95744-noflags"
+        callparams: ".nomodel"
+      - mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
 
   illumina_sim_graphs:
     control:
