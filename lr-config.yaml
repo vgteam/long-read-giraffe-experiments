@@ -602,6 +602,7 @@ experiments:
         mapper: "pbmm2"
         callparams: ".nomodel"
       - mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
+        callparams: [".model2025-03-26", ".model2025-05-21"]
 
   hifi_sim_scorescale_chm13:
     control:
