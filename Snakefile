@@ -2927,6 +2927,22 @@ rule annotate_alignments:
         "vg annotate -t16 -a {input.gam} -x {input.gbz} -m --search-limit=-1 >{output.gam}"
 ruleorder: giraffe_sim_reads > annotate_alignments
 
+rule annotate_alignments_against_hg:
+    input:
+        hg=hg,
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output:
+        gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    threads: 16
+    resources:
+        mem_mb=100000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "vg annotate -t16 -a {input.gam} -x {input.hg} -m --search-limit=-1 >{output.gam}"
+ruleorder: annotate_alignments > annotate_alignments_against_hg
+ruleorder: giraffe_sim_reads > annotate_alignments_against_hg
+
 rule de_annotate_sim_alignments:
     input:
         gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
@@ -4631,7 +4647,7 @@ rule unmapped_ends_by_name:
         """
         vg filter -t {threads} -T "name,length" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_length_by_name}
         seqkit fx2tab -n -l {input.fastq} | sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' > {output.read_length_by_name}
-        join -a 2 {output.read_length_by_name} {output.mapped_by_name} | awk -v OFS='\t' '{{print $1,$2-$3}}' > {output.tsv}
+        join -a 2 {output.read_length_by_name} {output.mapped_length_by_name} | awk -v OFS='\t' '{{print $1,$2-$3}}' > {output.tsv}
         """
 
 
