@@ -2072,6 +2072,8 @@ rule giraffe_real_reads:
     wildcard_constraints:
         realness="real"
     threads: auto_mapping_threads
+    params:
+        exclusive_timing=EXCLUSIVE_TIMING 
     resources:
         mem_mb=auto_mapping_memory,
         runtime=1200,
@@ -2181,6 +2183,8 @@ rule winnowmap_real_reads:
         # So match any string but that. See https://stackoverflow.com/a/14683066
         tech="(?!illumina).+"
     threads: auto_mapping_threads
+    params:
+        exclusive_timing=EXCLUSIVE_TIMING
     resources:
         mem_mb=300000,
         runtime=1600,
@@ -2232,6 +2236,8 @@ rule minimap2_real_reads:
     wildcard_constraints:
         realness="real"
     threads: auto_mapping_threads
+    params:
+        exclusive_timing=EXCLUSIVE_TIMING
     resources:
         mem_mb=300000,
         runtime=1200,
@@ -2273,6 +2279,8 @@ rule pbmm2_real_reads:
         realness="real",
         tech="hifi"
     threads: auto_mapping_threads
+    params:
+        exclusive_timing=EXCLUSIVE_TIMING
     resources:
         mem_mb=300000,
         runtime=1200,
@@ -2335,7 +2343,8 @@ rule bwa_real_reads:
         realness="real",
         pairing="(-pe|)"
     params:
-        pairing_flag=lambda w: "-p" if w["pairing"] == "-pe" else ""
+        pairing_flag=lambda w: "-p" if w["pairing"] == "-pe" else "",
+        exclusive_timing=EXCLUSIVE_TIMING
     threads: auto_mapping_threads
     resources:
         mem_mb=30000,
@@ -2401,7 +2410,8 @@ rule graphaligner_real_reads:
         readchunk=".chunk[0-9]*|"
     threads: auto_mapping_threads
     params:
-        mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
+        mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2,
+        exclusive_timing=EXCLUSIVE_TIMING
     resources:
         mem_mb=900000,
         runtime=9000,
@@ -2439,6 +2449,8 @@ rule minigraph_real_reads:
     wildcard_constraints:
         realness="real"
     threads: auto_mapping_threads
+    params:
+        exclusive_timing=EXCLUSIVE_TIMING
     resources:
         mem_mb=300000,
         runtime=1200,
@@ -2476,6 +2488,8 @@ rule panaligner_real_reads:
     wildcard_constraints:
         realness="real"
     threads: auto_mapping_threads
+    params:
+        exclusive_timing=EXCLUSIVE_TIMING
     resources:
         mem_mb=300000,
         runtime=600,
