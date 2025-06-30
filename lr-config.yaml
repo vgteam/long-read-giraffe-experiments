@@ -175,7 +175,7 @@ experiments:
         - refgraph: "hprc-v2.0-mc-eval-d46"
           mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-r10-791547-noflags"]
         - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o"]
-          mapper: []
+          mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
         - refgraph: "hprc-v2.0-minigraph-eval"
@@ -198,7 +198,7 @@ experiments:
         - refgraph: "hprc-v2.0-mc-eval-d46"
           mapper: ["minimap2-map-hifi", "pbmm2", "winnowmap", "graphaligner-default", "graphaligner-fast", "giraffe-k31.w50.W-hifi-791547-noflags"]
         - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o"]
-          mapper: []
+          mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
         - refgraph: "hprc-v2.0-minigraph-eval"
@@ -299,6 +299,8 @@ experiments:
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
           mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-r10-791547-noflags"]
+        - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o"]
+          mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
         - refgraph: "hprc-v2.0-minigraph-eval"
@@ -316,6 +318,8 @@ experiments:
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
           mapper: ["minimap2-map-hifi", "pbmm2", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-hifi-791547-noflags"]
+        - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o"]
+          mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
         - refgraph: "hprc-v2.0-minigraph-eval"
