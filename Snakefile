@@ -32,11 +32,11 @@ configfile: "lr-config.yaml"
 #
 # hprc-v1.1-mc-chm13.d9.k31.w50.W.nozip.min
 #
-# It must also either be writable or contain an unchopped hg and gfa file
+# It must also either be writable or contain an hg and gfa file
 # for running GraphAligner, named like:
 #
-# hprc-v1.1-mc-chm13.unchopped.hg
-# hprc-v1.1-mc-chm13.unchopped.gfa
+# hprc-v1.1-mc-chm13.hg
+# hprc-v1.1-mc-chm13.gfa
 #
 # And for haplotype sampling, the full graph (without any .dXX) must be available:
 #
