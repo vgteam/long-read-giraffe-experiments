@@ -4565,7 +4565,7 @@ rule length_by_mapping:
         mapped_names=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv")
     threads: 2
     resources:
-        mem_mb=2000,
+        mem_mb=28000,
         runtime=720,
         slurm_partition=choose_partition(720)
     shell:
@@ -4654,12 +4654,12 @@ rule unmapped_ends_by_name:
         mapped_length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_length_by_name.tsv")
     threads: 2
     resources:
-        mem_mb=2000,
+        mem_mb=28000,
         runtime=720,
         slurm_partition=choose_partition(720)
     shell:
         """
-        vg filter -t {threads} -T "name,length" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_length_by_name}
+        vg filter -t {threads} -T "name;length" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_length_by_name}
         seqkit fx2tab -n -l {input.fastq} | sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' > {output.read_length_by_name}
         join -a 2 {output.read_length_by_name} {output.mapped_length_by_name} | awk -v OFS='\t' '{{print $1,$2-$3}}' > {output.tsv}
         """
