@@ -67,8 +67,7 @@ https://ont-open-data.s3.amazonaws.com/giab_2025.01/basecalling/sup/HG007/PBA204
     "Giraffe.REFERENCE_PREFIX": "GRCh38#0#",
     "Giraffe.REALIGN_INDELS": false,
     "Giraffe.LEFTALIGN_BAM": true,
-    "Giraffe.INDEX_MINIMIZER_MEM": 600,
-    "Giraffe.SPLIT_READ_MEM": 120 
+    "Giraffe.INDEX_MINIMIZER_MEM": 600
 }
 EOF
 
