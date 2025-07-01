@@ -46,13 +46,9 @@ https://ont-open-data.s3.amazonaws.com/giab_2025.01/basecalling/sup/HG007/PBA204
     LOG_DIR="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/training-data/r10y2025/${BASE_NAME}.batchlog"
     mkdir -p "${LOG_DIR}"
     
-    # We can use a BAM as a "CRAM" for loading reads from, but we need a reference to convince the workflow it can use it.
-    # TODO: Make the workflow officially support BAM.
     cat >"${INPUT_JSON}" <<EOF
 {
-    "Giraffe.INPUT_CRAM_FILE": "${BAM_URL}",
-    "Giraffe.CRAM_REF": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna",
-    "Giraffe.CRAM_REF_INDEX": "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai",
+    "Giraffe.INPUT_BAM_FILE": "${BAM_URL}",
     "Giraffe.SAMPLE_NAME": "${SAMPLE_NAME}",
     "Giraffe.PAIRED_READS": false,
     "Giraffe.HAPLOTYPE_SAMPLING": true,
@@ -71,7 +67,8 @@ https://ont-open-data.s3.amazonaws.com/giab_2025.01/basecalling/sup/HG007/PBA204
     "Giraffe.REFERENCE_PREFIX": "GRCh38#0#",
     "Giraffe.REALIGN_INDELS": false,
     "Giraffe.LEFTALIGN_BAM": true,
-    "Giraffe.INDEX_MINIMIZER_MEM": 600
+    "Giraffe.INDEX_MINIMIZER_MEM": 600,
+    "Giraffe.SPLIT_READ_MEM": 120 
 }
 EOF
 
