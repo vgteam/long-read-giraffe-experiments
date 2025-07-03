@@ -86,7 +86,7 @@ real_slurm_extra: "--exclude=phoenix-[00-10,22-24]"
 exclusive_timing: true
 # Note that reserving a full node is the only way we have to ensure a job is not split across NUMA nodes
 
-real_exps: ["hifi_real_full", "r10y2025_real_full"]
+real_exps: ["hifi_real_full", "r10y2025_real_full" "illumina_real_full"]
 sim_exps: ["hifi_sim_1m", "r10y2025_sim_1m"]
 headline_sim_exps: ["r10y2025_sim_1m_headline", "hifi_sim_1m_headline"]
 headline_real_exps: ["hifi_real_full_headline", "r10y2025_real_full_headline"]
@@ -109,11 +109,11 @@ experiments:
       realness: real
     vary:
       mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-r10-791547-noflags"]
-      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v2.0-minigraph-eval", "primary"]
+      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v2.0-minigraph-eval", "hprc-v1.1-mc-sampled32d", "primary"]
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
           mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "giraffe-k31.w50.W-r10-791547-noflags"]
-        - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o"]
+        - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
           mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
@@ -132,11 +132,11 @@ experiments:
       realness: real
     vary:
       mapper: ["minimap2-map-pb", "minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-hifi-791547-noflags"]
-      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v2.0-minigraph-eval", "primary"]
+      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v2.0-minigraph-eval", "hprc-v1.1-mc-sampled32d", "primary"]
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
           mapper: ["minimap2-map-hifi", "pbmm2", "winnowmap", "graphaligner-default", "graphaligner-fast", "giraffe-k31.w50.W-hifi-791547-noflags"]
-        - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o"]
+        - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
           mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
@@ -151,15 +151,15 @@ experiments:
       sample: HG002
       realness: real
     vary:
-      mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-030329-noflags"]
-      refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16", "primary"]
+      mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-791547-noflags"]
+      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d", "primary"]
     constrain:
-        - refgraph: "hprc-v1.1-mc-d9"
-          mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-030329-noflags"]
-        - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
-          mapper: []
+        - refgraph: "hprc-v2.0-mc-eval-d46"
+          mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-791547-noflags"]
+        - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
+          mapper: ["giraffe-k29.w11-default-791547-noflags"]
         - refgraph: "primary"
-          mapper: ["giraffe-k29.w11-default-030329-noflags"]
+          mapper: ["giraffe-k29.w11-default-791547-noflags"]
 
   r10y2025_real_full_headline:
     control:
