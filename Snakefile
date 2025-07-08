@@ -2386,15 +2386,15 @@ rule graphaligner_sim_reads:
         mapper="graphaligner.*"
     threads: auto_mapping_threads
     params:
-        mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
+        mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2,
+        flags=lambda wildcards: get_graphaligner_flags(wildcards.graphalignerflag)
     container: "docker://quay.io/biocontainers/graphaligner:1.0.20--h06902ac_0"
     resources:
         mem_mb=300000,
         runtime=3000,
         slurm_partition=choose_partition(3000)
-    run:
-        flags=get_graphaligner_flags(wildcards.graphalignerflag)
-        shell("GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} " + flags + " -a {output.gam}")
+    shell:
+        "GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq} {params.flags} -a {output.gam}"
 
 
 rule graphaligner_real_reads:
@@ -2412,6 +2412,7 @@ rule graphaligner_real_reads:
     threads: auto_mapping_threads
     params:
         mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2,
+        flags=lambda wildcards: get_graphaligner_flags(wildcards.graphalignerflag),
         exclusive_timing=EXCLUSIVE_TIMING
     container: "docker://quay.io/biocontainers/graphaligner:1.0.20--h06902ac_0"
     resources:
@@ -2420,9 +2421,8 @@ rule graphaligner_real_reads:
         slurm_partition=choose_partition(9000),
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
-    run:
-        flags=get_graphaligner_flags(wildcards.graphalignerflag)
-        shell("GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq_gz} " + flags + " -a {output.gam} 2> {log}")
+    shell:
+        "GraphAligner -t {params.mapping_threads} -g {input.gfa} -f {input.fastq_gz} {params.flags} -a {output.gam} 2> {log}"
 
 rule minigraph_sim_reads:
     input:
