@@ -2387,6 +2387,7 @@ rule graphaligner_sim_reads:
     threads: auto_mapping_threads
     params:
         mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2
+    container: "docker://quay.io/biocontainers/graphaligner:1.0.20--h06902ac_0"
     resources:
         mem_mb=300000,
         runtime=3000,
@@ -2412,6 +2413,7 @@ rule graphaligner_real_reads:
     params:
         mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2,
         exclusive_timing=EXCLUSIVE_TIMING
+    container: "docker://quay.io/biocontainers/graphaligner:1.0.20--h06902ac_0"
     resources:
         mem_mb=900000,
         runtime=9000,

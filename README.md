@@ -71,12 +71,11 @@ To run all the rules, you will need to have installations of:
 * minimap2
 * pbmm2
 * winnowmap
-* GraphAligner
 * samtools
 * Java
 * Picard (as `picard.jar` in the current directory)
 * bcftools
-* Singularity, for running fastqsplitter, [Truvari](https://github.com/ACEnglish/truvari), [mafft](https://mafft.cbrc.jp/alignment/software/installation_without_root.html) which Truvari calls, vcfwave, vcfbub, and sniffles
+* Singularity, for running fastqsplitter, [Truvari](https://github.com/ACEnglish/truvari), [mafft](https://mafft.cbrc.jp/alignment/software/installation_without_root.html) which Truvari calls, vcfwave, vcfbub, sniffles, and GraphAligner
 * [toil](https://github.com/DataBiosphere/toil) for DeepVariant
 
 ## Available Experiment Outputs:
