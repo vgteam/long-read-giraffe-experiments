@@ -31,6 +31,15 @@ YELLOW="'#F2C300'"
 LIGHT_PURPLE="'#C49AB6'"
 PURPLE="'#9B8BF4'"
 
+######################################### Define conditions
+MINIMAP_HIFI=minimap2-map-hifi,
+MINIMAP_R10=minimap2-lr:hqae,hprc-v2.0-mc-eval-d46
+WINNOWMAP=winnowmap,hprc-v2.0-mc-eval-d46
+GIRAFFE_PRIMARY=giraffe,primary
+MINIGRAPH_MINIGRAPH=minigraph,hprc-v2.0-minigraph-eval
+GRAPHALIGNER_DEFAULT=graphaligner-default,hprc-v2.0-mc-eval-d46
+GIRAFFE=giraffe,hprc-v2.0-mc-eval-d46
+GIRAFFE_SAMPLED=giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o
 
 
 ########################################## ROCs and QQs
@@ -58,9 +67,9 @@ Rscript plot-qq.R ${R10_ACCURACY} ${OUT_DIR}/qq_r10_headline.pdf
 HIFI_INCORRECT=${ROOT_DIR}/experiments/hifi_sim_1m_headline/results/mapping_stats_sim.tsv
 R10_INCORRECT=${ROOT_DIR}/experiments/r10_sim_1m_headline/results/mapping_stats_sim.tsv
 
-python3 barchart.py <(tail -n +2 ${HIFI_INCORRECT} | cut -f1,5) --divisions <(tail -n +2 ${HIFI_INCORRECT} | cut -f1,4)  --title 'HiFi incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --categories minimap2-map-hifi,hprc-v2.0-mc-eval-d46 winnowmap,hprc-v2.0-mc-eval-d46 giraffe,primary minigraph,hprc-v2.0-minigraph-eval graphaligner-default,hprc-v2.0-mc-eval-d46 giraffe,hprc-v2.0-mc-eval-d46 giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${PURPLE}  --save ${OUT_DIR}/incorrectness_hifi.pdf
+python3 barchart.py <(tail -n +2 ${HIFI_INCORRECT} | cut -f1,5) --divisions <(tail -n +2 ${HIFI_INCORRECT} | cut -f1,4)  --title 'HiFi incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --categories ${MINIMAP_HIFI} ${WINNOWMAP} ${GIRAFFE_PRIMARY} ${MINIGRAPH_MINIGRAPH} ${GRAPHALIGNER_DEFAULT} ${GIRAFFE} ${GIRAFFE_SAMPLED}  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${PURPLE}  --save ${OUT_DIR}/incorrectness_hifi.pdf
 
-python3 barchart.py <(tail -n +2 ${R10_INCORRECT} | cut -f1,5) --divisions <(tail -n +2 ${R10_INCORRECT} | cut -f1,4)  --title 'R10 incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --categories minimap2-map-hifi,hprc-v2.0-mc-eval-d46 winnowmap,hprc-v2.0-mc-eval-d46 giraffe,primary minigraph,hprc-v2.0-minigraph-eval graphaligner-default,hprc-v2.0-mc-eval-d46 giraffe,hprc-v2.0-mc-eval-d46 giraffe,hprc-v1.1-mc giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE}  ${PURPLE}  --save ${OUT_DIR}/incorrectness_r10.pdf
+python3 barchart.py <(tail -n +2 ${R10_INCORRECT} | cut -f1,5) --divisions <(tail -n +2 ${R10_INCORRECT} | cut -f1,4)  --title 'R10 incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --categories ${MINIMAP_R10} ${WINNOWMAP} ${GIRAFFE_PRIMARY} ${MINIGRAPH_MINIGRAPH} ${GRAPHALIGNER_DEFAULT} ${GIRAFFE} ${GIRAFFE_SAMPLED}  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE}  ${PURPLE}  --save ${OUT_DIR}/incorrectness_r10.pdf
 
 ########################################## Softclips
 
@@ -69,14 +78,14 @@ R10_SOFTCLIPS=${ROOT_DIR}/experiments/r10_real_full_headline/results/softclipped
 
 #hifi softclips low
 LIMIT=$(python3 get_outlier_limit.py ${HIFI_SOFTCLIPS} small)
-python3 barchart.py ${HIFI_SOFTCLIPS} --max ${LIMIT}  --title 'HiFi Softclipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories minimap2-map-hifi,hprc-v1.1-mc-d9 winnowmap,hprc-v1.1-mc-d9 giraffe,primary minigraph,hprc-v1.0-minigraph graphaligner-default,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc giraffe,hprc-v1.1-mc-sampled16  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE} --save ${OUT_DIR}/softclips_hifi_headline_low.pdf
+python3 barchart.py ${HIFI_SOFTCLIPS} --max ${LIMIT}  --title 'HiFi Softclipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${MINIMAP_HIFI} ${WINNOWMAP} ${GIRAFFE_PRIMARY} ${MINIGRAPH_MINIGRAPH} ${GRAPHALIGNER_DEFAULT} ${GIRAFFE} ${GIRAFFE_SAMPLED}  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE} --save ${OUT_DIR}/softclips_hifi_headline_low.pdf
 
 #hifi softclips high
 LIMIT=$(python3 get_outlier_limit.py ${HIFI_SOFTCLIPS} big)
-python3 barchart.py ${HIFI_SOFTCLIPS} --min ${LIMIT}  --title 'HiFi Softclipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories minimap2-map-hifi,hprc-v1.1-mc-d9 winnowmap,hprc-v1.1-mc-d9 giraffe,primary minigraph,hprc-v1.0-minigraph graphaligner-default,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc giraffe,hprc-v1.1-mc-sampled16  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE} --save ${OUT_DIR}/softclips_hifi_headline_high.pdf
+python3 barchart.py ${HIFI_SOFTCLIPS} --min ${LIMIT}  --title 'HiFi Softclipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${MINIMAP_HIFI} ${WINNOWMAP} ${GIRAFFE_PRIMARY} ${MINIGRAPH_MINIGRAPH} ${GRAPHALIGNER_DEFAULT} ${GIRAFFE} ${GIRAFFE_SAMPLED}  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE} --save ${OUT_DIR}/softclips_hifi_headline_high.pdf
 
 #r10 softclips
-python3 barchart.py ${R10_SOFTCLIPS} --title 'R10 Softclipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories minimap2-lr:hqae,hprc-v1.1-mc-d9 winnowmap,hprc-v1.1-mc-d9 giraffe,primary minigraph,hprc-v1.0-minigraph graphaligner-default,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc giraffe,hprc-v1.1-mc-sampled16  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE} --save ${OUT_DIR}/softclips_r10_headline_high.pdf
+python3 barchart.py ${R10_SOFTCLIPS} --title 'R10 Softclipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${MINIMAP_R10} ${WINNOWMAP} ${GIRAFFE_PRIMARY} ${MINIGRAPH_MINIGRAPH} ${GRAPHALIGNER_DEFAULT} ${GIRAFFE} ${GIRAFFE_SAMPLED}  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE} --save ${OUT_DIR}/softclips_r10_headline_high.pdf
 
 
 ############################################ Runtime
@@ -88,21 +97,21 @@ R10_INDEX_TIME=${ROOT_DIR}/experiments/r10_real_full_headline/results/index_load
 
 # Higher hifi runtimes
 LIMIT=$(python3 get_outlier_limit.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) big)
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_INDEX_TIME}) --min ${LIMIT}  --title 'HiFi Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories minimap2-map-hifi,hprc-v1.1-mc-d9 winnowmap,hprc-v1.1-mc-d9 giraffe,primary minigraph,hprc-v1.0-minigraph graphaligner-default,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc giraffe,hprc-v1.1-mc-sampled16  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE} --save ${OUT_DIR}/runtime_hifi_headline_slow.pdf
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_INDEX_TIME}) --min ${LIMIT}  --title 'HiFi Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${MINIMAP_HIFI} ${WINNOWMAP} ${GIRAFFE_PRIMARY} ${MINIGRAPH_MINIGRAPH} ${GRAPHALIGNER_DEFAULT} ${GIRAFFE} ${GIRAFFE_SAMPLED}  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE} --save ${OUT_DIR}/runtime_hifi_headline_slow.pdf
 
 # Lower hifi runtimes
 LIMIT=$(python3 get_outlier_limit.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) small)
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_INDEX_TIME}) --max ${LIMIT}  --title 'HiFi Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories minimap2-map-hifi,hprc-v1.1-mc-d9 winnowmap,hprc-v1.1-mc-d9 giraffe,primary minigraph,hprc-v1.0-minigraph graphaligner-default,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc giraffe,hprc-v1.1-mc-sampled16  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE} --save ${OUT_DIR}/runtime_hifi_headline_fast.pdf
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_INDEX_TIME}) --max ${LIMIT}  --title 'HiFi Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${MINIMAP_HIFI} ${WINNOWMAP} ${GIRAFFE_PRIMARY} ${MINIGRAPH_MINIGRAPH} ${GRAPHALIGNER_DEFAULT} ${GIRAFFE} ${GIRAFFE_SAMPLED}  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE} --save ${OUT_DIR}/runtime_hifi_headline_fast.pdf
 
 # R10 runtimes as one plot
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_INDEX_TIME}) --title 'R10 Runtime' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories minimap2-lr:hqae,hprc-v1.1-mc-d9 winnowmap,hprc-v1.1-mc-d9 giraffe,primary minigraph,hprc-v1.0-minigraph graphaligner-default,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc giraffe,hprc-v1.1-mc-sampled16  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE} --save ${OUT_DIR}/runtime_r10_headline.pdf
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_INDEX_TIME}) --title 'R10 Runtime' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${MINIMAP_R10} ${WINNOWMAP} ${GIRAFFE_PRIMARY} ${MINIGRAPH_MINIGRAPH} ${GRAPHALIGNER_DEFAULT} ${GIRAFFE} ${GIRAFFE_SAMPLED}  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE} --save ${OUT_DIR}/runtime_r10_headline.pdf
 
 ###################################### Memory
 
 HIFI_MEMORY=${ROOT_DIR}/experiments/hifi_real_full_headline/results/memory_from_benchmark.tsv
 R10_MEMORY=${ROOT_DIR}/experiments/r10_real_full_headline/results/memory_from_benchmark.tsv
 
-python3 barchart.py ${HIFI_MEMORY} --title 'HiFi Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --categories minimap2-map-hifi,hprc-v1.1-mc-d9 winnowmap,hprc-v1.1-mc-d9 giraffe,primary minigraph,hprc-v1.0-minigraph graphaligner-default,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc giraffe,hprc-v1.1-mc-sampled16  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE}  --save ${OUT_DIR}/memory_hifi.pdf
+python3 barchart.py ${HIFI_MEMORY} --title 'HiFi Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --categories ${MINIMAP_HIFI} ${WINNOWMAP} ${GIRAFFE_PRIMARY} ${MINIGRAPH_MINIGRAPH} ${GRAPHALIGNER_DEFAULT} ${GIRAFFE} ${GIRAFFE_SAMPLED}  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE}  --save ${OUT_DIR}/memory_hifi.pdf
 
-python3 barchart.py ${R10_MEMORY} --title 'R10 Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --categories minimap2-lr:hqae,hprc-v1.1-mc-d9 winnowmap,hprc-v1.1-mc-d9 giraffe,primary minigraph,hprc-v1.0-minigraph graphaligner-default,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc-d9 giraffe,hprc-v1.1-mc giraffe,hprc-v1.1-mc-sampled16  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE} --save ${OUT_DIR}/memory_r10.pdf
+python3 barchart.py ${R10_MEMORY} --title 'R10 Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --categories ${MINIMAP_R10} ${WINNOWMAP} ${GIRAFFE_PRIMARY} ${MINIGRAPH_MINIGRAPH} ${GRAPHALIGNER_DEFAULT} ${GIRAFFE} ${GIRAFFE_SAMPLED}  --colors ${ORANGE} ${DARK_ORANGE} ${TEAL} ${YELLOW} ${LIGHT_PURPLE} ${BLUE} ${GREEN} ${PURPLE} --save ${OUT_DIR}/memory_r10.pdf
 
