@@ -675,12 +675,6 @@ def model_files(wildcards):
         return model_files
     return None
 
-def legacy_ac(wildcards):
-    """
-    Get whether to use legacy allele counts from callparams.
-    """
-    return "legacy" in wildcards.callparams
-
 def truth_vcf_url(wildcards):
     """
     Find the URL or local file for the variant calling truth VCF, from reference and sample.
@@ -2700,8 +2694,7 @@ rule call_variants_dv:
         reference_prefix=reference_prefix,
         haploid_contigs=haploid_contigs,
         wdl_cache=wdl_cache,
-        model_files=model_files,
-        legacy_ac=legacy_ac
+        model_files=model_files
     threads: 8
     resources:
         mem_mb=60000,
@@ -2713,7 +2706,7 @@ rule call_variants_dv:
         slurm_partition=choose_partition(8640)
     run:
         import json
-        wf_source = "https://raw.githubusercontent.com/vgteam/vg_wdl/refs/heads/lr-giraffe/workflows/deepvariant.wdl"
+        wf_source = "#workflow/github.com/vgteam/vg_wdl/DeepVariant:lr-giraffe"
         wf_inputs = {
             "DeepVariant.MERGED_BAM_FILE": input.sorted_bam,
             "DeepVariant.MERGED_BAM_FILE_INDEX": input.sorted_bam_index,
@@ -2732,13 +2725,13 @@ rule call_variants_dv:
             # we hold that out of the eval graphs.
             "DeepVariant.REALIGN_INDELS": False,
             "DeepVariant.DV_MODEL_TYPE": {"hifi": "PACBIO", "r10": "ONT_R104", "r10y2025": "ONT_R104", "illumina": "WGS"}[wildcards.tech],
-            "DeepVariant.MIN_MAPQ": 0,
+            # We don't send MIN_MAPQ and let the model example info define it.
             # TODO: Should we use legacy AC like in the paper?
-            "DeepVariant.DV_KEEP_LEGACY_AC": params.legacy_ac,
+            # We can't actually turn off legacy AC if it's on in the model example_info. So don't pass DV_KEEP_LEGACY_AC either.
             # Read normalization should work for long reads as of gcr.io/deepvariant-docker/deepvariant:head756846963 (which is post-1.9)
-            "DeepVariant.DV_NORM_READS": True, 
-            "DeepVariant.DV_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head756846963-gpu",
-            "DeepVariant.DV_NO_GPU_DOCKER": "gcr.io/deepvariant-docker/deepvariant:head756846963",
+            # But we also don't send DV_NORM_READS because the model defines it as of google/deepvariant:CL782981885
+            "DeepVariant.DV_GPU_DOCKER": "google/deepvariant:CL782981885-gpu",
+            "DeepVariant.DV_NO_GPU_DOCKER": "google/deepvariant:CL782981885",
             "DeepVariant.TRUTH_VCF": to_local(input.truth_vcf),
             "DeepVariant.TRUTH_VCF_INDEX": to_local(input.truth_vcf_index),
             "DeepVariant.EVALUATION_REGIONS_BED": to_local(input.truth_bed),

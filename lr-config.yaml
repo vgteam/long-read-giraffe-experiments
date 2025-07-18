@@ -546,15 +546,16 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-791547-noflags", "pbmm2"]
+      mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
-      callparams: [".model2025-03-26", ".model2025-05-21", ".nomodel"]
+      callparams: ["", ".nomodel"]
     constrain:
       - refgraph: "hprc-v2.0-mc-eval-sampled16o"
         mapper: "pbmm2"
         callparams: ".nomodel"
       - mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
-        callparams: [".model2025-03-26", ".model2025-05-21"]
+        callparams: [""]
+        refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
 
   hifi_sim_scorescale_chm13:
     control:
@@ -633,14 +634,15 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-791547-noflags", "minimap2-lr:hqae"]
+      mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
-      callparams: [".nomodel"]
+      callparams: [".model2025-07-17", ".nomodel"]
     constrain:
       - refgraph: "hprc-v2.0-mc-eval-sampled16o"
         mapper: "minimap2-lr:hqae"
         callparams: ".nomodel"
       - mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
+        refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
 
   illumina_sim_graphs:
     control:
