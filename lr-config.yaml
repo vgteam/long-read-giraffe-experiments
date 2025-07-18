@@ -112,6 +112,7 @@ experiments:
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v2.0-minigraph-eval", "hprc-v1.1-mc-sampled32d", "primary"]
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
+          # graphaligner-default timed out after 7 days in Slurm job 9705975
           mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "giraffe-k31.w50.W-r10-791547-noflags"]
         - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
           mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
@@ -135,13 +136,15 @@ experiments:
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v2.0-minigraph-eval", "hprc-v1.1-mc-sampled32d", "primary"]
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
-          mapper: ["minimap2-map-hifi", "pbmm2", "winnowmap", "graphaligner-default", "graphaligner-fast", "giraffe-k31.w50.W-hifi-791547-noflags"]
+          # graphaligner-default timed out after 7 days in Slurm job 9705958
+          mapper: ["minimap2-map-hifi", "pbmm2", "winnowmap", "graphaligner-fast", "giraffe-k31.w50.W-hifi-791547-noflags"]
         - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
           mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
         - refgraph: "hprc-v2.0-minigraph-eval"
-          mapper: ["minigraph", "graphaligner-default"]
+          # graphaligner-default timed out after 7 days in Slurm job 9705974
+          mapper: ["minigraph"]
 
   illumina_real_full:
     control:
@@ -173,7 +176,8 @@ experiments:
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v2.0-minigraph-eval", "primary"]
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
-          mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-default", "giraffe-k31.w50.W-r10-791547-noflags"]
+          # graphaligner-default timed out after 7 days in Slurm job 9705975
+          mapper: ["minimap2-lr:hqae", "winnowmap", "giraffe-k31.w50.W-r10-791547-noflags"]
         - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o"]
           mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
         - refgraph: "primary"
@@ -196,13 +200,15 @@ experiments:
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v2.0-minigraph-eval", "primary"]
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
-          mapper: ["minimap2-map-hifi", "pbmm2", "winnowmap", "graphaligner-default", "graphaligner-fast", "giraffe-k31.w50.W-hifi-791547-noflags"]
+          # graphaligner-default timed out after 7 days in Slurm job 9705958
+          mapper: ["minimap2-map-hifi", "pbmm2", "winnowmap", "graphaligner-fast", "giraffe-k31.w50.W-hifi-791547-noflags"]
         - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o"]
           mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
         - refgraph: "primary"
           mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
         - refgraph: "hprc-v2.0-minigraph-eval"
-          mapper: ["minigraph", "graphaligner-default"]
+          # graphaligner-default timed out after 7 days in Slurm job 9705974
+          mapper: ["minigraph"]
 
   r10_sim_1m:
     control:
@@ -380,7 +386,7 @@ experiments:
       caller: ["vgcall", "sniffles"]
       tech: ["hifi", "r10y2025"]
       mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae", "graphaligner-default", "giraffe-k31.w50.W-hifi-791547-noflags", "giraffe-k31.w50.W-r10-791547-noflags"]
-      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-d46-unchopped", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
+      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
     constrain:
       - 
         # Use the right mapping preset for each tech
@@ -393,7 +399,8 @@ experiments:
         - mapper: ["giraffe-k31.w50.W-hifi-791547-noflags", "giraffe-k31.w50.W-r10-791547-noflags"]
           refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
         - mapper: ["graphaligner-default"]
-          refgraph: ["hprc-v2.0-mc-eval-d46-unchopped"]
+          # GraphAligner timed out on both techs after 7 days, on hprc-v2.0-mc-eval-d46.
+          refgraph: []
         - mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae"]
           refgraph: ["hprc-v2.0-mc-eval-d46"]
       - 
