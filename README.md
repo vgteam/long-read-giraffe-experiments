@@ -47,7 +47,7 @@ vg paths --extract-fasta --sample CHM13 -x graphs/hprc-v2.0-mc-chm13-eval.gbz > 
         output/plots/chm13/hprc-v1.1-mc-d9/minimap2-lr:hq/length_by_correctness-sim-r10-HG002.trimmed.1k.png
     ```
 
-    And you can use the `--dry-run` flag to see all the rules that will be executed and the files that will be created.
+    And you can use the `--dry-run` flag to see all the rules that will be executed and the files that will be created. (You may need to include `--rerun-triggers mtime` to work around https://github.com/snakemake/snakemake/issues/3675 causing `Params have changed since last execution` reruns in dry run mode.)
 
     To test the Snakemake:
 

@@ -113,7 +113,7 @@ experiments:
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
           # graphaligner-default timed out after 7 days in Slurm job 9705975
-          mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "giraffe-k31.w50.W-r10-791547-noflags"]
+          mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-fast", "giraffe-k31.w50.W-r10-791547-noflags"]
         - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
           mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
         - refgraph: "primary"
