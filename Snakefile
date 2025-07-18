@@ -654,7 +654,7 @@ def model_files(wildcards):
     Get the DV model files to use, or None, from tech, mapper, and callparams.
     """
 
-    if wildcards.tech == "hifi" and "giraffe" in wildcards.mapper:
+    if wildcards.tech in ("hifi", "r10y2025") and "giraffe" in wildcards.mapper:
         if wildcards.callparams.startswith(".model"):
             # Grab the date; we assume we always use dates as model names.
             model_name = wildcards.callparams[len(".model"):len(".model") + 10]
@@ -662,8 +662,12 @@ def model_files(wildcards):
             # Just use the model as shipped in DV
             return None
         else:
-            # Use a particular trained model when not specified.
-            model_name = "2025-03-26"
+            if wildcards.tech == "hifi":
+                # Use a particular trained model as the default for HiFi.
+                model_name = "2025-03-26"
+            else:
+                # For r10, keep defaulting to no trained model for now.
+                return None
         model_base_path = os.path.join(MODELS_DIR, wildcards.tech, model_name)
         # Get all the files as absolute paths in sorted order, minus any README.
         # We want to be the same as the manual order so we don't get WDL cache misses.
