@@ -2678,26 +2678,25 @@ rule call_variants_dv:
         truth_vcf_index=lambda w: remote_or_local(truth_vcf_index_url(w)),
         truth_bed=lambda w: remote_or_local(truth_bed_url(w))
     output:
-        wdl_input_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.input.json",
         wdl_output_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.json",
         # TODO: make this temp so we can delete it?
         wdl_output_directory=directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.wdlrun"),
-        # Treat the job store as an output so it can live on the right filesystem.
-        # Mark it temp so it will be deleted because no rules actually use it.
-        job_store=temp(directory("{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.jobstore")),
         vcf="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.vcf.gz",
         vcf_index="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.vcf.gz.tbi",
         happy_evaluation_archive="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.happy_results.tar.gz"
     log:
         logfile="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.log"
     params:
+        wdl_input_file="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.input.json",
+        job_store="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.jobstore",
+        batch_logs="{root}/called/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{region}{callparams}.batchlogs",
         reference_prefix=reference_prefix,
         haploid_contigs=haploid_contigs,
         wdl_cache=wdl_cache,
         model_files=model_files
-    threads: 8
+    threads: 2
     resources:
-        mem_mb=60000,
+        mem_mb=4000,
         # Since Toil tasks need to schedule through the cluster again, this
         # might need to wait a long time.
         # TODO: Run single machine so Slurm can't plan to run our jobs *after*
@@ -2750,11 +2749,12 @@ rule call_variants_dv:
         if params.model_files:
             # Use a model that's not built in.
             wf_inputs["DeepVariant.DV_MODEL_FILES"] = params.model_files
-        json.dump(wf_inputs, open(output["wdl_input_file"], "w"))
+        json.dump(wf_inputs, open(params["wdl_input_file"], "w"))
+        shell("rm -Rf {params.job_store}")
         # Run and keep the first manageable amount of logs not sent to the log
         # file in case we can't start. Don't stop when we hit the log limit.
         # See https://superuser.com/a/1531706
-        toil_command = "MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT={FILL_WDL_CACHE} MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner '" + wf_source + "' {output.wdl_input_file} --clean=never --jobStore file:{output.job_store} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False --logFile={log.logfile} 2>&1 | (head -c1000000; cat >/dev/null)"
+        toil_command = "MINIWDL__CALL_CACHE__GET=true MINIWDL__CALL_CACHE__PUT={FILL_WDL_CACHE} MINIWDL__CALL_CACHE__DIR={params.wdl_cache} toil-wdl-runner '" + wf_source + "' {params.wdl_input_file} --clean=onSuccess --jobStore file:{params.job_store} --batchLogsDir {params.batch_logs} --wdlOutputDirectory {output.wdl_output_directory} --wdlOutputFile {output.wdl_output_file} --batchSystem slurm --slurmTime 11:59:59 --disableProgress --caching=False --logFile={log.logfile} 2>&1 | (head -c1000000; cat >/dev/null)"
         print("Running Toil: " + toil_command)
         shell(toil_command)
 
