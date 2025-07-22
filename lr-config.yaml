@@ -82,7 +82,8 @@
 #graphs_dir: "/private/groups/patenlab/xhchang/graphs/lr_giraffe_graphs"
 #reads_dir: "/private/groups/patenlab/xhchang/reads"
 #all_out_dir: "outputs"
-real_slurm_extra: "--exclude=phoenix-[00-10,22-24]"
+# TODO: Re-enable phoenix-01 when its scratch disk is fixed.
+real_slurm_extra: "--exclude=phoenix-[01,00-10,22-24]"
 exclusive_timing: true
 # Note that reserving a full node is the only way we have to ensure a job is not split across NUMA nodes
 

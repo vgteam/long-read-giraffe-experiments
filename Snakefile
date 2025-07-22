@@ -2729,6 +2729,8 @@ rule call_variants_dv:
             # We can't actually turn off legacy AC if it's on in the model example_info. So don't pass DV_KEEP_LEGACY_AC either.
             # Read normalization should work for long reads as of gcr.io/deepvariant-docker/deepvariant:head756846963 (which is post-1.9)
             # But we also don't send DV_NORM_READS because the model defines it as of google/deepvariant:CL782981885
+            # Work around <https://github.com/google/deepvariant/issues/989>
+            "DeepVariant.OTHER_MAKEEXAMPLES_ARG": "--small_model_call_multiallelics=false" if wildcards.tech == "r10y2025" else None,
             "DeepVariant.DV_GPU_DOCKER": "google/deepvariant:CL782981885-gpu",
             "DeepVariant.DV_NO_GPU_DOCKER": "google/deepvariant:CL782981885",
             "DeepVariant.TRUTH_VCF": to_local(input.truth_vcf),
