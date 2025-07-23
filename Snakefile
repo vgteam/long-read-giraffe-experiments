@@ -254,7 +254,7 @@ wildcard_constraints:
     region="(|chr21)",
     # We use this for an optional separating dot, so we can leave it out if we also leave the field empty
     dot="\\.?",
-    callparams="(|(\\.model[0-9-]+|\\.nomodel)(\\.legacy)?)",
+    callparams="(|(\\.model[0-9-]+[a-zA-Z]*|\\.nomodel)(\\.legacy|\\.olddv)*)",
     tech="[a-zA-Z0-9]+",
     statname="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(?<!mapping_stats_real)(?<!mapping_stats_sim)(.mean|.total)?",
     statnamex="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(?<!mapping_stats_real)(?<!mapping_stats_sim)(.mean|.total)?",
@@ -656,8 +656,8 @@ def model_files(wildcards):
 
     if wildcards.tech in ("hifi", "r10y2025") and "giraffe" in wildcards.mapper:
         if wildcards.callparams.startswith(".model"):
-            # Grab the date; we assume we always use dates as model names.
-            model_name = wildcards.callparams[len(".model"):len(".model") + 10]
+            # Grab the model name
+            model_name = wildcards.callparams.split(".")[1][len("model"):]
         elif wildcards.callparams.startswith(".nomodel"):
             # Just use the model as shipped in DV
             return None
@@ -2705,6 +2705,7 @@ rule call_variants_dv:
         slurm_partition=choose_partition(8640)
     run:
         import json
+        dv_docker = "google/deepvariant:CL782981885" if ".olddv" not in wildcards.callparams else "gcr.io/deepvariant-docker/deepvariant:head756846963"
         wf_source = "#workflow/github.com/vgteam/vg_wdl/DeepVariant:lr-giraffe"
         wf_inputs = {
             "DeepVariant.MERGED_BAM_FILE": input.sorted_bam,
@@ -2731,8 +2732,8 @@ rule call_variants_dv:
             # But we also don't send DV_NORM_READS because the model defines it as of google/deepvariant:CL782981885
             # Work around <https://github.com/google/deepvariant/issues/989>
             "DeepVariant.OTHER_MAKEEXAMPLES_ARG": "--small_model_call_multiallelics=false" if wildcards.tech == "r10y2025" else None,
-            "DeepVariant.DV_GPU_DOCKER": "google/deepvariant:CL782981885-gpu",
-            "DeepVariant.DV_NO_GPU_DOCKER": "google/deepvariant:CL782981885",
+            "DeepVariant.DV_GPU_DOCKER": dv_docker + "-gpu",
+            "DeepVariant.DV_NO_GPU_DOCKER": dv_docker,
             "DeepVariant.TRUTH_VCF": to_local(input.truth_vcf),
             "DeepVariant.TRUTH_VCF_INDEX": to_local(input.truth_vcf_index),
             "DeepVariant.EVALUATION_REGIONS_BED": to_local(input.truth_bed),
@@ -2748,6 +2749,10 @@ rule call_variants_dv:
             "DeepVariant.CALL_MEM": 50 * 4,
             "DeepVariant.MAKE_EXAMPLES_MEM": 50
         }
+        if ".olddv" in wildcards.callparams:
+            # We can't use a model example_info file, so we still need to set some flags.
+            wf_inputs["DeepVariant.MIN_MAPQ"] = 0
+            wf_inputs["DeepVariant.DV_NORM_READS"] = True
         if params.model_files:
             # Use a model that's not built in.
             wf_inputs["DeepVariant.DV_MODEL_FILES"] = params.model_files
