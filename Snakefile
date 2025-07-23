@@ -2726,8 +2726,7 @@ rule call_variants_dv:
             "DeepVariant.REALIGN_INDELS": False,
             "DeepVariant.DV_MODEL_TYPE": {"hifi": "PACBIO", "r10": "ONT_R104", "r10y2025": "ONT_R104", "illumina": "WGS"}[wildcards.tech],
             # We don't send MIN_MAPQ and let the model example info define it.
-            # TODO: Should we use legacy AC like in the paper?
-            # We can't actually turn off legacy AC if it's on in the model example_info. So don't pass DV_KEEP_LEGACY_AC either.
+            # We also let the model control DV_KEEP_LEGACY_AC, which we made default to not passed in the workflow.
             # Read normalization should work for long reads as of gcr.io/deepvariant-docker/deepvariant:head756846963 (which is post-1.9)
             # But we also don't send DV_NORM_READS because the model defines it as of google/deepvariant:CL782981885
             # Work around <https://github.com/google/deepvariant/issues/989>

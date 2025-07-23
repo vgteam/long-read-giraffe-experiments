@@ -549,13 +549,13 @@ experiments:
     vary:
       mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
-      callparams: ["", ".nomodel", ".model2025-03-26synced", ".model2025-03-26noinfo.olddv"]
+      callparams: ["", ".nomodel", ".model2025-03-26noinfo.olddv"]
     constrain:
       - refgraph: "hprc-v2.0-mc-eval-sampled16o"
         mapper: "pbmm2"
         callparams: ".nomodel"
       - mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
-        callparams: ["", ".model2025-03-26synced", ".model2025-03-26noinfo.olddv"]
+        callparams: ["", ".model2025-03-26noinfo.olddv"]
         refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
 
   hifi_sim_scorescale_chm13:
