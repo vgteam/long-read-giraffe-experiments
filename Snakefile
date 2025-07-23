@@ -2753,6 +2753,7 @@ rule call_variants_dv:
             # We can't use a model example_info file, so we still need to set some flags.
             wf_inputs["DeepVariant.MIN_MAPQ"] = 0
             wf_inputs["DeepVariant.DV_NORM_READS"] = True
+            wf_inputs["DeepVariant.DV_KEEP_LEGACY_AC"] = False
         if params.model_files:
             # Use a model that's not built in.
             wf_inputs["DeepVariant.DV_MODEL_FILES"] = params.model_files
