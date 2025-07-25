@@ -254,7 +254,7 @@ wildcard_constraints:
     region="(|chr21)",
     # We use this for an optional separating dot, so we can leave it out if we also leave the field empty
     dot="\\.?",
-    callparams="(|(\\.model[0-9-]+[a-zA-Z]*|\\.nomodel)(\\.legacy|\\.olddv)*)",
+    callparams="(|(\\.model[0-9-]+[a-zA-Z]*|\\.nomodel)(\\.legacy|\\.olddv|\\.newdv)*)",
     tech="[a-zA-Z0-9]+",
     statname="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(?<!mapping_stats_real)(?<!mapping_stats_sim)(.mean|.total)?",
     statnamex="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(?<!mapping_stats_real)(?<!mapping_stats_sim)(.mean|.total)?",
@@ -2705,7 +2705,13 @@ rule call_variants_dv:
         slurm_partition=choose_partition(8640)
     run:
         import json
-        dv_docker = "google/deepvariant:CL782981885" if ".olddv" not in wildcards.callparams else "gcr.io/deepvariant-docker/deepvariant:head756846963"
+        if ".olddv" in wildcards.callparams:
+            dv_docker = "gcr.io/deepvariant-docker/deepvariant:head756846963"
+        elif ".newdv" in wildcards.callparams:
+            dv_docker = "google/deepvariant:CL782981885"
+        else:
+            # Default to old DeepVariant until https://ucsc-gi.slack.com/archives/C01D0M09G5D/p1753482919257519?thread_ts=1753201495.785309&cid=C01D0M09G5D is fixed.
+            dv_docker = "gcr.io/deepvariant-docker/deepvariant:head756846963"
         wf_source = "#workflow/github.com/vgteam/vg_wdl/DeepVariant:lr-giraffe"
         wf_inputs = {
             "DeepVariant.MERGED_BAM_FILE": input.sorted_bam,
@@ -2748,8 +2754,9 @@ rule call_variants_dv:
             "DeepVariant.CALL_MEM": 50 * 4,
             "DeepVariant.MAKE_EXAMPLES_MEM": 50
         }
-        if ".olddv" in wildcards.callparams:
+        if dv_docker == "gcr.io/deepvariant-docker/deepvariant:head756846963":
             # We can't use a model example_info file, so we still need to set some flags.
+            # TODO: Should this be different for the non-Giraffe controls????
             wf_inputs["DeepVariant.MIN_MAPQ"] = 0
             wf_inputs["DeepVariant.DV_NORM_READS"] = True
             wf_inputs["DeepVariant.DV_KEEP_LEGACY_AC"] = False

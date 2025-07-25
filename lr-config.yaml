@@ -82,8 +82,7 @@
 #graphs_dir: "/private/groups/patenlab/xhchang/graphs/lr_giraffe_graphs"
 #reads_dir: "/private/groups/patenlab/xhchang/reads"
 #all_out_dir: "outputs"
-# TODO: Re-enable phoenix-01 when its scratch disk is fixed.
-real_slurm_extra: "--exclude=phoenix-[01,00-10,22-24]"
+real_slurm_extra: "--exclude=phoenix-[00-10,22-24]"
 exclusive_timing: true
 # Note that reserving a full node is the only way we have to ensure a job is not split across NUMA nodes
 
@@ -549,13 +548,13 @@ experiments:
     vary:
       mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
-      callparams: ["", ".nomodel", ".model2025-03-26noinfo.olddv"]
+      callparams: [".newdv", ".nomodel.newdv", ".model2025-03-26noinfo.olddv"]
     constrain:
       - refgraph: "hprc-v2.0-mc-eval-sampled16o"
         mapper: "pbmm2"
-        callparams: ".nomodel"
+        callparams: ".nomodel.newdv"
       - mapper: ["giraffe-k31.w50.W-hifi-791547-noflags"]
-        callparams: ["", ".model2025-03-26noinfo.olddv"]
+        callparams: [".newdv", ".model2025-03-26noinfo.olddv"]
         refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
 
   hifi_sim_scorescale_chm13:
@@ -637,11 +636,11 @@ experiments:
     vary:
       mapper: ["giraffe-k31.w50.W-r10-791547-noflags", "minimap2-lr:hqae"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
-      callparams: [".model2025-07-17", ".nomodel", ".nomodel.olddv"]
+      callparams: [".model2025-07-17.newdv", ".nomodel.newdv", ".nomodel.olddv"]
     constrain:
       - refgraph: "hprc-v2.0-mc-eval-sampled16o"
         mapper: "minimap2-lr:hqae"
-        callparams: [".nomodel", ".nomodel.olddv"]
+        callparams: [".nomodel.newdv", ".nomodel.olddv"]
       - mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
         refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
 
