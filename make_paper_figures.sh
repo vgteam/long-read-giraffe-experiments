@@ -22,16 +22,16 @@ OUT_DIR=./plots
 
 ######################################### Define colors
 
-PURPLE='#9B8BF4'
-LIGHT_PURPLE='#C49AB6'
-BLUE='#53AEDF'
-LIGHT_BLUE='#B3C7F7'
-TEAL='#6396B0'
-GREEN='#27A974'
-YELLOW='#F2C300'
-DARK_ORANGE='#C44601'
-ORANGE='#F57600'
-PINK="#D066A3"
+PURPLE=#9B8BF4
+LIGHT_PURPLE=#C49AB6
+BLUE=#53AEDF
+LIGHT_BLUE=#B3C7F7
+TEAL=#6396B0
+GREEN=#27A974
+YELLOW=#F2C300
+DARK_ORANGE=#C44601
+ORANGE=#F57600
+PINK=#D066A3
 
 
 MINIMAP_COLOR=${PURPLE}
@@ -81,21 +81,21 @@ R10_REAL_FULL_HEADLINE_COLORS="${MINIMAP_COLOR} ${WINNOWMAP_COLOR} ${GIRAFFE_PRI
 HIFI_ACCURACY=${ROOT_DIR}/experiments/hifi_sim_1m_headline/results/compared.tsv
 R10_ACCURACY=${ROOT_DIR}/experiments/r10y2025_sim_1m_headline/results/compared.tsv
 
-Rscript plot-roc-hifi.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline_zoomed.pdf
+Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline_zoomed.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.005,0.0085,0.9905,0.9945'
 
-Rscript plot-roc-r10.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline_zoomed.pdf
+Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline_zoomed.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.004,0.010,0.990,0.994'
 
 # Zoomed out headline roc plots
-Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline.pdf
+Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
 
-Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline.pdf
+Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
 
 # headline qq plots
-Rscript plot-qq.R ${HIFI_ACCURACY} ${OUT_DIR}/qq_hifi_headline.pdf
+Rscript plot-qq.R ${HIFI_ACCURACY} ${OUT_DIR}/qq_hifi_headline.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI QQ" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
 
-Rscript plot-qq.R ${R10_ACCURACY} ${OUT_DIR}/qq_r10_headline.pdf
+Rscript plot-qq.R ${R10_ACCURACY} ${OUT_DIR}/qq_r10_headline.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 QQ" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
 
-######################################### Incorrect counts
+########################################## Incorrect counts
 
 HIFI_INCORRECT=${ROOT_DIR}/experiments/hifi_sim_1m_headline/results/mapping_stats_sim.tsv
 R10_INCORRECT=${ROOT_DIR}/experiments/r10y2025_sim_1m_headline/results/mapping_stats_sim.tsv
