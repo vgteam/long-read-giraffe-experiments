@@ -1,7 +1,7 @@
 set -ex
 
-ROOT_DIR="/private/groups/patenlab/project-lrg"
-OUT_DIR="./plots"
+ROOT_DIR=/private/groups/patenlab/project-lrg
+OUT_DIR=./plots
 
 
 # This can be used to get all the input files
@@ -137,7 +137,7 @@ LIMIT=$(python3 get_outlier_limit.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HI
 python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_INDEX_TIME}) --max ${LIMIT}  --title 'HiFi Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_hifi_headline_fast.pdf
 
 # R10 runtimes as one plot
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_INDEX_TIME}) --title 'R10 Runtime' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_r10_headline.pdf
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_INDEX_TIME}) --title 'R10 Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_r10_headline.pdf
 
 ###################################### Memory
 
