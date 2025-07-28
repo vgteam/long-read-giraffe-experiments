@@ -376,7 +376,7 @@ experiments:
       tech: ["hifi", "r10y2025"]
       mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae", "giraffe-k31.w50.W-hifi-791547-noflags", "giraffe-k31.w50.W-r10-791547-noflags"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
-      callparams: [".nomodel", ".model2025-03-26"]
+      callparams: [".nomodel", ".model2025-03-26noinfo"]
     constrain:
       - 
         # Use the right mapping preset for each tech
@@ -388,7 +388,7 @@ experiments:
         # Use the right calling model for each tech and mapper
         - tech: "hifi"
           mapper: "giraffe-k31.w50.W-hifi-791547-noflags"
-          callparams: ".model2025-03-26"
+          callparams: ".model2025-03-26noinfo"
         - tech: "hifi"
           mapper: ["minimap2-map-hifi", "pbmm2"]
           callparams: ".nomodel"
