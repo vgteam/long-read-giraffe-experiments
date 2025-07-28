@@ -382,7 +382,7 @@ experiments:
         # Use the right mapping preset for each tech
         - tech: "hifi"
           mapper: ["minimap2-map-hifi", "pbmm2", "giraffe-k31.w50.W-hifi-791547-noflags"]
-        - tech: "r10"
+        - tech: "r10y2025"
           mapper: ["minimap2-lr:hqae", "giraffe-k31.w50.W-r10-791547-noflags"]
       -
         # Use the right calling model for each tech and mapper
