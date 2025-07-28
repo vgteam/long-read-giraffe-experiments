@@ -744,13 +744,17 @@ def surjectable_gam(wildcards):
 
     return "{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam".format(**format_data)
 
-def graph_base(wildcards):
+def graph_base(wildcards, force_all_refs=False):
     """
     Find the base name for a collection of graph files from reference and either refgraph or all of refgraphbase, modifications, and clipping.
 
     For graphs ending in "-sampled" and sampling parameters, autodetects the right haplotype-sampled full graph name to use from tech and sample.
 
     For GraphAligner, selects an unchopped version of the graph based on mapper.
+
+    If force_all_refs is set, will drop 'o' from the sampling flags, if present,
+    to get the version of the graph that has all the references present in the
+    base graph.
     """
 
     # For membership testing, we need a set of wildcard keys
@@ -808,6 +812,12 @@ def graph_base(wildcards):
             # of whatever reads we're going to map, so we can consistently use
             # one graph. Note r10y2025 doesn't get trimmed.
             sampling_trimmedness = ".trimmed" if wildcards["tech"] == "r10" else ""
+
+            if force_all_refs and last.endswith("o"):
+                # We need to get the version of the graph sampled with all
+                # references instead.
+                last = last[:-1]
+
             modifications.append(f"-{last}_fragmentlinked-for-real-{wildcards['tech']}-{wildcards['sample']}{sampling_trimmedness}-full")
             parts.pop()
         elif re.fullmatch("d[0-9]+", last):
@@ -843,6 +853,12 @@ def gbz(wildcards):
     """
     return graph_base(wildcards) + ".gbz"
 
+def all_refs_gbz(wildcards):
+    """
+    Find a graph GBZ file with all linear references from reference.
+    """
+    return graph_base(wildcards, force_all_refs=True) + ".gbz"
+
 def hg(wildcards):
     """
     Find a graph hg file from reference.
@@ -860,6 +876,12 @@ def snarls(wildcards):
     Find a graph snarls file from reference.
     """
     return graph_base(wildcards) + ".snarls"
+
+def all_refs_snarls(wildcards):
+    """
+    Find a graph snarls file with all linear references from reference.
+    """
+    return graph_base(wildcards, force_all_refs=True) + ".snarls"
 
 def minimizer_k(wildcards):
     """
@@ -5557,8 +5579,15 @@ rule vgpack:
 rule vgcall:
     input:
         pack='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.pack',
-        graph=gbz,
-        snarls=snarls
+        # Since truthref might not be the same as reference, and since we might
+        # be using "o" sampled conditions with only one reference in the
+        # alignment target, we need to make sure to call using graphs with all
+        # references in the graph.
+        #
+        # TODO: Should we only do this when reference and truthref *are*
+        # distinct?
+        graph=all_refs_gbz,
+        snarls=all_refs_snarls
     output:
         vcf='{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz'
     benchmark: '{root}/svcall/vgcall/unpopped/{mapper}/benchmark.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.tsv'
