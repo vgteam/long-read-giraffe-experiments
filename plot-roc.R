@@ -36,7 +36,7 @@ if (! ("count" %in% names(dat))) {
 
 if (length(commandArgs(TRUE)) > 2) {
     # A set of aligners to plot is specified. Parse it.
-    aligner.set <- unlist(strsplit(commandArgs(TRUE)[3], ","))
+    aligner.set <- unlist(strsplit(commandArgs(TRUE)[3], ";"))
     # Subset the data to those aligners
     dat <- dat[dat$aligner %in% aligner.set,]
     # And restrict the aligner factor levels to just the ones in the set
@@ -51,62 +51,25 @@ if (length(commandArgs(TRUE)) > 3) {
 
 # Determine the order of aligners, based on sorting in a dash-separated tag aware manner
 aligner.names <- levels(factor(dat$aligner))
-name.lists <- aligner.names %>% (function(name) map(name,  (function(x) as.list(unlist(strsplit(x, "-"))))))
-# Transpose name fragments into a list of vectors for each position, with NAs when tag lists end early
-max.parts <- max(sapply(name.lists, length))
-name.cols <- list()
-for (i in 1:max.parts) {
-    name.cols[[i]] <- sapply(name.lists, function(x) if (length(x) >= i) { x[[i]] } else { NA })
-}
-name.order <- do.call(order,name.cols)
-aligner.names <- aligner.names[name.order]
+#name.lists <- aligner.names %>% (function(name) map(name,  (function(x) as.list(unlist(strsplit(x, "-"))))))
+## Transpose name fragments into a list of vectors for each position, with NAs when tag lists end early
+#max.parts <- max(sapply(name.lists, length))
+#name.cols <- list()
+#for (i in 1:max.parts) {
+#    name.cols[[i]] <- sapply(name.lists, function(x) if (length(x) >= i) { x[[i]] } else { NA })
+#}
+#name.order <- do.call(order,name.cols)
+#aligner.names <- aligner.names[name.order]
 dat$aligner <- factor(dat$aligner, levels=aligner.names)
-name.lists <- name.lists[name.order]
+#name.lists <- name.lists[name.order]
 
 # Determine colors for aligners
-bold.colors <- c("#27A974","#9B8BF4","#33a02c","#C44601","#ff8000","#F2C300","#458b74","#698b22","#008b8b")
-light.colors <- c("#27A974","#9B8BF4","#33a02c","#C44601","#ff8000","#F2C300","#458b74","#698b22","#008b8b")
-# We have to go through both lists together when assigning colors, because pe and non-pe versions of a condition need corresponding colors.
-cursor <- 1
+colors <- c("#27A974","#9B8BF4","#33a02c","#C44601","#ff8000","#F2C300","#458b74","#698b22","#008b8b")
 
-# This will map from non-pe condition name string to color index.
-colors <- c()
-for (i in 1:length(name.lists)) {
-    # For each name
-    name.parts <- unlist(name.lists[[i]])
-    if (name.parts[length(name.parts)] == "pe") {
-        # Drop the pe tag if present
-        name.parts <- name.parts[-c(length(name.parts))]
-    }
-    if (name.parts[length(name.parts)] == "se") {
-        # Drop the se tag if present
-        name.parts <- name.parts[-c(length(name.parts))]
-    }
-    
-    # Join up to a string again
-    name <- paste(name.parts, collapse='-')
-    
-    if (! name %in% names(colors)) {
-        # No colors assigned for this pair of conditions, so assign them.
-        
-        if (cursor > length(bold.colors)) {
-            write(colors, stderr())
-            write(aligner.names, stderr())
-            stop('Ran out of colors! Too many conditions!')
-        }
-        
-        # We always assign pe and non-pe colors in lockstep, whichever we see first.
-        # We need two entries for -se and no tag which are the same.
-        new.colors <- c(bold.colors[cursor], light.colors[cursor], light.colors[cursor])
-        names(new.colors) <- c(paste(name, 'pe', sep='-'), paste(name, 'se', sep='-'), name)
-        colors <- c(colors, new.colors)
-        
-        cursor <- cursor + 1
-    }
+if (length(commandArgs(TRUE)) > 4) {
+    # A set of colors to plot is specified. Parse it.
+    colors <- unlist(strsplit(commandArgs(TRUE)[5], ","))
 }
-
-# Make colors a vector in the same order as the actually-used aligner names
-colors <- colors[aligner.names]
 
 dat$bin <- cut(dat$mq, c(-Inf,seq(0,60,1),Inf))
 dat.roc <- dat %>%
@@ -125,17 +88,36 @@ max.log10 <- 0
 range.log10 <- min.log10 : max.log10
 range.unlogged = 10^range.log10
 
-dat.plot <- ggplot(dat.roc, aes( x= FPR, y = TPR, color = aligner, label=mq)) +
-    geom_line() +
-    #geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
-    geom_point(aes(size=Positive+Negative)) +
-    scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
-    scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
-    scale_x_log10(limits=c(range.unlogged[1],range.unlogged[length(range.unlogged)]), breaks=range.unlogged, oob=squish) +
-    geom_vline(xintercept=1/total.reads) + # vertical line at one wrong read
-    theme_bw() + 
-    theme(legend.position=c(1,0), legend.justification=c(1,0)) +
-    ggtitle(title)
+if (length(commandArgs(TRUE)) > 5) {
+    # A set of colors to plot is specified. Parse it.
+    zoom_coords <- as.numeric(strsplit(commandArgs(TRUE)[6], ",")[[1]])
+    print(zoom_coords)
+    print(zoom_coords[1])
+    dat.plot <- ggplot(dat.roc, aes( x= FPR, y = TPR, color = aligner, label=mq)) +
+        geom_line() +
+        #geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
+        geom_point(aes(size=Positive+Negative)) +
+        scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
+        scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
+        coord_trans(xlim = c(zoom_coords[1], zoom_coords[2]), x = "log",ylim = c(zoom_coords[3], zoom_coords[4])) +
+        geom_vline(xintercept=1/total.reads) + # vertical line at one wrong read
+        theme_bw() + 
+        theme(legend.position=c(1,0), legend.justification=c(1,0)) +
+        ggtitle(title)
+} else {
+ 
+    dat.plot <- ggplot(dat.roc, aes( x= FPR, y = TPR, color = aligner, label=mq)) +
+        geom_line() +
+        #geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
+        geom_point(aes(size=Positive+Negative)) +
+        scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
+        scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
+        scale_x_log10(limits=c(range.unlogged[1],range.unlogged[length(range.unlogged)]), breaks=range.unlogged, oob=squish) +
+        geom_vline(xintercept=1/total.reads) + # vertical line at one wrong read
+        theme_bw() + 
+        theme(legend.position=c(1,0), legend.justification=c(1,0)) +
+        ggtitle(title)
+}
     
 if (title != '') {
     # And a title
