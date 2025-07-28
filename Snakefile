@@ -237,6 +237,7 @@ VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="v1.64.1"
 wildcard_constraints:
     expname="[^/]+",
     refgraphbase="[^/]+?",
+    refgraph="(?!model)(?!legacy)(?!olddv)(?!newdv)[^/_]+?",
     reference="chm13|grch38|chm13v1",
     # We can have multiple versions of graphs with different modifications and clipping regimes
     modifications="(-[^.-]+(\\.trimmed)?(\\.clip\\.[0-9]*\\.[0-9]*)?(\\.ec[0-9kmKM]+)?)*",
@@ -2871,7 +2872,6 @@ rule dv_summary_by_condition:
     output:
         tsv="{root}/experiments/{expname}/stats/deepvariant/{mapper}/{realness}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}{callparams}.dv_{vartype}_summary.tsv"
     wildcard_constraints:
-        refgraph="[^/_]+",
         vartype="(snp|indel)"
     threads: 1
     resources:
