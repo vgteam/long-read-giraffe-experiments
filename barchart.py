@@ -156,7 +156,7 @@ def main(args):
         
         # Sum in the values
         categories[category] += value
-        
+
     for category, division in divisions.items():
         # Allocate space for the lower bar.
         categories[category] -= division
@@ -182,6 +182,11 @@ def main(args):
     
     # Compute the order to use
     if options.categories is not None:
+
+        for category in options.categories:
+            if category not in categories:
+                # Warn about missing categories because they can cause errors with labeling.
+                sys.stderr.write(f"Warning: missing data for category: {category}\n")
         
         # hack in ascending order option
         if options.ascending is True:
