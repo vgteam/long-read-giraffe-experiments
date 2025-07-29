@@ -137,4 +137,42 @@ Then run the Snakemake in a subshell with a group-writable umask set, and ask fo
 
 The file and all intermediates will end up owned and writable by the correct group.
 
+# Collecting Paper Data
+
+First, make sure you have run the `all_paper_figures` rule:
+
+```
+(umask 002 && snakemake -j128 --rerun-incomplete --keep-incomplete --use-singularity --singularity-args "-B /private" --latency-wait 120 --slurm --keep-going all_paper_figures)
+```
+
+Then:
+
+1. Copy from `/private/groups/patenlab/project-lrg/experiments/{hifi,r10y2025,illumina}_real_full/results/mapping_stats_real.tsv` into spreadsheet "Runtime/memory/softclips" tab and reorder.
+    - Record vg version and date
+    ```
+    cat /private/groups/patenlab/project-lrg/experiments/{hifi,r10y2025,illumina}_real_full/results/mapping_stats_real.tsv | sed 's/,chm13//g' | sed 's/condition/mapper,graph/g' | tr ',' '\t' | awk -v OFS='\t' '{ t = $1; $1 = $2; $2 = t; if ($2 ~ /^(minimap2|pbmm2|winnowmap|bwa)/ || $1 == "primary") { $1 = "CHM13" } ; print; }'
+    ```
+
+2. Copy from `/private/groups/patenlab/project-lrg/experiments/{hifi,r10y2025}_sim_1m/results/mapping_stats_sim.tsv` into spreadsheet "Simulated accuracy" tab and reorder.
+    - Record vg version and date
+    ```
+    cat /private/groups/patenlab/project-lrg/experiments/{hifi,r10y2025,illumina}_sim_1m/results/mapping_stats_sim.tsv | sed 's/,chm13\(v1\)?//g' | sed 's/condition/mapper,graph/g' | tr ',' '\t' | awk -v OFS='\t' '{ t = $1; $1 = $2; $2 = t; if ($2 ~ /^(minimap2|pbmm2|winnowmap|bwa)/ || $1 == "primary") { $1 = "CHM13" } ; print; }'
+    ```
+
+3. Copy from `/private/groups/patenlab/project-lrg/experiments/dv_calling/results/dv_{indel,snp}_summary.tsv` into spreadsheet "DeepVariant calling" tab and reorder.
+    - Highlight best conditions
+    - Record vg version and date
+    ```
+    cat /private/groups/patenlab/project-lrg/experiments/dv_calling/results/dv_{indel,snp}_summary.tsv | sed 's/condition/tech,mapper,graph,model/g' | tr ',' '\t' | awk -v OFS='\t' '{ t = $2; $2 = $3; $3 = t; if ($3 ~ /^(minimap2|pbmm2|winnowmap|bwa)/ || $2 == "primary") { $2 = "CHM13" } ; print; }'
+    ```
+
+4. Copy from `/private/groups/patenlab/project-lrg/experiments/sv_calling/results/sv_summary.tsv` into spreadsheet "SV calling" tab and reorder.
+    - Record vg version and date
+    ```
+    cat /private/groups/patenlab/project-lrg/experiments/sv_calling/results/sv_summary.tsv | sed 's/condition/graph_ref,benchmark_ref,calller,tech,mapper,graph/g' | tr ',' '\t' | awk -v OFS='\t' '{ graph_ref = $1; benchmark_ref = $2; caller = $3; tech = $4; mapper = $5; graph = $6; if (mapper ~ /^(minimap2|pbmm2|winnowmap|bwa)/ || graph == "primary") { graph = graph_ref } ; $1 = tech; $2 = graph; $3 = caller; $4 = mapper; $5 = graph_ref ; $6 = benchmark_ref; print; }' |  cut -f1-4,6- | sed '1s/^/#/' | sort -k1 | sed '1s/^#//'
+    ```
+
+5. Run `make_paper_figures.sh` and collect the figures.
+
+
 
