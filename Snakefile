@@ -240,7 +240,7 @@ wildcard_constraints:
     refgraph="(?!model)(?!legacy)(?!olddv)(?!newdv)[^/_]+?",
     reference="chm13|grch38|chm13v1",
     # We can have multiple versions of graphs with different modifications and clipping regimes
-    modifications="(-[^.-]+(\\.trimmed)?(\\.clip\\.[0-9]*\\.[0-9]*)?(\\.ec[0-9kmKM]+)?)*",
+    modifications="(?!-mc)(-[^.-]+(\\.trimmed)?(\\.clip\\.[0-9]*\\.[0-9]*)?(\\.ec[0-9kmKM]+)?)*",
     clipping="\\.d[0-9]+|",
     full="\\.full|",
     chopping="\\.unchopped|",
@@ -3396,7 +3396,9 @@ rule haplotype_sampling_time_empty:
     params:
         condition_name=condition_name
     wildcard_constraints:
-        refgraph="[^/_]+"
+        # Don't operate on sampled refgraphs.
+        # Say we need a refgraph that's a bit not followed by a sampling indicator, followed by a dash and something.
+        refgraph="(?!model)(?!legacy)(?!olddv)(?!newdv)[^/_]+(?!-sampled[0-9]+d?o?)-[^-]+",
     threads: 1
     resources:
         mem_mb=200,
@@ -3408,21 +3410,18 @@ rule haplotype_sampling_time_empty:
 rule haplotype_sampling_time_giraffe:
     input:
         kmer_counting=kmer_counts_benchmark,
-        haplotype_sampling=os.path.join(GRAPHS_DIR, "indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{full}-{sampling}_fragmentlinked-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
-        distance_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{full}-{sampling}_fragmentlinked-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
-        minimizer_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{full}-{sampling}_fragmentlinked-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.k{k}.w{w}{weightedness}.benchmark")
+        haplotype_sampling=os.path.join(GRAPHS_DIR, "indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}_fragmentlinked-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
+        distance_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}_fragmentlinked-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
+        minimizer_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}_fragmentlinked-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.k{k}.w{w}{weightedness}.benchmark")
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraphbase}-{sampling}{clipping}{full}{chopping}/giraffe-k{k}.w{w}{weightedness}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraphbase}{modifications}{clipping}{full}{chopping}{sampling}/giraffe-k{k}.w{w}{weightedness}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv"
     wildcard_constraints:
-        sampling="sampled[0-9]+d?o?",
+        sampling="-sampled[0-9]+d?o?",
         weightedness="\\.W|",
         k="[0-9]+",
         w="[0-9]+",
-        # We're thinking about haplotype sampling only and these don't go into the inputs actually
-        clipping="",
-        chopping=""
     threads: 1
     resources:
         mem_mb=200,
@@ -3440,8 +3439,6 @@ rule haplotype_sampling_time_giraffe:
             runtime += 24 * 60 * days
             f.close()
         shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
-
-ruleorder: haplotype_sampling_time_giraffe > haplotype_sampling_time_empty
 
 #output tsv of:
 #condition name, index load time plus haplotype sampling time in minutes
