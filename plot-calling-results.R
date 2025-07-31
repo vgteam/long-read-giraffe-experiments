@@ -17,7 +17,8 @@ dat %>%
   pivot_longer(cols=c(F1, recall, precision), names_to='metric', values_to='value') %>%
   ggplot(aes(x=condition, color=metric, y=value)) +
   geom_hline(yintercept=1, linetype=2) + 
-  geom_point(position=position_dodge(.5), alpha=.8) +
+  geom_line(aes(group=condition), linewidth=0.75, color='black', alpha=.8) +
+  geom_point( alpha=.8, size=3) +
   theme_bw() +
   scale_color_brewer(palette="Set2") +
   coord_flip() + 
