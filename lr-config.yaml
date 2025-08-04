@@ -108,16 +108,16 @@ experiments:
       sample: HG002
       realness: real
     vary:
-      mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-r10-791547-noflags"]
+      mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-r10-791547-noflags", "giraffe-k31.w50.W-r10-791547-mcspb0.00"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v2.0-minigraph-eval", "hprc-v1.1-mc-sampled32d", "primary"]
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
           # graphaligner-default timed out after 7 days in Slurm job 9705975
-          mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-fast", "giraffe-k31.w50.W-r10-791547-noflags"]
+          mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-fast", "giraffe-k31.w50.W-r10-791547-noflags", "giraffe-k31.w50.W-r10-791547-mcspb0.00"]
         - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
-          mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
+          mapper: ["giraffe-k31.w50.W-r10-791547-noflags", "giraffe-k31.w50.W-r10-791547-mcspb0.00"]
         - refgraph: "primary"
-          mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
+          mapper: ["giraffe-k31.w50.W-r10-791547-noflags", "giraffe-k31.w50.W-r10-791547-mcspb0.00"]
         - refgraph: "hprc-v2.0-minigraph-eval"
           mapper: ["minigraph", "graphaligner-default"]
 
@@ -172,16 +172,16 @@ experiments:
       sample: HG002
       realness: real
     vary:
-      mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-r10-791547-noflags"]
+      mapper: ["minimap2-map-ont", "minimap2-lr:hqae", "winnowmap", "graphaligner-default", "graphaligner-fast", "minigraph", "giraffe-k31.w50.W-r10-791547-noflags", "giraffe-k31.w50.W-r10-791547-mcspb0.00"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v2.0-minigraph-eval", "primary"]
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
           # graphaligner-default timed out after 7 days in Slurm job 9705975
-          mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-fast", "giraffe-k31.w50.W-r10-791547-noflags"]
+          mapper: ["minimap2-lr:hqae", "winnowmap", "graphaligner-fast", "giraffe-k31.w50.W-r10-791547-mcspb0.00"]
         - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o"]
-          mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
+          mapper: ["giraffe-k31.w50.W-r10-791547-mcspb0.00"]
         - refgraph: "primary"
-          mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
+          mapper: ["giraffe-k31.w50.W-r10-791547-mcspb0.00"]
         - refgraph: "hprc-v2.0-minigraph-eval"
           mapper: ["minigraph", "graphaligner-default"]
 
@@ -261,7 +261,17 @@ experiments:
       refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
       tech: "r10y2025"
     vary:
-      tech: ["r10", "r10y2025"]
+      mapper: ["winnowmap", "giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-mcspem0.00", "giraffe-k31.w50.W-r10y2025-default-noflags"]
+
+  r10_sim_compare:
+    control:
+      subset: 10k
+      reference: chm13
+      sample: HG002
+      realness: sim
+      refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
+      tech: "r10"
+    vary:
       mapper: ["winnowmap", "giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-mcspem0.00", "giraffe-k31.w50.W-r10y2025-default-noflags"]
 
   hifi_sim_1m:
