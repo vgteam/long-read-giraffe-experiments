@@ -1427,6 +1427,10 @@ def get_vg_flags(wildcard_flag):
             return "--downsample-window-length 400"
         case "mqWindow":
             return "--mapq-score-scale 1 --mapq-score-window 150"
+        case mcspb_nunber if mcspb_nunber[0:5] == "mcspb":
+            return "--min-chain-score-per-base " + mcspb_nunber[5:]
+        case mcspem_nunber if mcspem_nunber[0:6] == "mcspem":
+            return "--min-chain-score-per-base 0.0 --min-chain-score-per-explored-minimizer " + mcspem_nunber[6:]
         case "noflags":
             return ""
         case unknown:
@@ -3068,7 +3072,7 @@ rule overall_fraction:
     output:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.overall_fraction_{state}.tsv"
     wildcard_constraints:
-        state="(correct|eligible|wrong)"
+        state="(correct|eligible|wrong|unmapped)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3471,7 +3475,7 @@ rule condition_experiment_stat:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{callparams}{dot}{category}.{conditionstat}.tsv"
     wildcard_constraints:
         refgraph="[^/_]+",
-        conditionstat="((overall_fraction_)?(wrong|correct|eligible)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp)|(snp|indel|total)_errors)"
+        conditionstat="((overall_fraction_)?(wrong|correct|eligible|unmapped)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp)|(snp|indel|total)_errors)"
     threads: 1
     resources:
         mem_mb=1000,

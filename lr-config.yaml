@@ -252,6 +252,18 @@ experiments:
         - refgraph: "hprc-v2.0-minigraph-eval"
           mapper: ["minigraph", "graphaligner-default", "graphaligner-fast"]
 
+  r10y2025_sim_compare:
+    control:
+      subset: 10k
+      reference: chm13
+      sample: HG002
+      realness: sim
+      refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
+      tech: "r10y2025"
+    vary:
+      tech: ["r10", "r10y2025"]
+      mapper: ["winnowmap", "giraffe-k31.w50.W-r10-default-noflags", "giraffe-k31.w50.W-r10-default-mcspem0.00", "giraffe-k31.w50.W-r10y2025-default-noflags"]
+
   hifi_sim_1m:
     control:
       subset: 1m
