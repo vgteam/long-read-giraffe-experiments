@@ -4618,7 +4618,7 @@ rule length_by_mapping:
         """
         vg filter --only-mapped -t {threads} -T "name" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_names}
         seqkit fx2tab -n -l {input.fastq} | sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' > {output.length_by_name}
-        join -j 1 -a 2 {output.length_by_name} {output.mapped_names} | awk -v OFS='\t' '{{if (NF == 1) {{print "unmapped",$1}} else {{print "mapped",$2}}}}' > {output.tsv}
+        join -j 1 -a 1 {output.length_by_name} {output.mapped_names} | awk -v OFS='\t' '{{if (NF == 1) {{print "unmapped",$1}} else {{print "mapped",$2}}}}' > {output.tsv}
         """
 
 
