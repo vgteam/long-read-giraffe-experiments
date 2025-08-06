@@ -4616,7 +4616,7 @@ rule length_by_mapping:
         # Assume unmapped reads are the ones with score 0
         """
         vg filter --only-mapped -t {threads} -T "length" {input.gam} | grep -v "#" | sed 's/^/mapped\t/' > {output.tsv}
-        vg filter --comnplement --only-mapped -t {threads} -T "length" {input.gam} | grep -v "#" | sed 's/^/unmapped\t/' >> {output.tsv}
+        vg filter --complement --only-mapped -t {threads} -T "length" {input.gam} | grep -v "#" | sed 's/^/unmapped\t/' >> {output.tsv}
         """
 
 
