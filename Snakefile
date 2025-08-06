@@ -4607,7 +4607,7 @@ rule length_by_mapping:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     output:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv",
-    threads: 2
+    threads: 16
     resources:
         mem_mb=28000,
         runtime=720,
