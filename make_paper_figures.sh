@@ -51,8 +51,8 @@ GIRAFFE_SAMPLED_COLOR=${ORANGE}
 MINIMAP_HIFI=minimap2-map-hifi,hprc-v2.0-mc-eval-d46
 MINIMAP_R10=minimap2-lr:hqae,hprc-v2.0-mc-eval-d46
 WINNOWMAP=winnowmap,hprc-v2.0-mc-eval-d46
-GIRAFFE_PRIMARY_HIFI=giraffe-noflags,primary
-GIRAFFE_PRIMARY_R10=giraffe-mcspb0.00,primary
+GIRAFFE_PRIMARY_HIFI=giraffe,primary
+GIRAFFE_PRIMARY_R10=giraffe,primary
 PBMM=pbmm2,hprc-v2.0-mc-eval-d46
 
 MINIGRAPH_MINIGRAPH=minigraph,hprc-v2.0-minigraph-eval
@@ -60,11 +60,11 @@ GRAPHALIGNER_MINIGRAPH=graphaligner-default,hprc-v2.0-minigraph-eval
 
 GRAPHALIGNER_DEFAULT=graphaligner-default,hprc-v2.0-mc-eval-d46
 GRAPHALIGNER_FAST=graphaligner-fast,hprc-v2.0-mc-eval-d46
-GIRAFFE_HIFI=giraffe-noflags,hprc-v2.0-mc-eval-d46
-GIRAFFE_R10=giraffe-mcspb0.00,hprc-v2.0-mc-eval-d46
+GIRAFFE_HIFI=giraffe,hprc-v2.0-mc-eval-d46
+GIRAFFE_R10=giraffe,hprc-v2.0-mc-eval-d46
 
-GIRAFFE_SAMPLED_HIFI=giraffe-noflags,hprc-v2.0-mc-eval.ec1M-sampled16o
-GIRAFFE_SAMPLED_R10=giraffe-mcspb0.00,hprc-v2.0-mc-eval.ec1M-sampled16o
+GIRAFFE_SAMPLED_HIFI=giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o
+GIRAFFE_SAMPLED_R10=giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o
 
 ###################################### Define conditions and colors for each experiment
 

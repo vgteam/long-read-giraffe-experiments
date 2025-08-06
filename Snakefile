@@ -212,6 +212,10 @@ REAL_SLURM_EXTRA = config.get("real_slurm_extra", None) or ""
 # If False, they will just use one thread per core.
 EXCLUSIVE_TIMING = config.get("exclusive_timing", True)
 
+# Jobs of this many real reads or more will be timed exclusively, if
+# EXCLUSIVE_TIMING is on.
+MIN_EXCLUSIVE_READS = config.get("min_exclusive_reads", 1000000)
+
 # How many threads do we want mapping to use?
 # TODO: If we're reserving whole nodes we want to use all of the node actually, but only on exclusive runs.
 MAPPER_THREADS = 64 if EXCLUSIVE_TIMING else 32
@@ -285,23 +289,29 @@ def auto_mapping_threads(wildcards):
     else:
         return mapping_threads
 
+def exclusive_timing(wildcards):
+    """
+    Determine whether to time a real-read run exclusively, from subset.
+    """
+    number = subset_to_number(wildcards["subset"])
+    return EXCLUSIVE_TIMING and number >= MIN_EXCLUSIVE_READS
+
 def auto_mapping_slurm_extra(wildcards):
     """
-    Determine Slurm extra arguments for a timed, real-read mapping job.
+    Determine Slurm extra arguments for a timed, real-read mapping job from subset.
     """
-    if EXCLUSIVE_TIMING:
+    if exclusive_timing(wildcards):
         return "--exclusive " + REAL_SLURM_EXTRA
     else:
         return REAL_SLURM_EXTRA
 
 def auto_mapping_full_cluster_nodes(wildcards):
     """
-    Determine number of full cluster nodes for a timed, real-read mapping job.
+    Determine number of full cluster nodes for a timed, real-read mapping job from subset.
 
     TODO: Is this really used by Slurm?
     """
-    number = subset_to_number(wildcards["subset"])
-    if EXCLUSIVE_TIMING:
+    if exclusive_timing(wildcards):
         return 1
     else:
         return 0
@@ -2098,7 +2108,7 @@ rule giraffe_real_reads:
         realness="real"
     threads: auto_mapping_threads
     params:
-        exclusive_timing=EXCLUSIVE_TIMING 
+        exclusive_timing=exclusive_timing 
     resources:
         mem_mb=auto_mapping_memory,
         runtime=1200,
@@ -2209,7 +2219,7 @@ rule winnowmap_real_reads:
         tech="(?!illumina).+"
     threads: auto_mapping_threads
     params:
-        exclusive_timing=EXCLUSIVE_TIMING
+        exclusive_timing=exclusive_timing
     resources:
         mem_mb=300000,
         runtime=1600,
@@ -2262,7 +2272,7 @@ rule minimap2_real_reads:
         realness="real"
     threads: auto_mapping_threads
     params:
-        exclusive_timing=EXCLUSIVE_TIMING
+        exclusive_timing=exclusive_timing
     resources:
         mem_mb=300000,
         runtime=1200,
@@ -2305,7 +2315,7 @@ rule pbmm2_real_reads:
         tech="hifi"
     threads: auto_mapping_threads
     params:
-        exclusive_timing=EXCLUSIVE_TIMING
+        exclusive_timing=exclusive_timing
     resources:
         mem_mb=300000,
         runtime=1200,
@@ -2369,7 +2379,7 @@ rule bwa_real_reads:
         pairing="(-pe|)"
     params:
         pairing_flag=lambda w: "-p" if w["pairing"] == "-pe" else "",
-        exclusive_timing=EXCLUSIVE_TIMING
+        exclusive_timing=exclusive_timing
     threads: auto_mapping_threads
     resources:
         mem_mb=30000,
@@ -2438,7 +2448,7 @@ rule graphaligner_real_reads:
     params:
         mapping_threads=lambda wildcards, threads: threads if threads <= 2 else threads-2,
         flags=lambda wildcards: get_graphaligner_flags(wildcards.graphalignerflag),
-        exclusive_timing=EXCLUSIVE_TIMING
+        exclusive_timing=exclusive_timing
     container: "docker://quay.io/biocontainers/graphaligner:1.0.20--h06902ac_0"
     resources:
         mem_mb=900000,
@@ -2477,7 +2487,7 @@ rule minigraph_real_reads:
         realness="real"
     threads: auto_mapping_threads
     params:
-        exclusive_timing=EXCLUSIVE_TIMING
+        exclusive_timing=exclusive_timing
     resources:
         mem_mb=300000,
         runtime=1200,
@@ -2516,7 +2526,7 @@ rule panaligner_real_reads:
         realness="real"
     threads: auto_mapping_threads
     params:
-        exclusive_timing=EXCLUSIVE_TIMING
+        exclusive_timing=exclusive_timing
     resources:
         mem_mb=300000,
         runtime=600,
@@ -3401,8 +3411,8 @@ rule haplotype_sampling_time_empty:
         condition_name=condition_name
     wildcard_constraints:
         # Don't operate on sampled refgraphs.
-        # Say we need a refgraph that's a bit not followed by a sampling indicator, followed by a dash and something.
-        refgraph="(?!model)(?!legacy)(?!olddv)(?!newdv)[^/_]+(?!-sampled[0-9]+d?o?)-[^-]+",
+        # Say we need a refgraph that's a bit not followed by a sampling indicator, followed by a dash and something. Or "primary".
+        refgraph="((?!model)(?!legacy)(?!olddv)(?!newdv)[^/_]+(?!-sampled[0-9]+d?o?)-[^-]+|primary)",
     threads: 1
     resources:
         mem_mb=200,
@@ -5746,19 +5756,22 @@ ruleorder: sv_summary_table > experiment_stat_table
 
 
 
-#Make the figures we want for the paper
+#Make the tables and figures we want for the paper
 #Experiments are specified in the config file
-#TODO: idk what we want for variant calling
 rule all_paper_figures:
     input:
-        mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.latex.tsv", expname=config["real_exps"]),
+        mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.tsv", expname=config["real_exps"]),
+        mapping_stats_real_latex=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.latex.tsv", expname=config["real_exps"]),
         softclippeds=expand(ALL_OUT_DIR + "/experiments/{expname}/results/softclipped_or_unmapped_percent.tsv", expname=config["headline_real_exps"]),
         runtime=expand(ALL_OUT_DIR + "/experiments/{expname}/results/run_and_sampling_time_from_benchmark.tsv", expname=config["headline_real_exps"]),
         index_time=expand(ALL_OUT_DIR + "/experiments/{expname}/results/index_load_time.tsv", expname=config["headline_real_exps"]),
         memory=expand(ALL_OUT_DIR + "/experiments/{expname}/results/memory_from_benchmark.tsv", expname=config["headline_real_exps"]),
         mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=list(set(config["headline_sim_exps"] + config["sim_exps"]))),
         compared_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/compared.tsv", expname=config["headline_sim_exps"]),
-        dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_indel_summary.pdf", expname=config["dv_exps"]),
-        dv_snp=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_snp_summary.pdf", expname=config["dv_exps"]),
-        svs=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/sv_summary.pdf", expname=config["sv_exps"])
+        dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_indel_summary.tsv", expname=config["dv_exps"]),
+        dv_indel_pdf=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_indel_summary.pdf", expname=config["dv_exps"]),
+        dv_snp=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_snp_summary.tsv", expname=config["dv_exps"]),
+        dv_snp_pdf=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_snp_summary.pdf", expname=config["dv_exps"]),
+        svs=expand(ALL_OUT_DIR + "/experiments/{expname}/results/sv_summary.tsv", expname=config["sv_exps"]),
+        svs_pdf=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/sv_summary.pdf", expname=config["sv_exps"])
 
