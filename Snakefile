@@ -2935,6 +2935,10 @@ rule compare_alignments:
         runtime=800,
         slurm_partition=choose_partition(800)
     shell:
+        # Note that vg gamcompare computes the eligible read count directly
+        # from the truth, so if reads vanish altogether (like with
+        # GraphAligner's unmapped reads), they will count as wrong if they were
+        # eligible.
         "vg gamcompare --threads 16 --range 200 {params.ignore_flag} {input.gam} {input.truth_gam} --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.compare}"
 
 rule compare_alignments_category:
@@ -4707,6 +4711,13 @@ rule unmapped_ends_by_name:
         runtime=720,
         slurm_partition=choose_partition(720)
     shell:
+        # This actually takes the read length represented in the GAM and
+        # subtracts it from that in the FASTQ, for all reads in the GAM (which
+        # should also all be in the FASTQ). It counts undescribed (and thus
+        # unmapped) portions of reads, but not totally absent reads, or reads
+        # that are present but unmapped (which are both counted via
+        # length_by_mapping above).
+        # TODO: Why do we have -a 2?
         """
         vg filter -t {threads} -T "name;length" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_length_by_name}
         seqkit fx2tab -n -l {input.fastq} | sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' > {output.read_length_by_name}
