@@ -1437,10 +1437,12 @@ def get_vg_flags(wildcard_flag):
             return "--downsample-window-length 400"
         case "mqWindow":
             return "--mapq-score-scale 1 --mapq-score-window 150"
-        case mcspb_nunber if mcspb_nunber[0:5] == "mcspb":
-            return "--min-chain-score-per-base " + mcspb_nunber[5:]
-        case mcspem_nunber if mcspem_nunber[0:6] == "mcspem":
-            return "--min-chain-score-per-base 0.0 --min-chain-score-per-explored-minimizer " + mcspem_nunber[6:]
+        case mcspb_number if mcspb_number[0:5] == "mcspb":
+            return "--min-chain-score-per-base " + mcspb_number[5:]
+        case mcspem_number if mcspem_number[0:6] == "mcspem":
+            return "--min-chain-score-per-base 0.0 --min-chain-score-per-explored-minimizer " + mcspem_number[6:]
+        case sp_number if sp_number[0:2] == "sp":
+            return "--softclip-penalty " + sp_number[2:]
         case "noflags":
             return ""
         case unknown:
