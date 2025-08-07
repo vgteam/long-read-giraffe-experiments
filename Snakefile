@@ -274,12 +274,12 @@ def auto_mapping_threads(wildcards):
     """
     number = subset_to_number(wildcards["subset"])
     mapping_threads = 0
-    if number >= 100000:
-        mapping_threads= MAPPER_THREADS
-    elif number >= 10000:
-        mapping_threads= 16
+    if number > 100000:
+        mapping_threads = MAPPER_THREADS
+    elif number > 10000:
+        mapping_threads = 16
     else:
-        mapping_threads= 8
+        mapping_threads = 8
 
     if wildcards.get("mapper", "").startswith("graphaligner") and wildcards.get("realness", "") == "sim":
         #Graphaligner is really slow so for simulated reads where we don't care about time
@@ -1443,6 +1443,8 @@ def get_vg_flags(wildcard_flag):
             return "--min-chain-score-per-base 0.0 --min-chain-score-per-explored-minimizer " + mcspem_number[6:]
         case sp_number if sp_number[0:2] == "sp":
             return "--softclip-penalty " + sp_number[2:]
+        case "candidate1":
+            return "--max-min-chain-score 60 --chain-score-threshold 150"
         case "noflags":
             return ""
         case unknown:
