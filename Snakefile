@@ -4607,16 +4607,21 @@ rule length_by_mapping:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     output:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv",
+        length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"),
+        mapped_names=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv")
     threads: 16
     resources:
         mem_mb=28000,
         runtime=720,
         slurm_partition=choose_partition(720)
     shell:
-        # Assume unmapped reads are the ones with score 0
+        # Because GraphAligner doesn't output unmapped reads, we need to get the lengths from the original FASTQ
+        # So we get all the mapped reads and then all the unmapped reads. See <https://unix.stackexchange.com/a/588652>
         """
-        vg filter --only-mapped -t {threads} -T "length" {input.gam} | grep -v "#" | sed 's/^/mapped\t/' > {output.tsv}
-        vg filter --complement --only-mapped -t {threads} -T "length" {input.gam} | grep -v "#" | sed 's/^/unmapped\t/' >> {output.tsv}
+        vg filter --only-mapped -t {threads} -T "name" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_names}
+        seqkit fx2tab -n -l {input.fastq} | sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' > {output.length_by_name}
+        join -j 1 {output.length_by_name} {output.mapped_names} | awk -v OFS='\t' '{{print "mapped",$2}}' > {output.tsv}
+        join -j 1 -a 1 -v 2 {output.length_by_name} {output.mapped_names} | awk -v OFS='\t' '{{print "unmapped",$2}}' >> {output.tsv}
         """
 
 
