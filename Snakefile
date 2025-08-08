@@ -328,8 +328,10 @@ def auto_mapping_memory(wildcards):
         scale_mb = 200000
     elif wildcards["tech"] == "hifi":
         scale_mb = 240000
-    else:
+    elif wildcards["tech"] == "r10":
         scale_mb = 600000
+    else:
+        scale_mb = 210000
 
     # Scale down memory with threads
     return scale_mb / 64 * thread_count + base_mb
