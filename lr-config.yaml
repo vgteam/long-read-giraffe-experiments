@@ -263,7 +263,18 @@ experiments:
       refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
       tech: "r10y2025"
     vary:
-      mapper: ["winnowmap", "giraffe-k31.w50.W-r10-791547-noflags", "giraffe-k31.w50.W-r10-791547-mcspb0.00", "giraffe-k31.w50.W-r10y2025-default-sp0.00", "giraffe-k31.w50.W-r10y2025-default-sp0.02", "giraffe-k31.w50.W-r10y2025-default-sp0.04", "giraffe-k31.w50.W-r10y2025-default-sp0.06", "giraffe-k31.w50.W-r10-791547-candidate1"]
+      mapper: ["winnowmap", "giraffe-k31.w50.W-r10-791547-noflags", "giraffe-k31.w50.W-r10-791547-mcspb0.00", "giraffe-k31.w50.W-r10-791547-candidate1"]
+
+  r10y2025_sim_compare_1m:
+    control:
+      subset: 1m
+      reference: chm13
+      sample: HG002
+      realness: sim
+      refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
+      tech: "r10y2025"
+    vary:
+      mapper: ["winnowmap", "giraffe-k31.w50.W-r10-791547-noflags", "giraffe-k31.w50.W-r10-791547-mcspb0.00", "giraffe-k31.w50.W-r10-791547-candidate1"]
 
   hifi_sim_1m:
     control:
@@ -678,16 +689,9 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-791547-noflags", "minimap2-lr:hqae"]
-      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
-      callparams: [".model2025-07-17.newdv", ".nomodel.newdv", ".nomodel.olddv"]
-    constrain:
-      - refgraph: "hprc-v2.0-mc-eval-sampled16o"
-        mapper: "minimap2-lr:hqae"
-        callparams: [".nomodel.newdv", ".nomodel.olddv"]
-      - mapper: ["giraffe-k31.w50.W-r10-791547-noflags"]
-        refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
-
+      mapper: ["giraffe-k31.w50.W-r10-791547-noflags", "giraffe-k31.w50.W-r10-791547-candidate1"]
+      refgraph: ["hprc-v2.0-mc-eval-sampled16o"]
+      callparams: [".nomodel.olddv"]
 
   r10y2025_real_100k:
     control:
