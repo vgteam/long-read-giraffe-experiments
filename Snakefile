@@ -3084,6 +3084,59 @@ rule wrong_from_correct_and_eligible:
     shell:
         "echo \"$(cat {input.eligible}) - $(cat {input.correct})\" | bc -l >{output.tsv}"
 
+rule mismapped_names_from_compared:
+    input:
+        gam="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mismapped_names.tsv"
+    threads: 9
+    resources:
+        mem_mb=10000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t4 {input.gam} --only-mapped | vg filter -t4 - --correctly-mapped --complement -T 'name' | grep -v '^#' | sort >{output.tsv}"
+
+rule mismapped_from_names:
+    input:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mismapped_names.tsv"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mismapped.tsv"
+    threads: 9
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "wc -l {input.tsv} | cut -f1 -d' ' >{output.tsv}"
+
+rule positive_mismapped_from_truth_and_names:
+    input:
+        truth_gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
+        names="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mismapped_names.tsv"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.positive_mismapped.tsv"
+    threads: 9
+    resources:
+        mem_mb=10000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t8 --rescore --overwrite-score --min-primary 0 --exact-name -N {input.names} {input.truth_gam} -T 'name' | wc -l >{output.tsv}"
+
+rule positive_unmapped_from_truth_and_names:
+    input:
+        truth_gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
+        mapped_names="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.positive_unmapped.tsv"
+    threads: 9
+    resources:
+        mem_mb=10000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "vg filter -t4 --rescore --overwrite-score --min-primary 0 {input.truth_gam} | vg filter -t4 --exact-name -N {input.mapped_names} --complement - -T 'name' | wc -l >{output.tsv}"
 
 rule overall_fraction:
     input:
@@ -3092,7 +3145,7 @@ rule overall_fraction:
     output:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.overall_fraction_{state}.tsv"
     wildcard_constraints:
-        state="(correct|eligible|wrong|unmapped)"
+        state="(correct|eligible|wrong|(positive_)?(unmapped|mismapped))"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3495,7 +3548,7 @@ rule condition_experiment_stat:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{callparams}{dot}{category}.{conditionstat}.tsv"
     wildcard_constraints:
         refgraph="[^/_]+",
-        conditionstat="((overall_fraction_)?(wrong|correct|eligible|unmapped)|accuracy|(snp|indel)_(f1|precision|recall|fn|fp)|(snp|indel|total)_errors)"
+        conditionstat="((overall_fraction_)?(wrong|correct|eligible|(positive_)?(unmapped|mismapped))|accuracy|(snp|indel)_(f1|precision|recall|fn|fp)|(snp|indel|total)_errors)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3566,6 +3619,45 @@ rule experiment_wrongness_plot:
         slurm_partition=choose_partition(5)
     shell:
         "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Wrongness' --y_label 'Wrong Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule experiment_mismapped_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/mismapped.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/mismapped.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Mismapping' --y_label 'Mismapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule experiment_positive_mismapped_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/positive_mismapped.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/positive_mismapped.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Positive-Truth Mismapping' --y_label 'Mismapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule experiment_positive_unmapped_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/positive_unmapped.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/positive_unmapped.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Positive-Truth Unmapped' --y_label 'Unmapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule experiment_accuracy_plot:
     input:

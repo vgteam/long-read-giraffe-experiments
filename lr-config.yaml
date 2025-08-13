@@ -263,7 +263,7 @@ experiments:
       refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
       tech: "r10y2025"
     vary:
-      mapper: ["winnowmap", "giraffe-k31.w50.W-r10-791547-noflags", "giraffe-k31.w50.W-r10-791547-mcspb0.00", "giraffe-k31.w50.W-r10-791547-candidate1"]
+      mapper: ["winnowmap", "giraffe-k31.w50.W-r10-a9cfe9-noflags", "giraffe-k31.w50.W-r10-791547-noflags", "giraffe-k31.w50.W-r10-791547-mcspb0.00", "giraffe-k31.w50.W-r10-791547-candidate1"]
 
   r10y2025_sim_compare_1m:
     control:
