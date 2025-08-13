@@ -3084,9 +3084,10 @@ rule wrong_from_correct_and_eligible:
     shell:
         "echo \"$(cat {input.eligible}) - $(cat {input.correct})\" | bc -l >{output.tsv}"
 
-rule mismapped_names_from_compared:
+rule mismapped_names_from_compared_table:
     input:
-        gam="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
+        all_comparison="{root}/compared/{reference}/{refgraph}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
+        mapped_names="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv"
     output:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mismapped_names.tsv"
     threads: 9
@@ -3095,7 +3096,7 @@ rule mismapped_names_from_compared:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg filter -t4 {input.gam} --only-mapped | vg filter -t4 - --correctly-mapped --complement -T 'name' | grep -v '^#' | sort >{output.tsv}"
+        "join -1 1 -2 4 {input.mapped_names} <( ( grep '^0.*1$' {input.all_comparison} || test $? = 1; ) | sort -k4b,4) | cut -f1 -d' ' >{output.tsv}"
 
 rule mismapped_from_names:
     input:
@@ -4710,7 +4711,7 @@ rule length_by_mapping:
     output:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv",
         length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"),
-        mapped_names=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv")
+        mapped_names="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv"
     threads: 16
     resources:
         mem_mb=28000,
