@@ -1249,9 +1249,11 @@ def matches_all_constraint_passes(condition, passes):
 
 def wildcards_to_condition(all_wildcards):
     """
-    Filter down wildcards to just the condition parameters for the experiment in expname.
+    Filter down wildcards to just the condition parameters for the experiment
+    in expname.
     
-    Raises an error if any varied variable in the experiment cannot be determined.
+    Raises an error if any varied variable in the experiment cannot be
+    determined (unless it's a variable that only matters for calling).
     """
 
     exp_dict = config.get("experiments", {}).get(all_wildcards["expname"], {})
@@ -1289,6 +1291,10 @@ def wildcards_to_condition(all_wildcards):
             graph += all_wildcards.get("chopping","")
 
             condition[var] = graph
+        elif var == "callparams" and len(all_wildcards.get("callparams", "")) == 0:
+            # There's no callparams, but that's a calling-stage variable and we
+            # might be asking mapping-stage questions.
+            pass
         else:
             #Catch any case where it fails
             condition[var] = all_wildcards[var]
@@ -1315,6 +1321,10 @@ def condition_name(wildcards):
 
         #Don't include realness
         if varied_key == "realness":
+            continue
+
+        if varied_key == "callparams" and varied_key not in condition:
+            # Skip calling params if we're not asking about a calling-stage thing
             continue
 
         # Look at the value we have for this varied variable
@@ -3562,7 +3572,7 @@ rule condition_experiment_stat:
 
 rule experiment_stat_table:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{callparams}{dot}{category}.{statname}.tsv", filter_function=has_stat_filter(w["statname"]))
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{statname}.tsv", filter_function=has_stat_filter(w["statname"]))
     output:
         table="{root}/experiments/{expname}/results/{statname}.tsv"
     threads: 1
@@ -3574,6 +3584,23 @@ rule experiment_stat_table:
         "cat {input} >{output.table}"
 
 ruleorder: dv_summary_table > experiment_stat_table
+
+rule experiment_calling_stat_table:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{callparams}{dot}{category}.{statname}.tsv", filter_function=has_stat_filter(w["statname"]))
+    output:
+        table="{root}/experiments/{expname}/results/{statname}.tsv"
+    wildcard_constraints:
+        statname="(indel|snp)_[a-zA-Z0-9]*"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "cat {input} >{output.table}"
+
+ruleorder: experiment_calling_stat_table > experiment_stat_table
 
 rule experiment_important_stats_table:
     input:
