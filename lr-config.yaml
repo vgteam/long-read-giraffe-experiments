@@ -290,7 +290,7 @@ experiments:
       sample: HG002
       realness: sim
     vary:
-      mapper: ["pbmm2", "winnowmap", "giraffe-k31.w50.W-hifi-99930d-noflags", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-hifi-99930d-mmcs120", "giraffe-k31.w50.W-hifi-99930d-mmcs140", "giraffe-k31.w50.W-hifi-99930d-mmcs160", "giraffe-k31.w50.W-hifi-99930d-mmcs180", "giraffe-k31.w50.W-hifi-99930d-mmcs200"]
+      mapper: ["pbmm2", "winnowmap", "giraffe-k31.w50.W-hifi-99930d-noflags", "giraffe-k31.w50.W-hifi-99930d-mmcs80", "giraffe-k31.w50.W-hifi-99930d-mmcs90", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-hifi-99930d-mmcs120", "giraffe-k31.w50.W-hifi-99930d-mmcs140", "giraffe-k31.w50.W-hifi-99930d-mmcs160", "giraffe-k31.w50.W-hifi-99930d-mmcs180", "giraffe-k31.w50.W-hifi-99930d-mmcs200"]
       refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o"]
    
   illumina_sim_1m:
@@ -599,14 +599,14 @@ experiments:
       truthset: giab6
       truthref: chm13
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-99930d-noflags"]
+      mapper: ["giraffe-k31.w50.W-hifi-99930d-noflags", "giraffe-k31.w50.W-hifi-99930d-mmcs100"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
-      callparams: [".newdv", ".nomodel.newdv", ".model2025-03-26noinfo.olddv"]
+      callparams: [".newdv", ".nomodel.newdv"]
     constrain:
       - refgraph: "hprc-v2.0-mc-eval-sampled16o"
         mapper: "pbmm2"
         callparams: ".nomodel.newdv"
-      - mapper: ["giraffe-k31.w50.W-hifi-99930d-noflags"]
+      - mapper: ["giraffe-k31.w50.W-hifi-99930d-noflags", "giraffe-k31.w50.W-hifi-99930d-mmcs100"]
         callparams: [".newdv", ".model2025-03-26noinfo.olddv"]
         refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
 
