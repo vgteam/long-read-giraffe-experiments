@@ -1445,6 +1445,8 @@ def get_vg_flags(wildcard_flag):
             return "--min-chain-score-per-base 0.0 --min-chain-score-per-explored-minimizer " + mcspem_number[6:]
         case sp_number if sp_number[0:2] == "sp":
             return "--softclip-penalty " + sp_number[2:]
+        case mmcs_number if mmcs_number[0:4] == "mmcs":
+            return "--max-min-chain-score " + mmcs_number[4:]
         case "candidate1":
             return "--max-min-chain-score 60 --chain-score-threshold 150"
         case "noflags":

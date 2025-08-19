@@ -282,6 +282,16 @@ experiments:
         - refgraph: "hprc-v2.0-minigraph-eval"
           mapper: ["minigraph", "graphaligner-default", "graphaligner-fast"]
 
+  hifi_sim_compare:
+    control:
+      subset: 10k
+      tech: hifi
+      reference: chm13
+      sample: HG002
+      realness: sim
+    vary:
+      mapper: ["pbmm2", "winnowmap", "giraffe-k31.w50.W-hifi-99930d-noflags", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-hifi-99930d-mmcs120", "giraffe-k31.w50.W-hifi-99930d-mmcs140", "giraffe-k31.w50.W-hifi-99930d-mmcs160", "giraffe-k31.w50.W-hifi-99930d-mmcs180", "giraffe-k31.w50.W-hifi-99930d-mmcs200"]
+      refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o"]
    
   illumina_sim_1m:
     control:
