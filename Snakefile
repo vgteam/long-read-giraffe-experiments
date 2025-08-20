@@ -259,7 +259,7 @@ wildcard_constraints:
     region="(|chr21)",
     # We use this for an optional separating dot, so we can leave it out if we also leave the field empty
     dot="\\.?",
-    callparams="(|(\\.model[0-9-]+[a-zA-Z]*|\\.nomodel)(\\.legacy|\\.olddv|\\.newdv)*)",
+    callparams="(|(\\.model[0-9-]+[a-zA-Z]*|\\.nomodel)?(\\.legacy|\\.olddv|\\.newdv)*)",
     tech="[a-zA-Z0-9]+",
     statname="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(?<!mapping_stats_real)(?<!mapping_stats_sim)(.mean|.total)?",
     statnamex="[a-zA-Z0-9_]+(?<!compared)(?<!sv_summary)(?<!mapping_stats_real)(?<!mapping_stats_sim)(.mean|.total)?",
@@ -677,7 +677,15 @@ def model_files(wildcards):
         else:
             if wildcards.tech == "hifi":
                 # Use a particular trained model as the default for HiFi.
-                model_name = "2025-03-26"
+                if ".olddv" in wildcards.callparams:
+                    # Old DV needs the old version of the model
+                    model_name = "2025-03-26noinfo"
+                elif ".newdv" in wildcards.callparams:
+                    # New DV needs the new version with the new model example_info JSON
+                    model_name = "2025-03-26"
+                else:
+                    # We know we are defaulting to old DV until https://ucsc-gi.slack.com/archives/C01D0M09G5D/p1753482919257519?thread_ts=1753201495.785309&cid=C01D0M09G5D is fixed. So use the old style model by default.
+                    model_name = "2025-03-26noinfo"
             else:
                 # For r10, keep defaulting to no trained model for now.
                 return None
@@ -3575,6 +3583,8 @@ rule experiment_stat_table:
         lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{dot}{category}.{statname}.tsv", filter_function=has_stat_filter(w["statname"]))
     output:
         table="{root}/experiments/{expname}/results/{statname}.tsv"
+    wildcard_constraints:
+        statname="(?!((snp|indel)_(f1|precision|recall|fn|fp)|(snp|indel|total)_errors))[a-zA-Z0-9_.]+"
     threads: 1
     resources:
         mem_mb=1000,
@@ -3591,7 +3601,7 @@ rule experiment_calling_stat_table:
     output:
         table="{root}/experiments/{expname}/results/{statname}.tsv"
     wildcard_constraints:
-        statname="(indel|snp)_[a-zA-Z0-9]*"
+        statname="((snp|indel)_(f1|precision|recall|fn|fp)|(snp|indel|total)_errors)"
     threads: 1
     resources:
         mem_mb=1000,
