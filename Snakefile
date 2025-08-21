@@ -4864,7 +4864,7 @@ rule softclips_by_name_other:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(?!(giraffe|graphaligner)).+"
+        mapper="(?!(minigraph|graphaligner-.*|giraffe.*)).+"
     threads: 7
     resources:
         mem_mb=2000,
@@ -4878,7 +4878,7 @@ ruleorder: softclips_by_name_gam > softclips_by_name_other
 
 # Graphaligner doesn't always map the entire read. This outputs a tsv of the
 # read name and the number of bases that didn't get put in the final alignment.
-rule hardclips_by_name:
+rule hardclips_by_name_gam:
     input:
         fastq=fastq,
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
@@ -4886,6 +4886,8 @@ rule hardclips_by_name:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips_by_name.tsv",
         read_length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
         mapped_length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_length_by_name.tsv")
+    wildcard_constraints:
+        mapper="(minigraph|graphaligner-.*|giraffe.*)"
     threads: 2
     resources:
         mem_mb=28000,
@@ -4911,7 +4913,7 @@ rule hardclips_by_name_other:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(?!(giraffe|graphaligner)).+"
+        mapper="(?!(minigraph|graphaligner-.*|giraffe.*)).+"
     threads: 7
     resources:
         mem_mb=2000,
