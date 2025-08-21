@@ -3782,6 +3782,8 @@ rule experiment_compared_tsv:
     shell:
         "printf 'correct\\tmq\\taligner\\tread\\teligible\\n' >{output.tsv} && cat {input} | grep -v '^correct' >>{output.tsv}"
 
+ruleorder: experiment_compared_tsv > experiment_stat_table
+
 rule experiment_qq_plot_from_compared:
     input:
         tsv="{root}/experiments/{expname}/results/compared.tsv"
