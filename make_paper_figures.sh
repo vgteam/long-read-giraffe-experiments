@@ -14,8 +14,8 @@ mkdir -p "${OUT_DIR}"
 #/private/groups/patenlab/project-lrg/experiments/r10y2025_sim_1m_headline/results/compared.tsv \
 #/private/groups/patenlab/project-lrg/experiments/hifi_sim_1m_headline/results/mapping_stats_sim.tsv \
 #/private/groups/patenlab/project-lrg/experiments/r10y2025_sim_1m_headline/results/mapping_stats_sim.tsv \
-#/private/groups/patenlab/project-lrg/experiments/hifi_real_full_headline/results/softclipped_or_unmapped_percent.tsv \
-#/private/groups/patenlab/project-lrg/experiments/r10_real_full_headline/results/softclipped_or_unmapped_percent.tsv \
+#/private/groups/patenlab/project-lrg/experiments/hifi_real_full_headline/results/clipped_or_unmapped_percent.tsv \
+#/private/groups/patenlab/project-lrg/experiments/r10_real_full_headline/results/clipped_or_unmapped_percent.tsv \
 #/private/groups/patenlab/project-lrg/experiments/hifi_real_full_headline/results/run_and_sampling_time_from_benchmark.tsv \
 #/private/groups/patenlab/project-lrg/experiments/r10_real_full_headline/results/run_and_sampling_time_from_benchmark.tsv \
 #/private/groups/patenlab/project-lrg/experiments/hifi_real_full_headline/results/index_load_time.tsv \
@@ -112,21 +112,21 @@ python3 barchart.py <(tail -n +2 ${HIFI_INCORRECT} | cut -f1,5) --divisions <(ta
 
 python3 barchart.py <(tail -n +2 ${R10_INCORRECT} | cut -f1,5) --divisions <(tail -n +2 ${R10_INCORRECT} | cut -f1,4)  --title 'R10 incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --categories ${R10_SIM_1M_HEADLINE_CATEGORIES}  --colors ${R10_SIM_1M_HEADLINE_COLORS}  --save ${OUT_DIR}/incorrectness_r10.pdf
 
-########################################## Softclips
+########################################## Clips
 
-HIFI_SOFTCLIPS=${ROOT_DIR}/experiments/hifi_real_full_headline/results/softclipped_or_unmapped_percent.tsv
-R10_SOFTCLIPS=${ROOT_DIR}/experiments/r10y2025_real_full_headline/results/softclipped_or_unmapped_percent.tsv
+HIFI_CLIPS=${ROOT_DIR}/experiments/hifi_real_full_headline/results/clipped_or_unmapped_percent.tsv
+R10_CLIPS=${ROOT_DIR}/experiments/r10y2025_real_full_headline/results/clipped_or_unmapped_percent.tsv
 
 #hifi softclips low
-LIMIT=$(python3 get_outlier_limit.py ${HIFI_SOFTCLIPS} small)
-python3 barchart.py ${HIFI_SOFTCLIPS} --max ${LIMIT}  --title 'HiFi Softclipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_hifi_headline_low.pdf
+LIMIT=$(python3 get_outlier_limit.py ${HIFI_CLIPS} small)
+python3 barchart.py ${HIFI_CLIPS} --max ${LIMIT}  --title 'HiFi Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_hifi_headline_low.pdf
 
 #hifi softclips high
-LIMIT=$(python3 get_outlier_limit.py ${HIFI_SOFTCLIPS} big)
-python3 barchart.py ${HIFI_SOFTCLIPS} --min ${LIMIT}  --title 'HiFi Softclipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_hifi_headline_high.pdf
+LIMIT=$(python3 get_outlier_limit.py ${HIFI_CLIPS} big)
+python3 barchart.py ${HIFI_CLIPS} --min ${LIMIT}  --title 'HiFi Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_hifi_headline_high.pdf
 
 #r10 softclips
-python3 barchart.py ${R10_SOFTCLIPS} --title 'R10 Softclipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_r10_headline_high.pdf
+python3 barchart.py ${R10_CLIPS} --title 'R10 Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_r10_headline_high.pdf
 
 
 ############################################ Runtime

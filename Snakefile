@@ -226,7 +226,7 @@ FILL_WDL_CACHE = "true" if config.get("fill_wdl_cache", True) else "false"
 
 # Figure out what columns to put in a table comparing all the conditions in an experiment.
 # TODO: Make this be per-experiment and let multiple tables be defined
-IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["speed_from_log", "softclipped_or_unmapped", "accuracy", "indel_f1", "snp_f1"])
+IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["speed_from_log", "clipped_or_unmapped", "accuracy", "indel_f1", "snp_f1"])
 
 # What versions of Giraffe should be run with the old, non-zipcode-aware indexes
 NON_ZIPCODE_GIRAFFE_VERSIONS = set(config.get("non_zipcode_giraffe_versions")) if "non_zipcode_giraffe_versions" in config else set()
@@ -4197,7 +4197,10 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         sampling_time="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.haplotype_sampling_time.tsv",
         runtime_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.runtime_from_benchmark.tsv",
         memory_from_benchmark="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.memory_from_benchmark.tsv",
-        softclipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
+        softclipped_total="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.total.tsv",
+        hardclipped_total="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips.total.tsv",
+        unmapped_total="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_length.total.tsv",
+        clipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped_or_unmapped.tsv"
 
     output:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv"
@@ -4213,7 +4216,7 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         slurm_partition=choose_partition(60)
     shell:
         """
-        echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.startup_time} | cut -f 2)\t$(cat {input.sampling_time} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_or_unmapped} | cut -f 2)" >>{output.tsv}
+        echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.startup_time} | cut -f 2)\t$(cat {input.sampling_time} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_total} | cut -f 2)\t$(cat {input.hardclipped_total} | cut -f 2)\t$(cat {input.unmapped_total} | cut -f 2)\t$(cat {input.clipped_or_unmapped} | cut -f 2)" >>{output.tsv}
         """
 
 
@@ -4232,7 +4235,7 @@ rule experiment_mapping_stats_real_tsv:
         slurm_partition=choose_partition(60)
     shell:
         """
-        printf "condition\truntime(min)\tstartup_time(min)\tsampling_time(min)\tmemory(GB)\tsoftclipped_or_unmapped\n" >> {output.tsv} 
+        printf "condition\truntime(min)\tstartup_time(min)\tsampling_time(min)\tmemory(GB)\tsoftclipped(bp)\thardclipped(bp)\tunmapped(bp)\ttotal(bp)\n" >> {output.tsv} 
         cat {input} /dev/null >>{output.tsv}
         """
 ruleorder: experiment_mapping_stats_real_tsv > experiment_stat_table
@@ -4420,15 +4423,42 @@ rule experiment_softclips_plot:
     shell:
         "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Read End Softclips' --y_label 'Mean Softclip (bp/end)' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
-rule softclipped_or_unmapped_from_softclipped_or_unmapped:
+rule experiment_clipped_or_unmapped_plot:
     input:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
+        tsv="{root}/experiments/{expname}/results/clipped_or_unmapped.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/clipped_or_unmapped.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Clipped or Unmapped Bases' --y_label 'Total (bp)' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule experiment_clipped_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/clipped.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/clipped.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Clipped Bases' --y_label 'Total (bp)' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule clipped_or_clipped_or_unmapped_from_clipped_or_clipped_or_unmapped:
+    input:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{clipstat}.tsv"
     params:
         condition_name=condition_name
     wildcard_constraints:
-        refgraph="[^/_]+"
+        refgraph="[^/_]+",
+        clipstat="(clipped|clipped_or_unmapped)"
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{clipstat}.tsv"
     threads: 1
     resources:
         mem_mb=1000,
@@ -4437,28 +4467,14 @@ rule softclipped_or_unmapped_from_softclipped_or_unmapped:
     shell:
         "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.tsv} >>{output.tsv}"
 
-rule experiment_softclipped_or_unmapped_plot:
+rule clipped_or_unmapped_percent:
     input:
-        tsv="{root}/experiments/{expname}/results/softclipped_or_unmapped.tsv"
-    output:
-        "{root}/experiments/{expname}/plots/softclipped_or_unmapped.{ext}"
-    threads: 1
-    resources:
-        mem_mb=1000,
-        runtime=5,
-        slurm_partition=choose_partition(5)
-    shell:
-        "python3 barchart.py {input.tsv} --width 8 --height 8 --title '{wildcards.expname} Softclipped or Unmapped Bases' --y_label 'Total (bp)' --x_label 'Condition' --x_sideways --no_n --save {output}"
-
-
-rule softclipped_or_unmapped_percent:
-    input:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv",
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped_or_unmapped.tsv",
         unmapped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
     params:
         condition_name=condition_name
     output:
-        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped_percent.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped_or_unmapped_percent.tsv"
     threads: 1
     resources:
         mem_mb=1000,
@@ -4470,12 +4486,12 @@ rule softclipped_or_unmapped_percent:
         """
 
 #Plot the unmapped bases but split off the high outliers 
-rule experiment_softclipped_or_unmapped_percent_split_plot:
+rule experiment_clipped_or_unmapped_percent_split_plot:
     input:
-        tsv="{root}/experiments/{expname}/results/softclipped_or_unmapped_percent.tsv"
+        tsv="{root}/experiments/{expname}/results/clipped_or_unmapped_percent.tsv"
     output:
-        low="{root}/experiments/{expname}/plots/softclipped_or_unmapped_percent_low.{ext}",
-        high="{root}/experiments/{expname}/plots/softclipped_or_unmapped_percent_high.{ext}"
+        low="{root}/experiments/{expname}/plots/clipped_or_unmapped_percent_low.{ext}",
+        high="{root}/experiments/{expname}/plots/clipped_or_unmapped_percent_high.{ext}"
     threads: 1
     resources:
         mem_mb=10000,
@@ -4497,14 +4513,14 @@ rule experiment_softclipped_or_unmapped_percent_split_plot:
 
             lower_limit = min(bigs) * 0.80
 
-            shell("python3 barchart.py {input.tsv} --min " + str(lower_limit) + " --title '{wildcards.expname} Softclipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --save {output.low}")
+            shell("python3 barchart.py {input.tsv} --min " + str(lower_limit) + " --title '{wildcards.expname} Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --save {output.low}")
 
 
         if not len(smalls) == 0:
 
             upper_limit = max(smalls) * 1.1
 
-            shell("python3 barchart.py {input.tsv} --max " + str(upper_limit) + " --title '{wildcards.expname} Softclipped or unmapped bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --save {output.high}")
+            shell("python3 barchart.py {input.tsv} --max " + str(upper_limit) + " --title '{wildcards.expname} Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --save {output.high}")
 
 
 rule chain_coverage_from_mean_best_chain_coverage:
@@ -4749,7 +4765,7 @@ rule length_by_mapping:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     output:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv",
-        length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv"),
+        length_by_name="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv",
         mapped_names="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv"
     threads: 16
     resources:
@@ -4822,8 +4838,10 @@ rule mapq_by_correctness:
 rule softclips_by_name_gam:
     input:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        length_by_name="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv",
     output:
-        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
+        temp_tsv=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_softclips_by_name.tsv"),
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
         mapper="(minigraph|graphaligner-.*|giraffe.*)"
     threads: 5
@@ -4832,36 +4850,13 @@ rule softclips_by_name_gam:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg filter -t {threads} -T \"name;softclip_start;softclip_end\" {input.gam} | grep -v \"#\" > {output}"
-
-#Graphaligner doesn't always map the entire read. This outputs a tsv of the read name and the number of bases that didn't get put in the final alignment
-rule unmapped_ends_by_name:
-    input:
-        fastq=fastq,
-        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    output:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends_by_name.tsv",
-        read_length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
-        mapped_length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_length_by_name.tsv")
-    threads: 2
-    resources:
-        mem_mb=28000,
-        runtime=720,
-        slurm_partition=choose_partition(720)
-    shell:
-        # This actually takes the read length represented in the GAM and
-        # subtracts it from that in the FASTQ, for all reads in the GAM (which
-        # should also all be in the FASTQ). It counts undescribed (and thus
-        # unmapped) portions of reads, but not totally absent reads, or reads
-        # that are present but unmapped (which are both counted via
-        # length_by_mapping above).
-        # TODO: Why do we have -a 2?
+        # We need to make sure we have 0 values for softclips for reads that
+        # weren't mapped, so we can compute correct average softclips. We know
+        # the length_by_name TSV contains all read names.
         """
-        vg filter -t {threads} -T "name;length" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_length_by_name}
-        seqkit fx2tab -n -l {input.fastq} | sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' > {output.read_length_by_name}
-        join -a 2 {output.read_length_by_name} {output.mapped_length_by_name} | awk -v OFS='\t' '{{print $1,$2-$3}}' > {output.tsv}
+        vg filter -t {threads} -T \"name;softclip_start;softclip_end\" {input.gam} | grep -v \"#\" |sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.temp_tsv}
+        join -a 1 {input.length_by_name} {output.temp_tsv} | awk -v OFS='\t' '{{ if ($NF < 3) {{ print $1,0,0 }} else {{ print $1,$3,$4 }} }}' > {output.tsv}
         """
-
 
 rule softclips_by_name_other:
     input:
@@ -4876,9 +4871,56 @@ rule softclips_by_name_other:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        r"samtools view {input.bam} | cut -f1,2,6 | sed 's/\t\(\([0-9]*\)S\)\?\([0-9]*[IDMH=X]\|\*\)*\(\([0-9]*\)S\)\?$/\t\2\t\5/g' | sed 's/\t\t/\t0\t/g' | sed 's/\t$/\t0/g' | sed 's/16\t\([0-9]*\)\t\([0-9]*\)/\2\t\1/g' | sed 's/\t[0-9]\+\t\([0-9]*\t[0-9]*\)$/\t\1/g' > {output}"
+        # We know all the BAM mappers include unmapped reads in the BAM.
+        r"samtools view {input.bam} | cut -f1,2,6 | sed 's/\t\(\([0-9]*\)S\)\?\([0-9]*[IDMH=X]\|\*\)*\(\([0-9]*\)S\)\?$/\t\2\t\5/g' | sed 's/\t\t/\t0\t/g' | sed 's/\t$/\t0/g' | sed 's/16\t\([0-9]*\)\t\([0-9]*\)/\2\t\1/g' | sed 's/\t[0-9]\+\t\([0-9]*\t[0-9]*\)$/\t\1/g' | sort -k 1b,1 > {output}"
 
 ruleorder: softclips_by_name_gam > softclips_by_name_other
+
+# Graphaligner doesn't always map the entire read. This outputs a tsv of the
+# read name and the number of bases that didn't get put in the final alignment.
+rule hardclips_by_name:
+    input:
+        fastq=fastq,
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips_by_name.tsv",
+        read_length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
+        mapped_length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_length_by_name.tsv")
+    threads: 2
+    resources:
+        mem_mb=28000,
+        runtime=720,
+        slurm_partition=choose_partition(720)
+    shell:
+        # This actually takes the read length represented in the GAM and
+        # subtracts it from that in the FASTQ, for all reads in the GAM (which
+        # should also all be in the FASTQ). It counts undescribed (and thus
+        # unmapped) portions of reads, but not totally absent reads, or reads
+        # that are present but unmapped (which are both counted via
+        # length_by_mapping above).
+        # We use -a 2 on the join to exclude fully-unmapped reads.
+        """
+        vg filter -t {threads} -T "name;length" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_length_by_name}
+        seqkit fx2tab -n -l {input.fastq} | sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' > {output.read_length_by_name}
+        join -a 2 {output.read_length_by_name} {output.mapped_length_by_name} | awk -v OFS='\t' '{{print $1,$2-$3}}' > {output.tsv}
+        """
+
+rule hardclips_by_name_other:
+    input:
+        bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips_by_name.tsv"
+    wildcard_constraints:
+        mapper="(?!(giraffe|graphaligner)).+"
+    threads: 7
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        # We know all the BAM mappers include unmapped reads in the BAM.
+        # TODO: We assume none of the BAM mappers hard clip their primary alignments.
+        r"samtools view {input.bam} | cut -f1 | sed 's/$/\t0\t0/g' | sort -k 1b,1 > {output}"
 
 rule softclips:
     input:
@@ -4893,11 +4935,11 @@ rule softclips:
     shell:
         r"sed 's/^.*\t\([0-9]*\)\t\([0-9]*\)$/\1\n\2/' {input} > {output}"
 
-rule unmapped_ends:
+rule hardclips:
     input:
-        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends_by_name.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips_by_name.tsv"
     output:
-        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips.tsv"
     threads: 1
     resources:
         mem_mb=2000,
@@ -4906,13 +4948,12 @@ rule unmapped_ends:
     shell:
         r"sed 's/^.*\t\([0-9]*\)$/\1/' {input} > {output}"
 
-rule softclipped_or_unmapped:
+rule clipped:
     input:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.total.tsv",
-        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_length.total.tsv",
-        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_ends.total.tsv"
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips.total.tsv"
     output:
-         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
+         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped.tsv"
     threads: 1
     resources:
         mem_mb=2000,
@@ -4928,12 +4969,11 @@ rule softclipped_or_unmapped:
                     total += float(line)
         with open(output[0], "w") as f:
             f.write(f"{total}\n")
-        
 
 #Getting this for short reads is super slow and we don't really care so skip it
-rule softclipped_or_unmapped_empty:
+rule clipped_empty:
     output:
-         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclipped_or_unmapped.tsv"
+         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped.tsv"
     wildcard_constraints:
         tech="illumina"
     threads: 1
@@ -4945,9 +4985,46 @@ rule softclipped_or_unmapped_empty:
         """
         echo "0" >{output}
         """
-ruleorder: softclipped_or_unmapped_empty > softclipped_or_unmapped
+ruleorder: clipped_empty > clipped
 
+rule clipped_or_unmapped:
+    input:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped.tsv",
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_length.total.tsv",
+    output:
+         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped_or_unmapped.tsv"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    run:
+        # Sum the one-column TSVs
+        total = 0
+        for file in input:
+            for line in open(file):
+                line = line.strip()
+                if line:
+                    total += float(line)
+        with open(output[0], "w") as f:
+            f.write(f"{total}\n")
 
+#Getting this for short reads is super slow and we don't really care so skip it
+rule clipped_or_unmapped_empty:
+    output:
+         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped_or_unmapped.tsv"
+    wildcard_constraints:
+        tech="illumina"
+    threads: 1
+    resources:
+        mem_mb=400,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        """
+        echo "0" >{output}
+        """
+ruleorder: clipped_or_unmapped_empty > clipped_or_unmapped
 
 rule memory_usage_gam:
     input:
@@ -5493,7 +5570,7 @@ rule parameter_search_mapping_stats:
         speed_log = lambda w: param_search_tsvs(w, "speed_from_log"),
         memory = lambda w: param_search_tsvs(w, "memory_from_log"),
         softclips = lambda w : param_search_tsvs(w, "softclips.mean"),
-        unmapped = lambda w : param_search_tsvs(w, "softclipped_or_unmapped"),
+        unmapped = lambda w : param_search_tsvs(w, "clipped_or_unmapped"),
         mapping_accuracy = expand("{{root}}/stats/{{reference}}/{{refgraph}}/giraffe-{{minparams}}-{{preset}}-{{vgversion}}-{param_hash}/sim/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.mapping_accuracy.tsv",param_hash=PARAM_SEARCH.get_hashes())
     output:
         outfile="{root}/parameter_search/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}/{sample}{trimmedness}.{subset}/{tech}.parameter_mapping_stats.tsv"
@@ -5505,7 +5582,7 @@ rule parameter_search_mapping_stats:
         slurm_partition=choose_partition(100)
     run:
         f = open(output.outfile, "w")
-        f.write("#correct\tmapq60\twrong_mapq60\tsoftclips\tsoftclipped_or_unmapped\tspeed(r/s/t)\tspeed_from_log\tmemory(GB)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
+        f.write("#correct\tmapq60\twrong_mapq60\tsoftclips\tclipped_or_unmapped\tspeed(r/s/t)\tspeed_from_log\tmemory(GB)\t" + '\t'.join([param.name for param in PARAM_SEARCH.parameters]))
         for param_hash, stats_file, times_file, speed_file, memory_file, softclips_file, unmapped_file in zip(PARAM_SEARCH.get_hashes(), input.mapping_accuracy, input.times, input.speed_log, input.memory, input.softclips, input.unmapped):
 
 
@@ -5914,7 +5991,7 @@ rule all_paper_figures:
     input:
         mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.tsv", expname=config["real_exps"]),
         mapping_stats_real_latex=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.latex.tsv", expname=config["real_exps"]),
-        softclippeds=expand(ALL_OUT_DIR + "/experiments/{expname}/results/softclipped_or_unmapped_percent.tsv", expname=config["headline_real_exps"]),
+        clipped_or_unmapped=expand(ALL_OUT_DIR + "/experiments/{expname}/results/clipped_or_unmapped_percent.tsv", expname=config["headline_real_exps"]),
         runtime=expand(ALL_OUT_DIR + "/experiments/{expname}/results/run_and_sampling_time_from_benchmark.tsv", expname=config["headline_real_exps"]),
         index_time=expand(ALL_OUT_DIR + "/experiments/{expname}/results/index_load_time.tsv", expname=config["headline_real_exps"]),
         memory=expand(ALL_OUT_DIR + "/experiments/{expname}/results/memory_from_benchmark.tsv", expname=config["headline_real_exps"]),

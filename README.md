@@ -84,7 +84,7 @@ In these file name templates, `{root}` is your base output directory, `{expname}
 
 * `{root}/experiments/{expname}/plots/correct.{ext}`: A bar chart of the fraction of eligible reads in each condition that are mapped correctly.
 * `{root}/experiments/{expname}/plots/wrong.{ext}`: A bar chart of the fraction of eligible reads in each condition that are mapped incorrectly.
-* `{root}/experiments/{expname}/plots/softclipped_or_unmapped.{ext}`: A bar chart of the number of bases left either softclipped or unmapped by each condition.
+* `{root}/experiments/{expname}/plots/clipped_or_unmapped.{ext}`: A bar chart of the number of bases left softclipped, hardclipped, or unmapped by each condition.
 * `{root}/experiments/{expname}/plots/mapping_rate.{ext}`: A bar chart of the fraction of reads in each condition that are mapped.
 * `{root}/experiments/{expname}/plots/mapping_speed.{ext}`: A bar chart of the speed of each Giraffe condition, in reads per second per thread.
 * `{root}/experiments/{expname}/plots/chain_coverage.{ext}`: A bar chart of the best-chain coverage fraction of each Giraffe condition.
