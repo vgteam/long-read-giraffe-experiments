@@ -4846,7 +4846,10 @@ rule softclips_by_name_gam:
         sorted_tsv=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted_mapped_softclips_by_name.tsv"),
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(minigraph|graphaligner-.*|giraffe.*)"
+        mapper="(minigraph|graphaligner-.*|giraffe.*)",
+        # This is too slow to do for Illumina; we're supposed to use _empty
+        # rules later to fill in 0s for Illumina conditions.
+        tech="(?!illumina)[a-zA-Z0-9]+"
     threads: 5
     resources:
         mem_mb=2000,
@@ -4869,7 +4872,10 @@ rule softclips_by_name_other:
     output:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(?!(minigraph|graphaligner-.*|giraffe.*)).+"
+        mapper="(?!(minigraph|graphaligner-.*|giraffe.*)).+",
+        # This is too slow to do for Illumina; we're supposed to use _empty
+        # rules later to fill in 0s for Illumina conditions.
+        tech="(?!illumina)[a-zA-Z0-9]+"
     threads: 9
     resources:
         mem_mb=2000,
@@ -4919,7 +4925,10 @@ rule hardclips_by_name_gam:
         read_length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
         mapped_length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_length_by_name.tsv")
     wildcard_constraints:
-        mapper="(minigraph|graphaligner-.*|giraffe.*)"
+        mapper="(minigraph|graphaligner-.*|giraffe.*)",
+        # This is too slow to do for Illumina; we're supposed to use _empty
+        # rules later to fill in 0s for Illumina conditions.
+        tech="(?!illumina)[a-zA-Z0-9]+"
     threads: 2
     resources:
         mem_mb=28000,
@@ -4945,7 +4954,10 @@ rule hardclips_by_name_other:
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips_by_name.tsv"
     wildcard_constraints:
-        mapper="(?!(minigraph|graphaligner-.*|giraffe.*)).+"
+        mapper="(?!(minigraph|graphaligner-.*|giraffe.*)).+",
+        # This is too slow to do for Illumina; we're supposed to use _empty
+        # rules later to fill in 0s for Illumina conditions.
+        tech="(?!illumina)[a-zA-Z0-9]+"
     threads: 7
     resources:
         mem_mb=2000,
