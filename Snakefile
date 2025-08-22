@@ -4842,22 +4842,25 @@ rule softclips_by_name_gam:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
         length_by_name="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv",
     output:
-        temp_tsv=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_softclips_by_name.tsv"),
+        mapped_tsv=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_softclips_by_name.tsv"),
+        sorted_tsv=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted_mapped_softclips_by_name.tsv"),
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
         mapper="(minigraph|graphaligner-.*|giraffe.*)"
     threads: 5
     resources:
         mem_mb=2000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
+        runtime=120,
+        slurm_partition=choose_partition(120)
     shell:
         # We need to make sure we have 0 values for softclips for reads that
         # weren't mapped, so we can compute correct average softclips. We know
         # the length_by_name TSV contains all read names.
         """
-        vg filter -t {threads} -T \"name;softclip_start;softclip_end\" {input.gam} | grep -v \"#\" |sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.temp_tsv}
-        join -a 1 {input.length_by_name} {output.temp_tsv} | awk -v OFS='\t' '{{ if ($NF < 3) {{ print $1,0,0 }} else {{ print $1,$3,$4 }} }}' > {output.tsv}
+        set -x
+        time vg filter -t {threads} -T \"name;softclip_start;softclip_end\" {input.gam} | grep -v \"#\" > {output.mapped_tsv}
+        time sort -k 1b,1 {output.mapped_tsv} | sed 's/\/[1-2]\$//g' > {output.sorted_tsv}
+        time join -a 1 {input.length_by_name} {output.sorted_tsv} | awk -v OFS='\t' '{{ if ($NF < 3) {{ print $1,0,0 }} else {{ print $1,$3,$4 }} }}' > {output.tsv}
         """
 
 rule softclips_by_name_other:
