@@ -3569,7 +3569,7 @@ rule condition_experiment_stat:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}{callparams}{dot}{category}.{conditionstat}.tsv"
     wildcard_constraints:
         refgraph="[^/_]+",
-        conditionstat="((overall_fraction_)?(wrong|correct|eligible|(positive_)?(unmapped|mismapped))|accuracy|(snp|indel)_(f1|precision|recall|fn|fp)|(snp|indel|total)_errors)"
+        conditionstat="((overall_fraction_)?(wrong|correct|eligible|(positive_)?(unmapped|mismapped))|accuracy|(snp|indel)_(f1|precision|recall|fn|fp)|(snp|indel|total)_errors|[a-zA-Z0-9_]*.total)"
     threads: 1
     resources:
         mem_mb=1000,
