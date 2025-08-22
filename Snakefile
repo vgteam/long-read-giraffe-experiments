@@ -4867,17 +4867,44 @@ rule softclips_by_name_other:
     input:
         bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     output:
-        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips_by_name.tsv"
     wildcard_constraints:
         mapper="(?!(minigraph|graphaligner-.*|giraffe.*)).+"
-    threads: 7
+    threads: 9
     resources:
         mem_mb=2000,
-        runtime=60,
-        slurm_partition=choose_partition(60)
-    shell:
+        runtime=120,
+        slurm_partition=choose_partition(120)
+    run:
         # We know all the BAM mappers include unmapped reads in the BAM.
-        r"samtools view {input.bam} | cut -f1,2,6 | sed 's/\t\(\([0-9]*\)S\)\?\([0-9]*[IDMH=X]\|\*\)*\(\([0-9]*\)S\)\?$/\t\2\t\5/g' | sed 's/\t\t/\t0\t/g' | sed 's/\t$/\t0/g' | sed 's/16\t\([0-9]*\)\t\([0-9]*\)/\2\t\1/g' | sed 's/\t[0-9]\+\t\([0-9]*\t[0-9]*\)$/\t\1/g' | sort -k 1b,1 > {output}"
+        # We need to flip the softclips around to read order if the reverse strand flag (16) is set
+        import subprocess
+        import re
+        # Match a left softclip if any, anything, the last non-softclip
+        # operation character, and a right softclip if any.
+        regex = re.compile("^([0-9]+S)?.*[IDMH=X]([0-9]+S)?$")
+        samtools = subprocess.Popen(["samtools", "view", "-@", "8", input.bam], stdout=subprocess.PIPE, encoding="utf-8")
+        with open(output.tsv, "w") as out_file:
+            for line in samtools.stdout:
+                parts = line.split("\t", 7)
+                read_name = parts[0]
+                flags = int(parts[1])
+                cigar = parts[5]
+                match = re.fullmatch(regex, cigar)
+                if match:
+                    left_softclip, right_softclip = (int(x[:-1]) for x in match.groups("0S"))
+                    if 16 & flags:
+                        left_softclip, right_softclip = right_softclip, left_softclip
+                else:
+                    # Could also hava a * for unmapped reads
+                    left_softclip = 0
+                    right_softclip = 0
+                out_file.write(f"{read_name}\t{left_softclip}\t{right_softclip}\n")
+        if samtools.wait() != 0:
+            raise RuntimeError("Samtools failed!")
+
+
+        r"samtools view -@ 8 {input.bam} | cut -f1,2,6 | sed 's/\t\(\([0-9]*\)S\)\?\([0-9]*[IDMH=X]\|\*\)*\(\([0-9]*\)S\)\?$/\t\2\t\5/g' | sed 's/\t\t/\t0\t/g' | sed 's/\t$/\t0/g' | sed 's/16\t\([0-9]*\)\t\([0-9]*\)/\2\t\1/g' | sed 's/\t[0-9]\+\t\([0-9]*\t[0-9]*\)$/\t\1/g' | sort -k 1b,1 > {output}"
 
 ruleorder: softclips_by_name_gam > softclips_by_name_other
 
@@ -4940,7 +4967,7 @@ rule softclips:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        r"sed 's/^.*\t\([0-9]*\)\t\([0-9]*\)$/\1\n\2/' {input} > {output}"
+        r"cut -f2,3 {input} | tr '\t' '\n' > {output}"
 
 rule hardclips:
     input:
@@ -4953,7 +4980,7 @@ rule hardclips:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        r"sed 's/^.*\t\([0-9]*\)$/\1/' {input} > {output}"
+        r"cut -f2 {input} > {output}"
 
 rule clipped:
     input:
