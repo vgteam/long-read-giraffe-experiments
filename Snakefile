@@ -4469,6 +4469,23 @@ rule clipped_or_clipped_or_unmapped_from_clipped_or_clipped_or_unmapped:
     shell:
         "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.tsv} >>{output.tsv}"
 
+rule unmapped_length_from_unmapped_length:
+    input:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_length.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        refgraph="[^/_]+",
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_length.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.tsv} >>{output.tsv}"
+
 rule clipped_or_unmapped_percent:
     input:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped_or_unmapped.tsv",
