@@ -117,16 +117,19 @@ python3 barchart.py <(tail -n +2 ${R10_INCORRECT} | cut -f1,5) --divisions <(tai
 HIFI_CLIPS=${ROOT_DIR}/experiments/hifi_real_full_headline/results/clipped_or_unmapped_percent.tsv
 R10_CLIPS=${ROOT_DIR}/experiments/r10y2025_real_full_headline/results/clipped_or_unmapped_percent.tsv
 
+HIFI_UNMAPPED=${ROOT_DIR}/experiments/hifi_real_full_headline/results/unmapped_length_percent.tsv
+R10_UNMAPPED=${ROOT_DIR}/experiments/r10y2025_real_full_headline/results/unmapped_length_percent.tsv
+
 #hifi softclips low
 LIMIT=$(python3 get_outlier_limit.py ${HIFI_CLIPS} small)
-python3 barchart.py ${HIFI_CLIPS} --max ${LIMIT}  --title 'HiFi Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_hifi_headline_low.pdf
+python3 barchart.py ${HIFI_CLIPS} --divisions ${HIFI_UNMAPPED} --max ${LIMIT}  --title 'HiFi Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_hifi_headline_low.pdf
 
 #hifi softclips high
 LIMIT=$(python3 get_outlier_limit.py ${HIFI_CLIPS} big)
-python3 barchart.py ${HIFI_CLIPS} --min ${LIMIT}  --title 'HiFi Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_hifi_headline_high.pdf
+python3 barchart.py ${HIFI_CLIPS} --divisions ${HIFI_UNMAPPED} --min ${LIMIT}  --title 'HiFi Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_hifi_headline_high.pdf
 
 #r10 softclips
-python3 barchart.py ${R10_CLIPS} --title 'R10 Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_r10_headline_high.pdf
+python3 barchart.py ${R10_CLIPS} --divisions ${R10_UNMAPPED} --title 'R10 Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_r10_headline_high.pdf
 
 
 ############################################ Runtime

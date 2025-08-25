@@ -4472,7 +4472,7 @@ rule clipped_or_clipped_or_unmapped_from_clipped_or_clipped_or_unmapped:
 rule clipped_or_unmapped_percent:
     input:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped_or_unmapped.tsv",
-        unmapped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
+        total_length="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length.total.tsv"
     params:
         condition_name=condition_name
     output:
@@ -4484,7 +4484,25 @@ rule clipped_or_unmapped_percent:
         slurm_partition=choose_partition(60)
     shell:
         """
-        printf '{params.condition_name}\\t' >{output.tsv} && echo "$(cut -f 2 {input.tsv}) * 100 / $(awk '{{SUM += $2}} END {{print SUM}}' {input.unmapped})" | bc -l  >>{output.tsv}
+        printf '{params.condition_name}\\t' >{output.tsv} && echo "$(cut -f 2 {input.tsv}) * 100 / $(cat {input.total_length})" | bc -l  >>{output.tsv}
+        """
+
+rule unmapped_length_percent:
+    input:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_length.tsv",
+        total_length="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length.total.tsv"
+    params:
+        condition_name=condition_name
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_length_percent.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        """
+        printf '{params.condition_name}\\t' >{output.tsv} && echo "$(cut -f 2 {input.tsv}) * 100 / $(cat {input.total_length})" | bc -l  >>{output.tsv}
         """
 
 #Plot the unmapped bases but split off the high outliers 
@@ -4749,7 +4767,7 @@ rule aligner_part_probsize:
 
 rule length:
     input:
-        gam="{root}/compared/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv",
     output:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length.tsv"
     threads: 5
@@ -4758,7 +4776,7 @@ rule length:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "vg filter -t {threads} -T \"length\" {input.gam} >{output}"
+        "cut -f2 {input} >{output}"
 
 # tsv of "mapped"/"unmapped" and the length of the original read
 rule length_by_mapping:
@@ -6038,6 +6056,7 @@ rule all_paper_figures:
         mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.tsv", expname=config["real_exps"]),
         mapping_stats_real_latex=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.latex.tsv", expname=config["real_exps"]),
         clipped_or_unmapped=expand(ALL_OUT_DIR + "/experiments/{expname}/results/clipped_or_unmapped_percent.tsv", expname=config["headline_real_exps"]),
+        unmapped_length=expand(ALL_OUT_DIR + "/experiments/{expname}/results/unmapped_length_percent.tsv", expname=config["headline_real_exps"]),
         runtime=expand(ALL_OUT_DIR + "/experiments/{expname}/results/run_and_sampling_time_from_benchmark.tsv", expname=config["headline_real_exps"]),
         index_time=expand(ALL_OUT_DIR + "/experiments/{expname}/results/index_load_time.tsv", expname=config["headline_real_exps"]),
         memory=expand(ALL_OUT_DIR + "/experiments/{expname}/results/memory_from_benchmark.tsv", expname=config["headline_real_exps"]),
