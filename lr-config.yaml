@@ -396,20 +396,20 @@ experiments:
       trimmedness: ""
     vary:
       tech: ["hifi", "r10y2025"]
-      mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
+      mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags", "graphaligner-default"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
       callparams: [".nomodel", ".model2025-03-26noinfo"]
     constrain:
       - 
         # Use the right mapping preset for each tech
         - tech: "hifi"
-          mapper: ["minimap2-map-hifi", "pbmm2", "giraffe-k31.w50.W-hifi-99930d-mmcs100"]
+          mapper: ["minimap2-map-hifi", "pbmm2", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "graphaligner-default"]
         - tech: "r10y2025"
-          mapper: ["minimap2-lr:hqae", "giraffe-k31.w50.W-r10-99930d-noflags"]
+          mapper: ["minimap2-lr:hqae", "giraffe-k31.w50.W-r10-99930d-noflags", "graphaligner-default"]
       -
         # Use the right calling model for each tech and mapper
         - tech: "hifi"
-          mapper: "giraffe-k31.w50.W-hifi-99930d-mmcs100"
+          mapper: ["giraffe-k31.w50.W-hifi-99930d-mmcs100", "graphaligner-default"]
           callparams: ".model2025-03-26noinfo"
         - tech: "hifi"
           mapper: ["minimap2-map-hifi", "pbmm2"]
@@ -418,6 +418,8 @@ experiments:
           callparams: ".nomodel"
       - 
         # Don't use the linear mappers on all the graphs
+        - mapper: ["graphaligner-default"]
+          refgraph: ["hprc-v2.0-mc-eval-d46"]
         - mapper: ["giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
           refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
         - mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae"]
@@ -453,7 +455,7 @@ experiments:
           refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
         - mapper: ["graphaligner-default"]
           # GraphAligner timed out on both techs after 7 days, on hprc-v2.0-mc-eval-d46.
-          refgraph: []
+          refgraph: ["hprc-v2.0-mc-eval-d46"]
         - mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae"]
           refgraph: ["hprc-v2.0-mc-eval-d46"]
       - 

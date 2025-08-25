@@ -2019,7 +2019,7 @@ rule merge_graphaligner_gams:
         realness="real",
         mapper="graphaligner.*",
         subset="full",
-        refgraph="hprc-v1.1-mc"
+        refgraph="(hprc-v1.1-mc|hprc-v2.0-mc-eval-d46)"
     threads: 1
     resources:
         mem_mb=8000,
