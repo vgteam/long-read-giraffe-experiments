@@ -440,7 +440,7 @@ experiments:
       truthref: ["chm13", "grch38"]
       caller: ["vgcall", "sniffles"]
       tech: ["hifi", "r10y2025"]
-      mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae", "graphaligner-default", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
+      mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags", "graphaligner-default"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
     constrain:
       - 
@@ -463,16 +463,23 @@ experiments:
         - caller: ["vgcall"]
           mapper: ["graphaligner-default", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
         - caller: ["sniffles"]
-          mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae"]
+          mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
       - 
         # Use the same mapping and calling reference for minimap, but vary the calling reference for graphs
-        - caller: ["sniffles"]
+        - mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae"]
+          caller: ["sniffles"]
           truthref: ["chm13"]
           reference: ["chm13"]
-        - caller: ["sniffles"]
+        - mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae"]
+          caller: ["sniffles"]
           truthref: ["grch38"]
           reference: ["grch38"]
-        - caller: ["vgcall"]
+        - mapper: ["graphaligner-default", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
+          caller: ["sniffles"]
+          truthref: ["chm13"]
+          reference: ["chm13"]
+        - mapper: ["graphaligner-default", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
+          caller: ["vgcall"]
           truthref: ["chm13", "grch38"]
           reference: ["chm13"]
 
