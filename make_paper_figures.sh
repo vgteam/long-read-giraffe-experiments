@@ -34,8 +34,10 @@ YELLOW=#F2C300
 DARK_ORANGE=#C44601
 ORANGE=#F57600
 PINK=#D066A3
+LIGHT_GREEN=#9CDA4D
 
 
+BWA_COLOR=${LIGHT_GREEN}
 MINIMAP_COLOR=${PURPLE}
 WINNOWMAP_COLOR=${LIGHT_PURPLE}
 GIRAFFE_PRIMARY_COLOR=${BLUE}
@@ -50,10 +52,13 @@ GIRAFFE_SAMPLED_COLOR=${ORANGE}
 ######################################### Define conditions
 MINIMAP_HIFI=minimap2-map-hifi,hprc-v2.0-mc-eval-d46
 MINIMAP_R10=minimap2-lr:hqae,hprc-v2.0-mc-eval-d46
+MINIMAP_SR=minimap2-sr,hprc-v2.0-mc-eval-d46
 WINNOWMAP=winnowmap,hprc-v2.0-mc-eval-d46
 GIRAFFE_PRIMARY_HIFI=giraffe,primary
 GIRAFFE_PRIMARY_R10=giraffe,primary
+GIRAFFE_PRIMARY_SR=giraffe,primary
 PBMM=pbmm2,hprc-v2.0-mc-eval-d46
+BWA=bwa,hprc-v2.0-mc-eval-d46
 
 MINIGRAPH_MINIGRAPH=minigraph,hprc-v2.0-minigraph-eval
 GRAPHALIGNER_MINIGRAPH=graphaligner-default,hprc-v2.0-minigraph-eval
@@ -62,9 +67,11 @@ GRAPHALIGNER_DEFAULT=graphaligner-default,hprc-v2.0-mc-eval-d46
 GRAPHALIGNER_FAST=graphaligner-fast,hprc-v2.0-mc-eval-d46
 GIRAFFE_HIFI=giraffe,hprc-v2.0-mc-eval-d46
 GIRAFFE_R10=giraffe,hprc-v2.0-mc-eval-d46
+GIRAFFE_SR=giraffe,hprc-v2.0-mc-eval-d46
 
 GIRAFFE_SAMPLED_HIFI=giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o
 GIRAFFE_SAMPLED_R10=giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o
+GIRAFFE_SAMPLED_SR=giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o
 
 ###################################### Define conditions and colors for each experiment
 
@@ -73,6 +80,9 @@ HIFI_SIM_1M_HEADLINE_COLORS="${MINIMAP_COLOR} ${WINNOWMAP_COLOR} ${PBMM_COLOR} $
 
 R10_SIM_1M_HEADLINE_CATEGORIES="${MINIMAP_R10} ${WINNOWMAP} ${GIRAFFE_PRIMARY_R10} ${MINIGRAPH_MINIGRAPH} ${GRAPHALIGNER_MINIGRAPH} ${GRAPHALIGNER_DEFAULT} ${GIRAFFE_R10} ${GIRAFFE_SAMPLED_R10}"
 R10_SIM_1M_HEADLINE_COLORS="${MINIMAP_COLOR} ${WINNOWMAP_COLOR} ${GIRAFFE_PRIMARY_COLOR} ${MINIGRAPH_MINIGRAPH_COLOR} ${GRAPHALIGNER_MINIGRAPH_COLOR} ${GRAPHALIGNER_DEFAULT_COLOR} ${GIRAFFE_COLOR} ${GIRAFFE_SAMPLED_COLOR}"
+
+SR_SIM_1M_CATEGORIES="${MINIMAP_SR} ${BWA} ${GIRAFFE_SR} ${GIRAFFE_SAMPLED_SR} ${GIRAFFE_PRIMARY_SR}"
+SR_SIM_1M_COLORS="${MINIMAP_COLOR} ${BWA_COLOR} ${GIRAFFE_COLOR} ${GIRAFFE_SAMPLED_COLOR} ${GIRAFFE_PRIMARY_COLOR}"
 
 # graphaligner-default on the M/C graph and graphaligner-default on minigraph timed out after 7 days
 HIFI_REAL_FULL_HEADLINE_CATEGORIES="${MINIMAP_HIFI} ${WINNOWMAP} ${PBMM} ${GIRAFFE_PRIMARY_HIFI} ${MINIGRAPH_MINIGRAPH} ${GRAPHALIGNER_FAST} ${GIRAFFE_HIFI} ${GIRAFFE_SAMPLED_HIFI}"
@@ -88,15 +98,21 @@ R10_REAL_FULL_HEADLINE_COLORS="${MINIMAP_COLOR} ${WINNOWMAP_COLOR} ${GIRAFFE_PRI
 # Zoomed in headline roc plots
 HIFI_ACCURACY=${ROOT_DIR}/experiments/hifi_sim_1m_headline/results/compared.tsv
 R10_ACCURACY=${ROOT_DIR}/experiments/r10y2025_sim_1m_headline/results/compared.tsv
+ILLUMINA_ACCURACY=${ROOT_DIR}/experiments/illumina_sim_1m/results/compared.tsv
+ELEMENT_ACCURACY=${ROOT_DIR}/experiments/element_sim_1m/results/compared.tsv
 
-Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline_zoomed.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.005,0.0085,0.9905,0.9945'
+Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline_zoomed.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.001,0.03,0.9775,0.995'
 
-Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline_zoomed.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.004,0.010,0.990,0.994'
+Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline_zoomed.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.001,0.030,0.965,0.994'
 
 # Zoomed out headline roc plots
 Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
 
 Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
+
+Rscript plot-roc.R ${ILLUMINA_ACCURACY} ${OUT_DIR}/roc_illumina_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Illumina ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' )
+
+Rscript plot-roc.R ${ELEMENT_ACCURACY} ${OUT_DIR}/roc_element_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Element ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' )
 
 # headline qq plots
 Rscript plot-qq.R ${HIFI_ACCURACY} ${OUT_DIR}/qq_hifi_headline.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI QQ" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )

@@ -88,8 +88,9 @@ min_exclusive_reads: 1000000
 # Note that reserving a full node is the only way we have to ensure a job is not split across NUMA nodes
 
 real_exps: ["hifi_real_full", "r10y2025_real_full", "illumina_real_full"]
-sim_exps: ["hifi_sim_1m", "r10y2025_sim_1m", "illumina_sim_1m"]
-headline_sim_exps: ["r10y2025_sim_1m_headline", "hifi_sim_1m_headline"]
+sim_exps: ["hifi_sim_1m", "r10y2025_sim_1m"]
+headline_sim_exps: ["r10y2025_sim_1m_headline", "hifi_sim_1m_headline", "illumina_sim_1m"]
+#, "element_sim_1m"]
 headline_real_exps: ["hifi_real_full_headline", "r10y2025_real_full_headline"]
 dv_exps: ["dv_calling"]
 sv_exps: ["sv_calling"]
@@ -292,12 +293,30 @@ experiments:
     vary:
       mapper: ["pbmm2", "winnowmap", "giraffe-k31.w50.W-hifi-99930d-noflags", "giraffe-k31.w50.W-hifi-99930d-mmcs80", "giraffe-k31.w50.W-hifi-99930d-mmcs90", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-hifi-99930d-mmcs120", "giraffe-k31.w50.W-hifi-99930d-mmcs140", "giraffe-k31.w50.W-hifi-99930d-mmcs160", "giraffe-k31.w50.W-hifi-99930d-mmcs180", "giraffe-k31.w50.W-hifi-99930d-mmcs200"]
       refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o"]
-   
+    
   illumina_sim_1m:
     control:
       subset: 1m
       reference: chm13
       tech: illumina
+      sample: HG002
+      realness: sim
+    vary:
+      mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-99930d-noflags"]
+      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d", "primary"]
+    constrain:
+        - refgraph: "hprc-v2.0-mc-eval-d46"
+          mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-99930d-noflags"]
+        - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
+          mapper: ["giraffe-k29.w11-default-99930d-noflags"]
+        - refgraph: "primary"
+          mapper: ["giraffe-k29.w11-default-99930d-noflags"]
+
+  element_sim_1m:
+    control:
+      subset: 1m
+      reference: chm13
+      tech: element
       sample: HG002
       realness: sim
     vary:
