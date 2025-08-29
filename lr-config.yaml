@@ -311,6 +311,24 @@ experiments:
         - refgraph: "primary"
           mapper: ["giraffe-k29.w11-default-99930d-noflags"]
 
+  element_sim_1m:
+    control:
+      subset: 1m
+      reference: chm13
+      tech: element
+      sample: HG002
+      realness: sim
+    vary:
+      mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-99930d-noflags"]
+      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d", "primary"]
+    constrain:
+        - refgraph: "hprc-v2.0-mc-eval-d46"
+          mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-99930d-noflags"]
+        - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
+          mapper: ["giraffe-k29.w11-default-99930d-noflags"]
+        - refgraph: "primary"
+          mapper: ["giraffe-k29.w11-default-99930d-noflags"]
+
   illumina_sim_1m_all:
     control:
       subset: 1m
