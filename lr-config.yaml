@@ -88,7 +88,7 @@ min_exclusive_reads: 1000000
 # Note that reserving a full node is the only way we have to ensure a job is not split across NUMA nodes
 
 real_exps: ["hifi_real_full", "r10y2025_real_full", "illumina_real_full"]
-sim_exps: ["hifi_sim_1m", "r10y2025_sim_1m", "illumina_sim_1m"]
+sim_exps: ["hifi_sim_1m", "r10y2025_sim_1m", "illumina_sim_1m", "element_sim_1m"]
 headline_sim_exps: ["r10y2025_sim_1m_headline", "hifi_sim_1m_headline"]
 headline_real_exps: ["hifi_real_full_headline", "r10y2025_real_full_headline"]
 dv_exps: ["dv_calling"]
