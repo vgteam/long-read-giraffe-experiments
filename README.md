@@ -150,7 +150,7 @@ Then:
 1. Copy from `/private/groups/patenlab/project-lrg/experiments/{hifi,r10y2025,illumina}_real_full/results/mapping_stats_real.tsv` into spreadsheet "Runtime/memory/softclips" tab and reorder.
     - Record vg version and date
     ```
-    cat /private/groups/patenlab/project-lrg/experiments/{hifi,r10y2025,illumina}_real_full/results/mapping_stats_real.tsv | sed 's/condition/mapper,graph/g' | tr ',' '\t' | awk -v OFS='\t' '{ t = $1; $1 = $2; $2 = t; if ($2 ~ /^(minimap2|pbmm2|winnowmap|bwa)/ || $1 == "primary") { $1 = "CHM13" } ; print; }'
+    cat /private/groups/patenlab/project-lrg/experiments/{hifi,r10y2025,illumina,element}_real_full/results/mapping_stats_real.tsv | sed 's/condition/mapper,graph/g' | tr ',' '\t' | awk -v OFS='\t' '{ t = $1; $1 = $2; $2 = t; if ($2 ~ /^(minimap2|pbmm2|winnowmap|bwa)/ || $1 == "primary") { $1 = "CHM13" } ; print; }'
     ```
 
 2. Copy from `/private/groups/patenlab/project-lrg/experiments/{hifi,r10y2025}_sim_1m/results/mapping_stats_sim.tsv` into spreadsheet "Simulated accuracy" tab and reorder.
