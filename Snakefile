@@ -324,7 +324,7 @@ def auto_mapping_memory(wildcards):
 
     base_mb = 60000
 
-    if wildcards["tech"] == "illumina":
+    if wildcards["tech"] == "illumina" or wildcards["tech"] == "element":
         scale_mb = 200000
     elif wildcards["tech"] == "hifi":
         scale_mb = 240000
@@ -459,6 +459,7 @@ def minimap_derivative_mode(wildcards):
         "r10": "map-ont",
         "r10y2025": "map-ont",
         "hifi": "map-pb",
+        "element": "sr",
         "illumina": "sr" # Only Minimap2 has this one, Winnowmap doesn't.
     }
 
@@ -2217,7 +2218,7 @@ rule winnowmap_sim_reads:
     wildcard_constraints:
         # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
         # So match any string but that. See https://stackoverflow.com/a/14683066
-        tech="(?!illumina).+"
+        tech="(?!(illumina|element)).+"
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
@@ -2242,7 +2243,7 @@ rule winnowmap_real_reads:
     wildcard_constraints:
         # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
         # So match any string but that. See https://stackoverflow.com/a/14683066
-        tech="(?!illumina).+"
+        tech="(?!(illumina|element)).+"
     threads: auto_mapping_threads
     params:
         exclusive_timing=exclusive_timing
@@ -2379,7 +2380,7 @@ rule bwa_sim_reads:
     log:"{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim",
-        tech="illumina",
+        tech="(illumina|element)",
         pairing="(-pe|)"
     params:
         pairing_flag=lambda w: "-p" if w["pairing"] == "-pe" else ""
@@ -4867,7 +4868,7 @@ rule softclips_by_name_gam:
         mapper="(minigraph|graphaligner-.*|giraffe.*)",
         # This is too slow to do for Illumina; we're supposed to use _empty
         # rules later to fill in 0s for Illumina conditions.
-        tech="(?!illumina)[a-zA-Z0-9]+"
+        tech="(?!(illumina|element))[a-zA-Z0-9]+"
     threads: 5
     resources:
         mem_mb=2000,
@@ -4893,7 +4894,7 @@ rule softclips_by_name_other:
         mapper="(?!(minigraph|graphaligner-.*|giraffe.*)).+",
         # This is too slow to do for Illumina; we're supposed to use _empty
         # rules later to fill in 0s for Illumina conditions.
-        tech="(?!illumina)[a-zA-Z0-9]+"
+        tech="(?!(illumina|element))[a-zA-Z0-9]+"
     threads: 9
     resources:
         mem_mb=2000,
@@ -4946,7 +4947,7 @@ rule hardclips_by_name_gam:
         mapper="(minigraph|graphaligner-.*|giraffe.*)",
         # This is too slow to do for Illumina; we're supposed to use _empty
         # rules later to fill in 0s for Illumina conditions.
-        tech="(?!illumina)[a-zA-Z0-9]+"
+        tech="(?!(illumina|element))[a-zA-Z0-9]+"
     threads: 2
     resources:
         mem_mb=28000,
@@ -4975,7 +4976,7 @@ rule hardclips_by_name_other:
         mapper="(?!(minigraph|graphaligner-.*|giraffe.*)).+",
         # This is too slow to do for Illumina; we're supposed to use _empty
         # rules later to fill in 0s for Illumina conditions.
-        tech="(?!illumina)[a-zA-Z0-9]+"
+        tech="(?!(illumina|element))[a-zA-Z0-9]+"
     threads: 7
     resources:
         mem_mb=2000,
@@ -5039,7 +5040,7 @@ rule clipped_empty:
     output:
          "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped.tsv"
     wildcard_constraints:
-        tech="illumina"
+        tech="(illumina|element)"
     threads: 1
     resources:
         mem_mb=400,
@@ -5078,7 +5079,7 @@ rule clipped_or_unmapped_empty:
     output:
          "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped_or_unmapped.tsv"
     wildcard_constraints:
-        tech="illumina"
+        tech="(illumina|element)"
     threads: 1
     resources:
         mem_mb=400,
