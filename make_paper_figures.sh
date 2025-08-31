@@ -2,7 +2,6 @@ set -ex
 
 ROOT_DIR=/private/groups/patenlab/project-lrg
 OUT_DIR=./plots
-
 mkdir -p "${OUT_DIR}"
 
 
@@ -110,7 +109,7 @@ Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline.pdf $(echo $HIF
 
 Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
 
-Rscript plot-roc.R ${ILLUMINA_ACCURACY} ${OUT_DIR}/roc_illumina_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Illumina ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' )
+Rscript plot-roc.R ${ILLUMINA_ACCURACY} ${OUT_DIR}/roc_illumina_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Illumina ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' ) '0.0001,0.03,0.918,0.985'
 
 Rscript plot-roc.R ${ELEMENT_ACCURACY} ${OUT_DIR}/roc_element_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Element ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' )
 
@@ -150,22 +149,36 @@ python3 barchart.py ${R10_CLIPS} --divisions ${R10_UNMAPPED} --title 'R10 Clippe
 
 ############################################ Runtime
 
-HIFI_RUNTIME=${ROOT_DIR}/experiments/hifi_real_full_headline/results/run_and_sampling_time_from_benchmark.tsv
-R10_RUNTIME=${ROOT_DIR}/experiments/r10y2025_real_full_headline/results/run_and_sampling_time_from_benchmark.tsv
-HIFI_INDEX_TIME=${ROOT_DIR}/experiments/hifi_real_full_headline/results/index_load_time.tsv
-R10_INDEX_TIME=${ROOT_DIR}/experiments/r10y2025_real_full_headline/results/index_load_time.tsv
+HIFI_REAL=${ROOT_DIR}/experiments/hifi_real_full/results/mapping_stats_real.tsv
+R10_REAL=${ROOT_DIR}/experiments/r10y2025_real_full/results/mapping_stats_real.tsv
+HIFI_RUNTIME=${OUT_DIR}/hifi_runtimes.tsv
+R10_RUNTIME=${OUT_DIR}/r10_runtimes.tsv
+grep -E $(echo ${HIFI_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${HIFI_REAL} > ${HIFI_RUNTIME}
+grep -E $(echo ${R10_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${R10_REAL} > ${R10_RUNTIME}
+
+
 
 # Higher hifi runtimes
 LIMIT=$(python3 get_outlier_limit.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) big)
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_INDEX_TIME}) --min ${LIMIT}  --title 'HiFi Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_hifi_headline_slow.pdf
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${HIFI_RUNTIME}) --min ${LIMIT}  --title 'HiFi Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_hifi_headline_slow.pdf
 
 # Lower hifi runtimes
 LIMIT=$(python3 get_outlier_limit.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) small)
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_INDEX_TIME}) --max ${LIMIT}  --title 'HiFi Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_hifi_headline_fast.pdf
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${HIFI_RUNTIME}) --max ${LIMIT}  --title 'HiFi Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_hifi_headline_fast.pdf
 
 # R10 runtimes as one plot
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_INDEX_TIME}) --title 'R10 Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_r10_headline.pdf
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${R10_RUNTIME}) --title 'R10 Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_r10_headline.pdf
 
+# Higher r10 runtimes
+LIMIT=$(python3 get_outlier_limit.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) big)
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${R10_RUNTIME}) --min ${LIMIT}  --title 'R10 Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_r10_headline_slow.pdf
+
+# Lower R10 runtimes
+LIMIT=$(python3 get_outlier_limit.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) small)
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${R10_RUNTIME}) --max ${LIMIT}  --title 'R10 Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_r10_headline_fast.pdf
+
+rm ${HIFI_RUNTIME}
+rm ${R10_RUNTIME}
 ###################################### Memory
 
 HIFI_MEMORY=${ROOT_DIR}/experiments/hifi_real_full_headline/results/memory_from_benchmark.tsv
@@ -175,3 +188,40 @@ python3 barchart.py ${HIFI_MEMORY} --title 'HiFi Memory From Benchmark' --y_labe
 
 python3 barchart.py ${R10_MEMORY} --title 'R10 Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/memory_r10.pdf
 
+
+####################################### SV Calling
+
+GIRAFFE_VGCALL_HIFI=chm13,chm13,vgcall,hifi,giraffe-hifi-mmcs100,eval-d46
+GIRAFFE_SAMPLED_VGCALL_HIFI=chm13,chm13,vgcall,hifi,giraffe-hifi-mmcs100,eval.ec1M-sampled16o
+MINIMAP_SNIFFLES_HIFI=chm13,chm13,sniffles,hifi,minimap2-map-hifi,eval-d46
+
+GIRAFFE_VGCALL_R10=chm13,chm13,vgcall,r10y2025,giraffe-r10-noflags,eval-d46
+GIRAFFE_SAMPLED_VGCALL_R10=chm13,chm13,vgcall,r10y2025,giraffe-r10-noflags,eval.ec1M-sampled16o
+MINIMAP_SNIFFLES_R10=chm13,chm13,sniffles,r10y2025,minimap2-lr:hqae,eval-d46
+
+SV_CALLING_CONDITIONS_HIFI="${GIRAFFE_VGCALL_HIFI};${GIRAFFE_SAMPLED_VGCALL_HIFI};${MINIMAP_SNIFFLES_HIFI}"
+SV_CALLING_CONDITIONS_R10="${GIRAFFE_VGCALL_R10};${GIRAFFE_SAMPLED_VGCALL_R10};${MINIMAP_SNIFFLES_R10}"
+
+Rscript plot-calling-results.R ${ROOT_DIR}/experiments/sv_calling/results/sv_summary.tsv ${OUT_DIR}/sv_summary_hifi.pdf ${SV_CALLING_CONDITIONS_HIFI}
+Rscript plot-calling-results.R ${ROOT_DIR}/experiments/sv_calling/results/sv_summary.tsv ${OUT_DIR}/sv_summary_r10.pdf ${SV_CALLING_CONDITIONS_R10}
+
+############################################# DV Calling
+
+GIRAFFE_DV_HIFI=hifi,giraffe-hifi-mmcs100,eval-d46,.model2025-03-26noinfo
+GIRAFFE_SAMPLED_DV_HIFI=hifi,giraffe-hifi-mmcs100,eval.ec1M-sampled16o,.model2025-03-26noinfo
+MINIMAP_DV_HIFI=hifi,minimap2-map-hifi,eval-d46,.nomodel
+
+DV_CALLING_CONDITIONS_HIFI="${GIRAFFE_DV_HIFI};${GIRAFFE_SAMPLED_DV_HIFI};${MINIMAP_DV_HIFI}"
+
+GIRAFFE_DV_R10=r10y2025,giraffe-r10-noflags,eval-d46,.nomodel
+GIRAFFE_SAMPLED_DV_R10=r10y2025,giraffe-r10-noflags,eval.ec1M-sampled16o,.nomodel
+MINIMAP_DV_R10=r10y2025,minimap2-lr:hqae,eval-d46,.nomodel
+
+DV_CALLING_CONDITIONS_R10="${GIRAFFE_DV_R10};${GIRAFFE_SAMPLED_DV_R10};${MINIMAP_DV_R10}"
+
+
+Rscript plot-calling-results.R ${ROOT_DIR}/experiments/dv_calling/results/dv_snp_summary.tsv ${OUT_DIR}/dv_snp_summary_hifi.pdf ${DV_CALLING_CONDITIONS_HIFI}
+Rscript plot-calling-results.R ${ROOT_DIR}/experiments/dv_calling/results/dv_indel_summary.tsv ${OUT_DIR}/dv_indel_summary_hifi.pdf ${DV_CALLING_CONDITIONS_HIFI}
+
+Rscript plot-calling-results.R ${ROOT_DIR}/experiments/dv_calling/results/dv_snp_summary.tsv ${OUT_DIR}/dv_snp_summary_r10.pdf ${DV_CALLING_CONDITIONS_R10}
+Rscript plot-calling-results.R ${ROOT_DIR}/experiments/dv_calling/results/dv_indel_summary.tsv ${OUT_DIR}/dv_indel_summary_r10.pdf ${DV_CALLING_CONDITIONS_R10}

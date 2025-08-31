@@ -3498,6 +3498,7 @@ rule haplotype_sampling_time_empty:
         # Don't operate on sampled refgraphs.
         # Say we need a refgraph that's a bit not followed by a sampling indicator, followed by a dash and something. Or "primary".
         refgraph="((?!model)(?!legacy)(?!olddv)(?!newdv)[^/_]+(?!-sampled[0-9]+d?o?)-[^-]+|primary)",
+        mapper="!(giraffe.*)"
     threads: 1
     resources:
         mem_mb=200,
@@ -3538,6 +3539,8 @@ rule haplotype_sampling_time_giraffe:
             runtime += 24 * 60 * days
             f.close()
         shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
+
+ruleorder: haplotype_sampling_time_giraffe > haplotype_sampling_time_empty
 
 #output tsv of:
 #condition name, index load time plus haplotype sampling time in minutes
