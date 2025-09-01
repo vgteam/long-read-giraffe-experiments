@@ -100,7 +100,7 @@ R10_ACCURACY=${ROOT_DIR}/experiments/r10y2025_sim_1m_headline/results/compared.t
 ILLUMINA_ACCURACY=${ROOT_DIR}/experiments/illumina_sim_1m/results/compared.tsv
 ELEMENT_ACCURACY=${ROOT_DIR}/experiments/element_sim_1m/results/compared.tsv
 
-Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline_zoomed.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.001,0.03,0.9775,0.995'
+Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline_zoomed.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.0001,0.03,0.9545,0.995'
 
 Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline_zoomed.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.001,0.030,0.965,0.994'
 
@@ -224,4 +224,4 @@ Rscript plot-calling-results.R ${ROOT_DIR}/experiments/dv_calling/results/dv_snp
 Rscript plot-calling-results.R ${ROOT_DIR}/experiments/dv_calling/results/dv_indel_summary.tsv ${OUT_DIR}/dv_indel_summary_hifi.pdf ${DV_CALLING_CONDITIONS_HIFI}
 
 Rscript plot-calling-results.R ${ROOT_DIR}/experiments/dv_calling/results/dv_snp_summary.tsv ${OUT_DIR}/dv_snp_summary_r10.pdf ${DV_CALLING_CONDITIONS_R10}
-Rscript plot-calling-results.R ${ROOT_DIR}/experiments/dv_calling/results/dv_indel_summary.tsv ${OUT_DIR}/dv_indel_summary_r10.pdf ${DV_CALLING_CONDITIONS_R10}
+#Rscript plot-calling-results.R ${ROOT_DIR}/experiments/dv_calling/results/dv_indel_summary.tsv ${OUT_DIR}/dv_indel_summary_r10.pdf ${DV_CALLING_CONDITIONS_R10}
