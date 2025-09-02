@@ -5038,9 +5038,10 @@ rule clipped:
 #Getting this for short reads is super slow and we don't really care so skip it
 rule clipped_empty:
     output:
-         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped.tsv"
+         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{fakestat}.tsv"
     wildcard_constraints:
-        tech="(illumina|element)"
+        tech="(illumina|element)",
+        fakestat="(clipped|softclips\\.total|hardclips\\.total)"
     threads: 1
     resources:
         mem_mb=400,
@@ -5051,6 +5052,7 @@ rule clipped_empty:
         echo "0" >{output}
         """
 ruleorder: clipped_empty > clipped
+ruleorder: clipped_empty > total_stat
 
 rule clipped_or_unmapped:
     input:
