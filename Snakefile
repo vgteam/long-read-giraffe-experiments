@@ -4241,7 +4241,7 @@ rule experiment_mapping_stats_real_tsv:
         slurm_partition=choose_partition(60)
     shell:
         """
-        printf "condition\truntime(min)\tstartup_time(min)\tsampling_time(min)\tmemory(GB)\tsoftclipped(bp)\thardclipped(bp)\tunmapped(bp)\ttotal(bp)\n\ttotal_read_bases(bp)" >> {output.tsv} 
+        printf "condition\truntime(min)\tstartup_time(min)\tsampling_time(min)\tmemory(GB)\tsoftclipped(bp)\thardclipped(bp)\tunmapped(bp)\ttotal(bp)\ttotal_read_bases(bp)\n" >> {output.tsv} 
         cat {input} /dev/null >>{output.tsv}
         """
 ruleorder: experiment_mapping_stats_real_tsv > experiment_stat_table
@@ -6012,7 +6012,6 @@ ruleorder: sv_summary_table > experiment_stat_table
 rule all_paper_figures:
     input:
         mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.tsv", expname=config["real_exps"]),
-        mapping_stats_real_latex=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.latex.tsv", expname=config["real_exps"]),
         mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=config["sim_exps"]),
         compared_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/compared.tsv", expname=config["sim_exps"]),
         dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_indel_summary.tsv", expname=config["dv_exps"]),
