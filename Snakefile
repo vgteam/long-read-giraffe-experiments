@@ -3498,7 +3498,6 @@ rule haplotype_sampling_time_empty:
         # Don't operate on sampled refgraphs.
         # Say we need a refgraph that's a bit not followed by a sampling indicator, followed by a dash and something. Or "primary".
         refgraph="((?!model)(?!legacy)(?!olddv)(?!newdv)[^/_]+(?!-sampled[0-9]+d?o?)-[^-]+|primary)",
-        mapper="!(giraffe.*)"
     threads: 1
     resources:
         mem_mb=200,
@@ -4206,7 +4205,8 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         softclipped_total="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.total.tsv",
         hardclipped_total="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips.total.tsv",
         unmapped_total="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_length.total.tsv",
-        clipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped_or_unmapped.tsv"
+        clipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped_or_unmapped.tsv",
+        read_bases_total=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_bases_total.tsv")
 
     output:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv"
@@ -4222,7 +4222,7 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         slurm_partition=choose_partition(60)
     shell:
         """
-        echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.startup_time} | cut -f 2)\t$(cat {input.sampling_time} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_total} | cut -f 2)\t$(cat {input.hardclipped_total} | cut -f 2)\t$(cat {input.unmapped_total} | cut -f 2)\t$(cat {input.clipped_or_unmapped} | cut -f 2)" >>{output.tsv}
+        echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.startup_time} | cut -f 2)\t$(cat {input.sampling_time} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_total} | cut -f 2)\t$(cat {input.hardclipped_total} | cut -f 2)\t$(cat {input.unmapped_total} | cut -f 2)\t$(cat {input.clipped_or_unmapped} | cut -f 2) \t$(cat {input.read_bases_total} | cut -f 1)" >>{output.tsv}
         """
 
 
@@ -4241,7 +4241,7 @@ rule experiment_mapping_stats_real_tsv:
         slurm_partition=choose_partition(60)
     shell:
         """
-        printf "condition\truntime(min)\tstartup_time(min)\tsampling_time(min)\tmemory(GB)\tsoftclipped(bp)\thardclipped(bp)\tunmapped(bp)\ttotal(bp)\n" >> {output.tsv} 
+        printf "condition\truntime(min)\tstartup_time(min)\tsampling_time(min)\tmemory(GB)\tsoftclipped(bp)\thardclipped(bp)\tunmapped(bp)\ttotal(bp)\n\ttotal_read_bases(bp)" >> {output.tsv} 
         cat {input} /dev/null >>{output.tsv}
         """
 ruleorder: experiment_mapping_stats_real_tsv > experiment_stat_table
@@ -4806,6 +4806,21 @@ rule length_by_mapping:
         join -j 1 -a 1 -v 2 {output.length_by_name} {output.mapped_names} | awk -v OFS='\t' '{{print "unmapped",$2}}' >> {output.tsv}
         """
 
+#How many base pairs are in the read file
+rule read_bases_total:
+    input:
+        fastq=fastq,
+    output:
+        tsv=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_bases_total.tsv")
+    threads: 2
+    resources:
+        mem_mb=28000,
+        runtime=720,
+        slurm_partition=choose_partition(720)
+    shell:
+        """
+        seqkit fx2tab -n -l {input.fastq} | awk '{{sum+=$2}} END {{print sum}}' >{output.tsv}
+        """
 
 rule unmapped_length:
     input:
@@ -6059,13 +6074,8 @@ rule all_paper_figures:
     input:
         mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.tsv", expname=config["real_exps"]),
         mapping_stats_real_latex=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.latex.tsv", expname=config["real_exps"]),
-        clipped_or_unmapped=expand(ALL_OUT_DIR + "/experiments/{expname}/results/clipped_or_unmapped_percent.tsv", expname=config["headline_real_exps"]),
-        unmapped_length=expand(ALL_OUT_DIR + "/experiments/{expname}/results/unmapped_length_percent.tsv", expname=config["headline_real_exps"]),
-        runtime=expand(ALL_OUT_DIR + "/experiments/{expname}/results/run_and_sampling_time_from_benchmark.tsv", expname=config["headline_real_exps"]),
-        index_time=expand(ALL_OUT_DIR + "/experiments/{expname}/results/index_load_time.tsv", expname=config["headline_real_exps"]),
-        memory=expand(ALL_OUT_DIR + "/experiments/{expname}/results/memory_from_benchmark.tsv", expname=config["headline_real_exps"]),
-        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=list(set(config["headline_sim_exps"] + config["sim_exps"]))),
-        compared_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/compared.tsv", expname=config["headline_sim_exps"]),
+        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=config["sim_exps"]),
+        compared_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/compared.tsv", expname=config["sim_exps"]),
         dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_indel_summary.tsv", expname=config["dv_exps"]),
         dv_indel_pdf=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_indel_summary.pdf", expname=config["dv_exps"]),
         dv_snp=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_snp_summary.tsv", expname=config["dv_exps"]),
