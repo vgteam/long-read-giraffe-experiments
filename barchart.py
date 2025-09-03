@@ -261,7 +261,7 @@ def main(args):
     pyplot.xlabel(options.x_label)
     
     # Label the columns with the appropriate text. Account for 1-based ticks.
-    pyplot.xticks([x for x in range(len(categories.keys()))],
+    pyplot.xticks([x for x in range(len(category_order))],
         category_labels, rotation=90 if options.x_sideways else 0)
     
     pyplot.ylabel(options.y_label)
