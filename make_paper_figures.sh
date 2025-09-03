@@ -91,12 +91,14 @@ HIFI_REAL_FULL_HEADLINE_COLORS="${MINIMAP_COLOR} ${WINNOWMAP_COLOR} ${PBMM_COLOR
 R10_REAL_FULL_HEADLINE_CATEGORIES="${MINIMAP_R10} ${WINNOWMAP} ${GIRAFFE_PRIMARY_R10} ${MINIGRAPH_MINIGRAPH} ${GRAPHALIGNER_MINIGRAPH} ${GRAPHALIGNER_FAST} ${GIRAFFE_R10} ${GIRAFFE_SAMPLED_R10}"
 R10_REAL_FULL_HEADLINE_COLORS="${MINIMAP_COLOR} ${WINNOWMAP_COLOR} ${GIRAFFE_PRIMARY_COLOR} ${MINIGRAPH_MINIGRAPH_COLOR} ${GRAPHALIGNER_MINIGRAPH_COLOR} ${GRAPHALIGNER_FAST_COLOR} ${GIRAFFE_COLOR} ${GIRAFFE_SAMPLED_COLOR}"
 
+SR_REAL_FULL_CATEGORIES="${MINIMAP_SR} ${BWA} ${GIRAFFE_SR} ${GIRAFFE_SAMPLED_SR} ${GIRAFFE_PRIMARY_SR}"
+SR_REAL_FULL_COLORS="${MINIMAP_COLOR} ${BWA_COLOR} ${GIRAFFE_COLOR} ${GIRAFFE_SAMPLED_COLOR} ${GIRAFFE_PRIMARY_COLOR}"
 
-########################################## ROCs and QQs
+########################################### ROCs and QQs
 
 # Zoomed in headline roc plots
-HIFI_ACCURACY=${ROOT_DIR}/experiments/hifi_sim_1m_headline/results/compared.tsv
-R10_ACCURACY=${ROOT_DIR}/experiments/r10y2025_sim_1m_headline/results/compared.tsv
+HIFI_ACCURACY=${ROOT_DIR}/experiments/hifi_sim_1m/results/compared.tsv
+R10_ACCURACY=${ROOT_DIR}/experiments/r10y2025_sim_1m/results/compared.tsv
 ILLUMINA_ACCURACY=${ROOT_DIR}/experiments/illumina_sim_1m/results/compared.tsv
 ELEMENT_ACCURACY=${ROOT_DIR}/experiments/element_sim_1m/results/compared.tsv
 
@@ -120,8 +122,8 @@ Rscript plot-qq.R ${R10_ACCURACY} ${OUT_DIR}/qq_r10_headline.pdf $(echo $R10_SIM
 
 ########################################## Incorrect counts
 
-HIFI_INCORRECT=${ROOT_DIR}/experiments/hifi_sim_1m_headline/results/mapping_stats_sim.tsv
-R10_INCORRECT=${ROOT_DIR}/experiments/r10y2025_sim_1m_headline/results/mapping_stats_sim.tsv
+HIFI_INCORRECT=${ROOT_DIR}/experiments/hifi_sim_1m/results/mapping_stats_sim.tsv
+R10_INCORRECT=${ROOT_DIR}/experiments/r10y2025_sim_1m/results/mapping_stats_sim.tsv
 
 python3 barchart.py <(tail -n +2 ${HIFI_INCORRECT} | cut -f1,5) --divisions <(tail -n +2 ${HIFI_INCORRECT} | cut -f1,4)  --title 'HiFi incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --categories ${HIFI_SIM_1M_HEADLINE_CATEGORIES}  --colors ${HIFI_SIM_1M_HEADLINE_COLORS} --save ${OUT_DIR}/incorrectness_hifi.pdf
 
@@ -129,11 +131,24 @@ python3 barchart.py <(tail -n +2 ${R10_INCORRECT} | cut -f1,5) --divisions <(tai
 
 ########################################## Clips
 
-HIFI_CLIPS=${ROOT_DIR}/experiments/hifi_real_full_headline/results/clipped_or_unmapped_percent.tsv
-R10_CLIPS=${ROOT_DIR}/experiments/r10y2025_real_full_headline/results/clipped_or_unmapped_percent.tsv
+HIFI_REAL=${ROOT_DIR}/experiments/hifi_real_full/results/mapping_stats_real.tsv
+R10_REAL=${ROOT_DIR}/experiments/r10y2025_real_full/results/mapping_stats_real.tsv
+ILLUMINA_REAL=${ROOT_DIR}/experiments/illumina_real_full/results/mapping_stats_real.tsv
+ELEMENT_REAL=${ROOT_DIR}/experiments/element_real_full/results/mapping_stats_real.tsv
 
-HIFI_UNMAPPED=${ROOT_DIR}/experiments/hifi_real_full_headline/results/unmapped_length_percent.tsv
-R10_UNMAPPED=${ROOT_DIR}/experiments/r10y2025_real_full_headline/results/unmapped_length_percent.tsv
+HIFI_UNMAPPED=${OUT_DIR}/hifi_unmapped.tsv 
+R10_UNMAPPED=${OUT_DIR}/r10_unmapped.tsv
+HIFI_CLIPS=${OUT_DIR}/hifi_clips.tsv 
+R10_CLIPS=${OUT_DIR}/r10_clips.tsv
+
+grep -E $(echo ${HIFI_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${HIFI_REAL} | awk -v OFS='\t' '{{print $1,$9/$10}}' > ${HIFI_CLIPS}
+grep -E $(echo ${R10_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${R10_REAL} | awk -v OFS='\t' '{{print $1,$9/$10}}' > ${R10_CLIPS}
+
+
+grep -E $(echo ${HIFI_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${HIFI_REAL} | awk -v OFS='\t' '{{print $1,$8/$10}}' > ${HIFI_UNMAPPED}
+grep -E $(echo ${R10_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${R10_REAL} | awk -v OFS='\t' '{{print $1,$8/$10}}' > ${R10_UNMAPPED}
+cat $HIFI_CLIPS
+cat $HIFI_UNMAPPED
 
 #hifi softclips low
 LIMIT=$(python3 get_outlier_limit.py ${HIFI_CLIPS} small)
@@ -146,15 +161,21 @@ python3 barchart.py ${HIFI_CLIPS} --divisions ${HIFI_UNMAPPED} --min ${LIMIT}  -
 #r10 softclips
 python3 barchart.py ${R10_CLIPS} --divisions ${R10_UNMAPPED} --title 'R10 Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_r10_headline_high.pdf
 
+rm $HIFI_UNMAPPED
+rm $R10_UNMAPPED
+rm $HIFI_CLIPS
+rm $R10_CLIPS
 
 ############################################ Runtime
-
-HIFI_REAL=${ROOT_DIR}/experiments/hifi_real_full/results/mapping_stats_real.tsv
-R10_REAL=${ROOT_DIR}/experiments/r10y2025_real_full/results/mapping_stats_real.tsv
+#
 HIFI_RUNTIME=${OUT_DIR}/hifi_runtimes.tsv
 R10_RUNTIME=${OUT_DIR}/r10_runtimes.tsv
+ILLUMINA_RUNTIME=${OUT_DIR}/illumina_runtimes.tsv
+ELEMENT_RUNTIME=${OUT_DIR}/element_runtimes.tsv
 grep -E $(echo ${HIFI_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${HIFI_REAL} > ${HIFI_RUNTIME}
 grep -E $(echo ${R10_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${R10_REAL} > ${R10_RUNTIME}
+grep -E $(echo ${ILLUMINA_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${ILLUMINA_REAL} > ${ILLUMINA_RUNTIME}
+grep -E $(echo ${ELEMENT_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${ELEMENT_REAL} > ${ELEMENT_RUNTIME}
 
 
 
@@ -177,17 +198,40 @@ python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --div
 LIMIT=$(python3 get_outlier_limit.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) small)
 python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${R10_RUNTIME}) --max ${LIMIT}  --title 'R10 Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_r10_headline_fast.pdf
 
+# Illumina runtimes as one plot
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${ILLUMINA_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${ILLUMINA_RUNTIME}) --title 'Illumina Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${ILLUMINA_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${ILLUMINA_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_illumina_headline.pdf
+
+# Element runtimes as one plot
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${ELEMENT_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${ELEMENT_RUNTIME}) --title 'Element Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${ELEMENT_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${ELEMENT_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_element_headline.pdf
+
 rm ${HIFI_RUNTIME}
 rm ${R10_RUNTIME}
-###################################### Memory
+rm ${ILLUMINA_RUNTIME}
+rm ${ELEMENT_RUNTIME}
+####################################### Memory
+#
+HIFI_MEMORY=${OUT_DIR}/hifi_memory.tsv
+R10_MEMORY=${OUT_DIR}/r10_memory.tsv
+ILLUMINA_MEMORY=${OUT_DIR}/illumina_memory.tsv
+ELEMENT_MEMORY=${OUT_DIR}/element_memory.tsv
 
-HIFI_MEMORY=${ROOT_DIR}/experiments/hifi_real_full_headline/results/memory_from_benchmark.tsv
-R10_MEMORY=${ROOT_DIR}/experiments/r10y2025_real_full_headline/results/memory_from_benchmark.tsv
+grep -E $(echo ${HIFI_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${HIFI_REAL} | awk -v OFS='\t' '{{print $1,$5}}' > ${HIFI_MEMORY}
+grep -E $(echo ${R10_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${R10_REAL} | awk -v OFS='\t' '{{print $1,$5}}' > ${R10_MEMORY}
+grep -E $(echo ${ILLUMINA_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${ILLUMINA_REAL} | awk -v OFS='\t' '{{print $1,$5}}' > ${ILLUMINA_MEMORY}
+grep -E $(echo ${ELEMENT_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${ELEMENT_REAL} | awk -v OFS='\t' '{{print $1,$5}}' > ${ELEMENT_MEMORY}
 
 python3 barchart.py ${HIFI_MEMORY} --title 'HiFi Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/memory_hifi.pdf
 
 python3 barchart.py ${R10_MEMORY} --title 'R10 Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/memory_r10.pdf
 
+python3 barchart.py ${ILLUMINA_MEMORY} --title 'Illumina Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --categories ${ILLUMINA_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${ILLUMINA_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/memory_illumina.pdf
+
+python3 barchart.py ${ELEMENT_MEMORY} --title 'Element Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --categories ${ELEMENT_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${ELEMENT_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/memory_element.pdf
+
+rm $HIFI_MEMORY
+rm $R10_MEMORY
+rm $ILLUMINA_MEMORY
+rm $ELEMENT_MEMORY
 
 ####################################### SV Calling
 
