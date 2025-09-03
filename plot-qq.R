@@ -88,4 +88,7 @@ if (title != '') {
 }
 
 filename <- commandArgs(TRUE)[2]
-ggsave(filename, height=4, width=7)
+pdf(filename, 4.5, 4)
+dat.plot + guides(color="none", size="none")
+dat.plot
+dev.off()
