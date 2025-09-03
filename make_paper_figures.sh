@@ -94,13 +94,28 @@ R10_REAL_FULL_HEADLINE_COLORS="${MINIMAP_COLOR} ${WINNOWMAP_COLOR} ${GIRAFFE_PRI
 SR_REAL_FULL_HEADLINE_CATEGORIES="${MINIMAP_SR} ${BWA} ${GIRAFFE_PRIMARY_SR} ${GIRAFFE_SR} ${GIRAFFE_SAMPLED_SR}"
 SR_REAL_FULL_HEADLINE_COLORS="${MINIMAP_COLOR} ${BWA_COLOR} ${GIRAFFE_PRIMARY_COLOR} ${GIRAFFE_COLOR} ${GIRAFFE_SAMPLED_COLOR}"
 
-########################################### ROCs and QQs
+############################################### All input files
 
-# Zoomed in headline roc plots
 HIFI_ACCURACY=${ROOT_DIR}/experiments/hifi_sim_1m/results/compared.tsv
 R10_ACCURACY=${ROOT_DIR}/experiments/r10y2025_sim_1m/results/compared.tsv
 ILLUMINA_ACCURACY=${ROOT_DIR}/experiments/illumina_sim_1m/results/compared.tsv
 ELEMENT_ACCURACY=${ROOT_DIR}/experiments/element_sim_1m/results/compared.tsv
+
+HIFI_SIM=${ROOT_DIR}/experiments/hifi_sim_1m/results/mapping_stats_sim.tsv
+R10_SIM=${ROOT_DIR}/experiments/r10y2025_sim_1m/results/mapping_stats_sim.tsv
+
+HIFI_REAL=${ROOT_DIR}/experiments/hifi_real_full/results/mapping_stats_real.tsv
+R10_REAL=${ROOT_DIR}/experiments/r10y2025_real_full/results/mapping_stats_real.tsv
+ILLUMINA_REAL=${ROOT_DIR}/experiments/illumina_real_full/results/mapping_stats_real.tsv
+ELEMENT_REAL=${ROOT_DIR}/experiments/element_real_full/results/mapping_stats_real.tsv
+
+SV_SUMMARY=${ROOT_DIR}/experiments/sv_calling/results/sv_summary.tsv
+SNP_SUMMARY=${ROOT_DIR}/experiments/dv_calling/results/dv_snp_summary.tsv
+INDEL_SUMMARY=${ROOT_DIR}/experiments/dv_calling/results/dv_indel_summary.tsv
+
+########################################### ROCs and QQs
+
+# Zoomed in headline roc plots
 
 Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline_zoomed.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.0001,0.03,0.9545,0.995'
 
@@ -122,22 +137,18 @@ Rscript plot-qq.R ${R10_ACCURACY} ${OUT_DIR}/qq_r10_headline.pdf $(echo $R10_SIM
 
 ########################################## Incorrect counts
 
-HIFI_INCORRECT=${ROOT_DIR}/experiments/hifi_sim_1m/results/mapping_stats_sim.tsv
-R10_INCORRECT=${ROOT_DIR}/experiments/r10y2025_sim_1m/results/mapping_stats_sim.tsv
 
-python3 barchart.py <(tail -n +2 ${HIFI_INCORRECT} | cut -f1,5) --divisions <(tail -n +2 ${HIFI_INCORRECT} | cut -f1,4)  --title 'HiFi incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --categories ${HIFI_SIM_1M_HEADLINE_CATEGORIES}  --colors ${HIFI_SIM_1M_HEADLINE_COLORS} --save ${OUT_DIR}/incorrectness_hifi.pdf
+python3 barchart.py <(tail -n +2 ${HIFI_SIM} | cut -f1,5) --divisions <(tail -n +2 ${HIFI_SIM} | cut -f1,4)  --title 'HiFi incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --categories ${HIFI_SIM_1M_HEADLINE_CATEGORIES}  --colors ${HIFI_SIM_1M_HEADLINE_COLORS} --save ${OUT_DIR}/incorrectness_hifi.pdf
 
-python3 barchart.py <(tail -n +2 ${R10_INCORRECT} | cut -f1,5) --divisions <(tail -n +2 ${R10_INCORRECT} | cut -f1,4)  --title 'R10 incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --categories ${R10_SIM_1M_HEADLINE_CATEGORIES}  --colors ${R10_SIM_1M_HEADLINE_COLORS}  --save ${OUT_DIR}/incorrectness_r10.pdf
+python3 barchart.py <(tail -n +2 ${R10_SIM} | cut -f1,5) --divisions <(tail -n +2 ${R10_SIM} | cut -f1,4)  --title 'R10 incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --categories ${R10_SIM_1M_HEADLINE_CATEGORIES}  --colors ${R10_SIM_1M_HEADLINE_COLORS}  --save ${OUT_DIR}/incorrectness_r10.pdf
 
 ########################################## Clips
 
-HIFI_REAL=${ROOT_DIR}/experiments/hifi_real_full/results/mapping_stats_real.tsv
-R10_REAL=${ROOT_DIR}/experiments/r10y2025_real_full/results/mapping_stats_real.tsv
-ILLUMINA_REAL=${ROOT_DIR}/experiments/illumina_real_full/results/mapping_stats_real.tsv
-ELEMENT_REAL=${ROOT_DIR}/experiments/element_real_full/results/mapping_stats_real.tsv
 
 HIFI_UNMAPPED=${OUT_DIR}/hifi_unmapped.tsv 
 R10_UNMAPPED=${OUT_DIR}/r10_unmapped.tsv
+ILLUMINA_UNMAPPED=${OUT_DIR}/illumina_unmapped.tsv 
+ELEMENT_UNMAPPED=${OUT_DIR}/element_unmapped.tsv 
 HIFI_CLIPS=${OUT_DIR}/hifi_clips.tsv 
 R10_CLIPS=${OUT_DIR}/r10_clips.tsv
 
@@ -147,8 +158,8 @@ grep -E $(echo ${R10_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${R10_REAL}
 
 grep -E $(echo ${HIFI_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${HIFI_REAL} | awk -v OFS='\t' '{{print $1,100*$8/$10}}' > ${HIFI_UNMAPPED}
 grep -E $(echo ${R10_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${R10_REAL} | awk -v OFS='\t' '{{print $1,100*$8/$10}}' > ${R10_UNMAPPED}
-cat $HIFI_CLIPS
-cat $HIFI_UNMAPPED
+grep -E $(echo ${SR_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${ILLUMINA_REAL} | awk -v OFS='\t' '{{print $1,100*$8/$10}}' > ${ILLUMINA_UNMAPPED}
+grep -E $(echo ${SR_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${ELEMENT_REAL} | awk -v OFS='\t' '{{print $1,100*$8/$10}}' > ${ELEMENT_UNMAPPED}
 
 #hifi softclips low
 LIMIT=$(python3 get_outlier_limit.py ${HIFI_CLIPS} small)
@@ -159,10 +170,18 @@ LIMIT=$(python3 get_outlier_limit.py ${HIFI_CLIPS} big)
 python3 barchart.py ${HIFI_CLIPS} --divisions ${HIFI_UNMAPPED} --min ${LIMIT}  --title 'HiFi Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_hifi_headline_high.pdf
 
 #r10 softclips
-python3 barchart.py ${R10_CLIPS} --divisions ${R10_UNMAPPED} --title 'R10 Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_r10_headline_high.pdf
+python3 barchart.py ${R10_CLIPS} --divisions ${R10_UNMAPPED} --title 'R10 Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_r10_headline.pdf
+
+#illumina softclips
+python3 barchart.py ${ILLUMINA_UNMAPPED} --title 'ILLUMINA Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_illumina_headline.pdf
+
+#element softclips
+python3 barchart.py ${ELEMENT_UNMAPPED} --title 'ELEMENT Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_element_headline.pdf
 
 rm $HIFI_UNMAPPED
 rm $R10_UNMAPPED
+rm $ILLUMINA_UNMAPPED
+rm $ELEMENT_UNMAPPED
 rm $HIFI_CLIPS
 rm $R10_CLIPS
 
@@ -244,8 +263,8 @@ MINIMAP_SNIFFLES_R10=chm13,chm13,sniffles,r10y2025,minimap2-lr:hqae,eval-d46
 SV_CALLING_CONDITIONS_HIFI="${GIRAFFE_VGCALL_HIFI};${GIRAFFE_SAMPLED_VGCALL_HIFI};${MINIMAP_SNIFFLES_HIFI}"
 SV_CALLING_CONDITIONS_R10="${GIRAFFE_VGCALL_R10};${GIRAFFE_SAMPLED_VGCALL_R10};${MINIMAP_SNIFFLES_R10}"
 
-Rscript plot-calling-results.R ${ROOT_DIR}/experiments/sv_calling/results/sv_summary.tsv ${OUT_DIR}/sv_summary_hifi.pdf ${SV_CALLING_CONDITIONS_HIFI}
-Rscript plot-calling-results.R ${ROOT_DIR}/experiments/sv_calling/results/sv_summary.tsv ${OUT_DIR}/sv_summary_r10.pdf ${SV_CALLING_CONDITIONS_R10}
+Rscript plot-calling-results.R ${SV_SUMMARY} ${OUT_DIR}/sv_summary_hifi.pdf ${SV_CALLING_CONDITIONS_HIFI}
+Rscript plot-calling-results.R ${SV_SUMMARY} ${OUT_DIR}/sv_summary_r10.pdf ${SV_CALLING_CONDITIONS_R10}
 
 ############################################# DV Calling
 
@@ -262,8 +281,8 @@ MINIMAP_DV_R10=r10y2025,minimap2-lr:hqae,eval-d46,.nomodel
 DV_CALLING_CONDITIONS_R10="${GIRAFFE_DV_R10};${GIRAFFE_SAMPLED_DV_R10};${MINIMAP_DV_R10}"
 
 
-Rscript plot-calling-results.R ${ROOT_DIR}/experiments/dv_calling/results/dv_snp_summary.tsv ${OUT_DIR}/dv_snp_summary_hifi.pdf ${DV_CALLING_CONDITIONS_HIFI}
-Rscript plot-calling-results.R ${ROOT_DIR}/experiments/dv_calling/results/dv_indel_summary.tsv ${OUT_DIR}/dv_indel_summary_hifi.pdf ${DV_CALLING_CONDITIONS_HIFI}
+Rscript plot-calling-results.R ${SNP_SUMMARY} ${OUT_DIR}/dv_snp_summary_hifi.pdf ${DV_CALLING_CONDITIONS_HIFI}
+Rscript plot-calling-results.R ${INDEL_SUMMARY} ${OUT_DIR}/dv_indel_summary_hifi.pdf ${DV_CALLING_CONDITIONS_HIFI}
 
-Rscript plot-calling-results.R ${ROOT_DIR}/experiments/dv_calling/results/dv_snp_summary.tsv ${OUT_DIR}/dv_snp_summary_r10.pdf ${DV_CALLING_CONDITIONS_R10}
-#Rscript plot-calling-results.R ${ROOT_DIR}/experiments/dv_calling/results/dv_indel_summary.tsv ${OUT_DIR}/dv_indel_summary_r10.pdf ${DV_CALLING_CONDITIONS_R10}
+Rscript plot-calling-results.R ${SNP_SUMMARY} ${OUT_DIR}/dv_snp_summary_r10.pdf ${DV_CALLING_CONDITIONS_R10}
+Rscript plot-calling-results.R ${INDEL_SUMMARY} ${OUT_DIR}/dv_indel_summary_r10.pdf ${DV_CALLING_CONDITIONS_R10}
