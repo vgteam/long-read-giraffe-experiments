@@ -89,10 +89,8 @@ min_exclusive_reads: 1000000
 
 real_exps: ["hifi_real_full", "r10y2025_real_full", "illumina_real_full", "element_real_full"]
 sim_exps: ["hifi_sim_1m", "r10y2025_sim_1m"]
-dv_exps: []
-#"dv_calling"]
-sv_exps: []
-#"sv_calling"]
+dv_exps: ["dv_calling"]
+sv_exps: ["sv_calling"]
 
 non_zipcode_giraffe_versions: ["230872", "v1.62.0"]
 
@@ -345,20 +343,20 @@ experiments:
       trimmedness: ""
     vary:
       tech: ["hifi", "r10y2025"]
-      mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags", "graphaligner-default"]
+      mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags", "graphaligner-fast"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
       callparams: [".nomodel", ".model2025-03-26noinfo"]
     constrain:
       - 
         # Use the right mapping preset for each tech
         - tech: "hifi"
-          mapper: ["minimap2-map-hifi", "pbmm2", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "graphaligner-default"]
+          mapper: ["minimap2-map-hifi", "pbmm2", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "graphaligner-fast"]
         - tech: "r10y2025"
-          mapper: ["minimap2-lr:hqae", "giraffe-k31.w50.W-r10-99930d-noflags", "graphaligner-default"]
+          mapper: ["minimap2-lr:hqae", "giraffe-k31.w50.W-r10-99930d-noflags", "graphaligner-fast"]
       -
         # Use the right calling model for each tech and mapper
         - tech: "hifi"
-          mapper: ["giraffe-k31.w50.W-hifi-99930d-mmcs100", "graphaligner-default"]
+          mapper: ["giraffe-k31.w50.W-hifi-99930d-mmcs100", "graphaligner-fast"]
           callparams: ".model2025-03-26noinfo"
         - tech: "hifi"
           mapper: ["minimap2-map-hifi", "pbmm2"]
@@ -367,7 +365,7 @@ experiments:
           callparams: ".nomodel"
       - 
         # Don't use the linear mappers on all the graphs
-        - mapper: ["graphaligner-default"]
+        - mapper: ["graphaligner-fast"]
           refgraph: ["hprc-v2.0-mc-eval-d46"]
         - mapper: ["giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
           refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
@@ -389,20 +387,20 @@ experiments:
       truthref: ["chm13", "grch38"]
       caller: ["vgcall", "sniffles"]
       tech: ["hifi", "r10y2025"]
-      mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags", "graphaligner-default"]
+      mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags", "graphaligner-fast"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
     constrain:
       - 
         # Use the right mapping preset for each tech
         - tech: "hifi"
-          mapper: ["minimap2-map-hifi", "pbmm2", "graphaligner-default", "giraffe-k31.w50.W-hifi-99930d-mmcs100"]
+          mapper: ["minimap2-map-hifi", "pbmm2", "graphaligner-fast", "giraffe-k31.w50.W-hifi-99930d-mmcs100"]
         - tech: "r10y2025"
-          mapper: ["minimap2-lr:hqae", "graphaligner-default", "giraffe-k31.w50.W-r10-99930d-noflags"]
+          mapper: ["minimap2-lr:hqae", "graphaligner-fast", "giraffe-k31.w50.W-r10-99930d-noflags"]
       - 
         # Don't use the linear mappers on all the graphs
         - mapper: ["giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
           refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
-        - mapper: ["graphaligner-default"]
+        - mapper: ["graphaligner-fast"]
           # GraphAligner timed out on both techs after 7 days, on hprc-v2.0-mc-eval-d46.
           refgraph: ["hprc-v2.0-mc-eval-d46"]
         - mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae"]
@@ -410,7 +408,7 @@ experiments:
       - 
         #Use linear mappers with sniffles and graph mappers with vgcall
         - caller: ["vgcall"]
-          mapper: ["graphaligner-default", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
+          mapper: ["graphaligner-fast", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
         - caller: ["sniffles"]
           mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
       - 
@@ -423,11 +421,11 @@ experiments:
           caller: ["sniffles"]
           truthref: ["grch38"]
           reference: ["grch38"]
-        - mapper: ["graphaligner-default", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
+        - mapper: ["graphaligner-fast", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
           caller: ["sniffles"]
           truthref: ["chm13"]
           reference: ["chm13"]
-        - mapper: ["graphaligner-default", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
+        - mapper: ["graphaligner-fast", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
           caller: ["vgcall"]
           truthref: ["chm13", "grch38"]
           reference: ["chm13"]
