@@ -63,7 +63,7 @@ do
     tail -n +2 ${REAL_FILE} | awk -v OFS='\t' '$4 != 0 {print $1,$4}'  >> $CURRENT_OUTFILE 
 done
 
-################################# DV Table
+################################## DV Table
 
 for TECH in HIFI R10 ;
 do
@@ -73,9 +73,7 @@ do
         if [ $VAR == SNP ]; then
             VAR_FILE=${SNP_SUMMARY}
         elif [ $VAR == INDEL ]; then
-            VAR_FILE=${INDEL_SUMMARY} 
-        elif [ $VAR == SV ]; then
-            VAR_FILE=${SV_SUMMARY} 
+            VAR_FILE=${INDEL_SUMMARY}
         fi 
         CURRENT_OUTFILE=${OUT_DIR}/${VAR}_${TECH}.tsv
         printf "Reference\t& Mapper\t& True\t& False\t& False\t& Recall\t& Precision\t& F1 \\\\\\ \n" >$CURRENT_OUTFILE
@@ -90,4 +88,25 @@ do
         cat ${TEMP_FILE} | sed -r 's/,.(model2025-03-26noinfo|nomodel)//' | sed 's/eval/HPRC/g' | sed -r 's/giraffe-(r10|hifi)-(noflags|mmcs100)/Giraffe/g' | awk -v OFS='\t' '{printf "%0s\t%0i\t%0i\t%0i\t%.4f\t%.4f\t%.4f\n",$1,$2,$3,$4,$5,$6,$7}' | ./format_tsv.sh >> $CURRENT_OUTFILE
         rm $TEMP_FILE
     done
+done
+
+################################# SV Table
+
+for TECH in HIFI R10 ;
+do
+    VAR_FILE=${SV_SUMMARY} 
+
+    CURRENT_OUTFILE=${OUT_DIR}/SV_${TECH}.tsv
+    printf "Reference\t& Mapper\t& True\t& False\t& False\t& Recall\t& Precision\t& F1 \\\\\\ \n" >$CURRENT_OUTFILE
+    printf "\t& \t& Positive\t& Negative\t& Positive\t& \t& \t&  \\\\\\ \n" >>$CURRENT_OUTFILE
+    printf "\\hline\n" >> $CURRENT_OUTFILE
+    TEMP_FILE=${OUT_DIR}/tmp.txt
+    if [ $TECH == HIFI ]; then
+        tail -n +2 ${VAR_FILE} | grep hifi | sed 's/^hifi,//g' >$TEMP_FILE 
+    elif [ $TECH == R10 ]; then
+        tail -n +2 ${VAR_FILE} | grep r10 | sed 's/^r10y2025,//g' >$TEMP_FILE 
+    fi
+    cat ${TEMP_FILE} | grep chm13,chm13 | grep -v "sniffles,.*giraffe" | sed -r 's/chm13,chm13,(vgcall|sniffles),(r10y2025|hifi),//g' | sed 's/eval/HPRC/g' | sed -r 's/giraffe-(r10|hifi)-(noflags|mmcs100)/Giraffe/g' | awk -v OFS='\t' '{printf "%0s\t%0i\t%0i\t%0i\t%.4f\t%.4f\t%.4f\n",$1,$2,$3,$4,$5,$6,$7}' | ./format_tsv.sh >> $CURRENT_OUTFILE
+    rm $TEMP_FILE
+    
 done

@@ -117,20 +117,20 @@ INDEL_SUMMARY=${ROOT_DIR}/experiments/dv_calling/results/dv_indel_summary.tsv
 
 # Zoomed in headline roc plots
 
-##Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline_zoomed.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.0001,0.03,0.9545,0.995'
-##
-##Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline_zoomed.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.001,0.030,0.965,0.994'
-##
-### Zoomed out headline roc plots
-##Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
-##
-##Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
-##
-##Rscript plot-roc.R ${ILLUMINA_ACCURACY} ${OUT_DIR}/roc_illumina_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Illumina ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' ) '0.0001,0.03,0.918,0.985'
-##
-##Rscript plot-roc.R ${ELEMENT_ACCURACY} ${OUT_DIR}/roc_element_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Element ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' )
-##
-### headline qq plots
+Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline_zoomed.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.0001,0.03,0.9545,0.995'
+
+Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline_zoomed.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.001,0.030,0.965,0.994'
+
+# Zoomed out headline roc plots
+Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
+
+Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
+
+Rscript plot-roc.R ${ILLUMINA_ACCURACY} ${OUT_DIR}/roc_illumina_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Illumina ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' ) '0.0001,0.03,0.918,0.985'
+
+Rscript plot-roc.R ${ELEMENT_ACCURACY} ${OUT_DIR}/roc_element_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Element ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' )
+
+# headline qq plots
 Rscript plot-qq.R ${HIFI_ACCURACY} ${OUT_DIR}/qq_hifi_headline.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI QQ" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
 
 Rscript plot-qq.R ${R10_ACCURACY} ${OUT_DIR}/qq_r10_headline.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 QQ" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
@@ -259,13 +259,15 @@ rm $ELEMENT_MEMORY
 GIRAFFE_VGCALL_HIFI=chm13,chm13,vgcall,hifi,giraffe-hifi-mmcs100,eval-d46
 GIRAFFE_SAMPLED_VGCALL_HIFI=chm13,chm13,vgcall,hifi,giraffe-hifi-mmcs100,eval.ec1M-sampled16o
 MINIMAP_SNIFFLES_HIFI=chm13,chm13,sniffles,hifi,minimap2-map-hifi,eval-d46
+GRAPHALIGNER_VGCALL_HIFI=chm13,chm13,vgcall,hifi,graphaligner-fast,eval-d46
 
 GIRAFFE_VGCALL_R10=chm13,chm13,vgcall,r10y2025,giraffe-r10-noflags,eval-d46
 GIRAFFE_SAMPLED_VGCALL_R10=chm13,chm13,vgcall,r10y2025,giraffe-r10-noflags,eval.ec1M-sampled16o
 MINIMAP_SNIFFLES_R10=chm13,chm13,sniffles,r10y2025,minimap2-lr:hqae,eval-d46
+GRAPHALIGNER_VGCALL_R10=chm13,chm13,vgcall,r10y2025,graphaligner-fast,eval-d46
 
-SV_CALLING_CONDITIONS_HIFI="${GIRAFFE_VGCALL_HIFI};${GIRAFFE_SAMPLED_VGCALL_HIFI};${MINIMAP_SNIFFLES_HIFI}"
-SV_CALLING_CONDITIONS_R10="${GIRAFFE_VGCALL_R10};${GIRAFFE_SAMPLED_VGCALL_R10};${MINIMAP_SNIFFLES_R10}"
+SV_CALLING_CONDITIONS_HIFI="${GIRAFFE_VGCALL_HIFI};${GIRAFFE_SAMPLED_VGCALL_HIFI};${GRAPHALIGNER_VGCALL_HIFI};${MINIMAP_SNIFFLES_HIFI}"
+SV_CALLING_CONDITIONS_R10="${GIRAFFE_VGCALL_R10};${GIRAFFE_SAMPLED_VGCALL_R10};${GRAPHALIGNER_VGCALL_R10};${MINIMAP_SNIFFLES_R10}"
 
 Rscript plot-calling-results.R ${SV_SUMMARY} ${OUT_DIR}/sv_summary_hifi.pdf ${SV_CALLING_CONDITIONS_HIFI}
 Rscript plot-calling-results.R ${SV_SUMMARY} ${OUT_DIR}/sv_summary_r10.pdf ${SV_CALLING_CONDITIONS_R10}
