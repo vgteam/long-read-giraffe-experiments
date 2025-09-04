@@ -4783,7 +4783,7 @@ rule length_by_mapping:
         slurm_partition=choose_partition(120)
     shell:
         """
-        cp {input.mapped} > {output.tsv}
+        cp {input.mapped} {output.tsv}
         cat {input.unmapped} >> {output.tsv}
         """
 
