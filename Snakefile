@@ -5946,7 +5946,7 @@ rule vgcall:
         vcf_index='{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz.tbi',
         temp_vcf=temp('{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.temp.vcf.gz'),
         temp_vcf_index=temp('{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.temp.vcf.gz.tbi')
-    benchmark: '{root}/svcall/vgcall/unpopped/{mapper}/benchmark.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.tsv'
+    # TODO: Make benchmarkable against Sniffles by doing corresponding work
     log:
         logfile='{root}/svcall/vgcall/unpopped/{mapper}/log.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.log'
     wildcard_constraints:
@@ -6003,12 +6003,13 @@ rule call_svs_sniffles:
         # Because we call on the PanSN reference, we need this in PanSN space.
         target_bed=reference_restrict_bed
     output:
-        vcf="{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{reference}.vcf.gz",
-        vcf_index="{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{reference}.vcf.gz.tbi",
-        temp_vcf=temp("{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{reference}.temp.vcf.gz")
+        # Because the Sniffles2 container doesn't have bgzip, we can't make a
+        # bgzipped-and-indexed VCF as an output of this rule, since we need to
+        # do contig surgery on what Sniffles2 itself produces.
+        temp_pansn_vcf=temp("{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{reference}.temp.vcf.gz")
     threads: 16
     log: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.log"
-    benchmark: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.benchmark"
+    # TODO: Make benchmarkable against vg call by doing corresponding work
     resources:
         mem_mb=32000,
         runtime=120,
@@ -6016,8 +6017,23 @@ rule call_svs_sniffles:
     container: 'docker://quay.io/biocontainers/sniffles:2.5.3--pyhdfd78af_0'
     shell:
         """
-        sniffles -i {input.bam} -v {output.temp_vcf} -t {threads} --tandem-repeats {input.vntr} --reference {input.ref_fasta} --regions {input.target_bed} 2>&1 > {log}
-        zcat {output.temp_vcf} | sed 's/CHM13#0#//g' | sed 's/GRCh38#0#//g' | bgzip >{output.vcf}
+        sniffles -i {input.bam} -v {output.temp_pansn_vcf} -t {threads} --tandem-repeats {input.vntr} --reference {input.ref_fasta} --regions {input.target_bed} 2>&1 > {log}
+        """
+
+rule rename_sniffles_vcf:
+    input:
+        temp_pansn_vcf="{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{reference}.temp.vcf.gz"
+    output:
+        vcf="{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{reference}.vcf.gz",
+        vcf_index="{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{reference}.vcf.gz.tbi",
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=20,
+        slurm_partition=choose_partition(20)
+    shell:
+        """
+        zcat {input.temp_pansn_vcf} | sed 's/CHM13#0#//g' | sed 's/GRCh38#0#//g' | bgzip >{output.vcf}
         tabix -p vcf {output.vcf}
         """
 
