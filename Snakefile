@@ -589,6 +589,15 @@ def calling_reference_restrict_bed(wildcards):
     """
     return calling_reference_fasta(wildcards) + ".callable.from." + wildcards["reference"] + ".bed"
 
+def reference_restrict_bed(wildcards):
+    """
+    Find the BED for the linear PanSN reference region we think we can call on, from reference.
+
+    (We need this for SV calling since it is implemened in PanSN space and not
+    on the "calling" references. TODO: refactor to change that.)
+    """
+    return reference_fasta(wildcards) + ".callable.from." + wildcards["reference"] + ".bed"
+
 def calling_reference_par_bed(wildcards):
     """
     Find the BED for the psuedo-autosomal regions of a reference, from reference.
@@ -612,6 +621,8 @@ def uncallable_contig_regex(wildcards):
     """
     Get a grep regex matching a substring in all uncallable contigs in the
     calling or PanSN reference, from reference or basename.
+
+    This is a search, not a full match.
 
     We expect basename to start with a reference identifier like "chm13", maybe
     with other stuff after a "-".
@@ -5894,9 +5905,16 @@ rule vgcall:
         # TODO: Should we only do this when reference and truthref *are*
         # distinct?
         graph=all_refs_gbz,
-        snarls=all_refs_snarls
+        snarls=all_refs_snarls,
+        # Our VCFs come out in non-PanSN space, so we need to trim them down to
+        # the target regions in that space. Also since truthref is the calling
+        # reference, we need to use that here.
+        target_bed=lambda w: calling_reference_restrict_bed({"reference": w["truthref"]})
     output:
-        vcf='{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz'
+        vcf='{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz',
+        vcf_index='{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz.tbi',
+        temp_vcf=temp('{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.temp.vcf.gz'),
+        temp_vcf_index=temp('{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.temp.vcf.gz.tbi')
     benchmark: '{root}/svcall/vgcall/unpopped/{mapper}/benchmark.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.tsv'
     log:
         logfile='{root}/svcall/vgcall/unpopped/{mapper}/log.call.vgcall_call.{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.log'
@@ -5913,18 +5931,21 @@ rule vgcall:
         pack_path = os.path.abspath(input.pack)
         graph_path = os.path.abspath(input.graph)
         snarls_path = os.path.abspath(input.snarls)
-        out_path = os.path.abspath(output.vcf)
+        temp_out_path = os.path.abspath(output.temp_vcf)
         log_path = os.path.abspath(log.logfile)
-        shell("cd {LARGE_TEMP_DIR} && vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k " + pack_path + " -r " + snarls_path + " -t {threads} " + graph_path + " | gzip > " + out_path + " 2> " + log_path)
+        shell("cd {LARGE_TEMP_DIR} && vg call -Az -s {wildcards.sample} -S {params.reference_sample} -c 30 -k " + pack_path + " -r " + snarls_path + " -t {threads} " + graph_path + " 2> " + log_path + " | bgzip > " + temp_out_path)
+        shell("tabix -p vcf {output.temp_vcf}")
+        # Throw out any calls outside the region we wanted to call on. TODO: Make vg call take a target BED itself.
+        shell("bcftools view -O z {output.temp_vcf} --regions-file {input.target_bed} > {output.vcf}")
+        shell("tabix -p vcf {output.vcf}")
 
 rule decompose_nested_variants:
     input:
-        vcf='{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz'
+        vcf='{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz',
+        vcf_index='{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz.tbi'
     output:
         vcf='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz',
-        temp_vcf=temp('{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.temp.vcf.gz'),
-        temp_tbi=temp('{root}/svcall/vgcall/unpopped/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.temp.vcf.gz.tbi'),
-
+        vcf_index='{root}/svcall/vgcall/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz.tbi'
     wildcard_constraints:
         mapper="giraffe.*|graphaligner.*"
     threads: 2
@@ -5936,9 +5957,8 @@ rule decompose_nested_variants:
     shell:
         """
         export TMPDIR={wildcards.root}/temp
-        zcat {input.vcf} | bgzip > {output.temp_vcf}
-        tabix -p vcf {output.temp_vcf}
-        vcfbub -l 0 -a 100000 --input {output.temp_vcf} | vcfwave -I 1000 | bcftools sort -O z -o {output.vcf}
+        vcfbub -l 0 -a 100000 --input {input.vcf} | vcfwave -I 1000 | bcftools sort -O z -o {output.vcf}
+        tabix -p vcf {output.vcf}
         """
 
 # Call SVs with linear caller sniffles
@@ -5948,8 +5968,13 @@ rule call_svs_sniffles:
         bam="{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
         bai="{root}/aligned/{reference}/{refgraph}/{mapper}/real/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai",
         vntr=sv_calling_vntr_bed,
-        ref_fasta=reference_fasta
-    output: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{reference}.vcf.gz"
+        ref_fasta=reference_fasta,
+        # Because we call on the PanSN reference, we need this in PanSN space.
+        target_bed=reference_restrict_bed
+    output:
+        vcf="{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{reference}.vcf.gz",
+        vcf_index="{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{reference}.vcf.gz.tbi",
+        temp_vcf=temp("{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{reference}.temp.vcf.gz")
     threads: 16
     log: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.log"
     benchmark: "{root}/svcall/sniffles/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.benchmark"
@@ -5960,28 +5985,48 @@ rule call_svs_sniffles:
     container: 'docker://quay.io/biocontainers/sniffles:2.5.3--pyhdfd78af_0'
     shell:
         """
-        sniffles -i {input.bam} -v {output}.temp.vcf.gz -t {threads} --tandem-repeats {input.vntr} --reference {input.ref_fasta} 2>&1 > {log}
-        zcat {output}.temp.vcf.gz | sed 's/CHM13#0#//g' | sed 's/GRCh38#0#//g' | gzip >{output}
-        rm {output}.temp.vcf.gz
+        sniffles -i {input.bam} -v {output.temp_vcf} -t {threads} --tandem-repeats {input.vntr} --reference {input.ref_fasta} --regions {input.target_bed} 2>&1 > {log}
+        zcat {output.temp_vcf} | sed 's/CHM13#0#//g' | sed 's/GRCh38#0#//g' | bgzip >{output.vcf}
+        tabix -p vcf {output.vcf}
         """
+
+rule callable_confreg:
+    input:
+        confreg=SV_DATA_DIR+'/{truthset}_{truthref}.confreg.bed',
+        target_bed=lambda w: calling_reference_restrict_bed({"reference": w["truthref"]})
+    output:
+        bed="{root}/confreg/{truthset}_{truthref}.callable_confreg.bed"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=20,
+        slurm_partition=choose_partition(20)
+    shell:
+        "bedtools intersect -a {input.confreg} -b {input.target_bed} >{output.bed}"
 
 rule truvari:
     input:
         truth_vcf=SV_DATA_DIR+'/{truthset}_{truthref}.vcf.gz',
         # TODO: Rename caller to svcaller to avoid confusing it with the point variant caller (always DV)
         sample_vcf='{root}/svcall/{caller}/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz',
-        confreg=SV_DATA_DIR+'/{truthset}_{truthref}.confreg.bed',
-        ref=calling_reference_fasta
+        sample_vcf_index='{root}/svcall/{caller}/{mapper}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.called_on_{truthref}.vcf.gz.tbi',
+        # Use the high-confidfence regions subset to the places we can actually
+        # call (i.e. ignore CHM13v2.0 Y which we know is not in the graph)
+        confreg="{root}/confreg/{truthset}_{truthref}.callable_confreg.bed",
+        # Make sure to get the FASTA for the *calling* reference for refinement
+        ref=lambda w: calling_reference_fasta({"reference": w["truthref"]})
     output:
         summary="{root}/svcall/{caller}/{mapper}/eval/{truthset}_{truthref}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.truvari.summary.json",
         refine_var="{root}/svcall/{caller}/{mapper}/eval/{truthset}_{truthref}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.truvari.refine.variant_summary.json",
         refine_reg="{root}/svcall/{caller}/{mapper}/eval/{truthset}_{truthref}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.region_summary.json",
+        refine_fn_vcf="{root}/svcall/{caller}/{mapper}/eval/{truthset}_{truthref}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.fn.vcf.gz",
+        refine_fn_vcf_index="{root}/svcall/{caller}/{mapper}/eval/{truthset}_{truthref}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.fn.vcf.gz.tbi",
+        refine_fp_vcf="{root}/svcall/{caller}/{mapper}/eval/{truthset}_{truthref}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.fp.vcf.gz",
+        refine_fp_vcf_index="{root}/svcall/{caller}/{mapper}/eval/{truthset}_{truthref}/{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}.truvari.refine.fp.vcf.gz.tbi",
         # These aren't actual outputs but are scratch files which we rely on Snakemake to manage cleanup for
         odir=temp(directory('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}')),
         bvcf=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.base.vcf.gz'),
         bvcf_index=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.base.vcf.gz.tbi'),
-        cvcf_temp=temp('{root}/temp/{caller}.{mapper}.temp.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.call.vcf.gz'),
-        cvcf_temp_index=temp('{root}/temp/{caller}.{mapper}.temp.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.call.vcf.gz.tbi'),
         cvcf=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.call.nomulti.vcf.gz'),
         cvcf_index=temp('{root}/temp/{caller}.{mapper}.truvari_{sample}{trimmedness}.{subset}.{tech}.{reference}.{refgraph}.{truthset}_{truthref}.call.nomulti.vcf.gz.tbi')
     resources:
@@ -5997,9 +6042,7 @@ rule truvari:
 
         bcftools norm -m -both {input.truth_vcf} -O z -o {output.bvcf}
         tabix -p vcf {output.bvcf}
-        zcat {input.sample_vcf} | bgzip > {output.cvcf_temp}
-        tabix -p vcf {output.cvcf_temp}
-        bcftools norm -m -both {output.cvcf_temp} -O z -o {output.cvcf}
+        bcftools norm -m -both {input.sample_vcf} -O z -o {output.cvcf}
         tabix -p vcf {output.cvcf}
         
         truvari bench -b {output.bvcf} -c {output.cvcf} -o {output.odir} --pick ac --passonly -r 2000 -C 5000 --includebed {input.confreg}
@@ -6009,6 +6052,10 @@ rule truvari:
         cp {output.odir}/summary.json {output.summary}
         cp {output.odir}/refine.variant_summary.json {output.refine_var}
         cp {output.odir}/refine.region_summary.json {output.refine_reg}
+        cp {output.odir}/phab_bench/fn.vcf.gz {output.refine_fn_vcf}
+        cp {output.odir}/phab_bench/fn.vcf.gz.tbi {output.refine_fn_vcf_index}
+        cp {output.odir}/phab_bench/fp.vcf.gz {output.refine_fp_vcf}
+        cp {output.odir}/phab_bench/fp.vcf.gz.tbi {output.refine_fp_vcf_index}
         """
 
 #Print summary statistics from sv calling with the format:
