@@ -174,5 +174,7 @@ Then:
 
 5. Run `make_paper_figures.sh` and collect the figures.
 
+6. Run `make_paper_tables.sh` and collect the tables to include in a latex document.
+
 
 

@@ -324,7 +324,7 @@ def auto_mapping_memory(wildcards):
 
     base_mb = 60000
 
-    if wildcards["tech"] == "illumina":
+    if wildcards["tech"] == "illumina" or wildcards["tech"] == "element":
         scale_mb = 200000
     elif wildcards["tech"] == "hifi":
         scale_mb = 240000
@@ -2031,7 +2031,7 @@ rule merge_graphaligner_gams:
         realness="real",
         mapper="graphaligner.*",
         subset="full",
-        refgraph="hprc-v1.1-mc"
+        refgraph="(hprc-v1.1-mc|hprc-v2.0-mc-eval-d46)"
     threads: 1
     resources:
         mem_mb=8000,
@@ -2229,7 +2229,7 @@ rule winnowmap_sim_reads:
     wildcard_constraints:
         # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
         # So match any string but that. See https://stackoverflow.com/a/14683066
-        tech="(?!illumina)(?!element).+"
+        tech="(?!(illumina|element)).+"
     threads: auto_mapping_threads
     resources:
         mem_mb=300000,
@@ -2254,7 +2254,7 @@ rule winnowmap_real_reads:
     wildcard_constraints:
         # Winnowmap doesn't have a short read preset, so we can't do Illumina reads.
         # So match any string but that. See https://stackoverflow.com/a/14683066
-        tech="(?!illumina)(?!element).+"
+        tech="(?!(illumina|element)).+"
     threads: auto_mapping_threads
     params:
         exclusive_timing=exclusive_timing
@@ -3550,6 +3550,8 @@ rule haplotype_sampling_time_giraffe:
             f.close()
         shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
 
+ruleorder: haplotype_sampling_time_giraffe > haplotype_sampling_time_empty
+
 #output tsv of:
 #condition name, index load time plus haplotype sampling time in minutes
 #input tsv have condition name and index load time / sampling time
@@ -4214,7 +4216,8 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         softclipped_total="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.total.tsv",
         hardclipped_total="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips.total.tsv",
         unmapped_total="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.unmapped_length.total.tsv",
-        clipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped_or_unmapped.tsv"
+        clipped_or_unmapped="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.clipped_or_unmapped.tsv",
+        read_bases_total=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_bases_total.tsv")
 
     output:
         tsv="{root}/experiments/{expname}/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_stats_real.tsv"
@@ -4230,7 +4233,7 @@ rule experiment_mapping_stats_real_tsv_from_stats:
         slurm_partition=choose_partition(60)
     shell:
         """
-        echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.startup_time} | cut -f 2)\t$(cat {input.sampling_time} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_total} | cut -f 2)\t$(cat {input.hardclipped_total} | cut -f 2)\t$(cat {input.unmapped_total} | cut -f 2)\t$(cat {input.clipped_or_unmapped} | cut -f 2)" >>{output.tsv}
+        echo "{params.condition_name}\t$(cat {input.runtime_from_benchmark} | cut -f 2)\t$(cat {input.startup_time} | cut -f 2)\t$(cat {input.sampling_time} | cut -f 2)\t$(cat {input.memory_from_benchmark} | cut -f 2)\t$(cat {input.softclipped_total} | cut -f 2)\t$(cat {input.hardclipped_total} | cut -f 2)\t$(cat {input.unmapped_total} | cut -f 2)\t$(cat {input.clipped_or_unmapped} | cut -f 2) \t$(cat {input.read_bases_total} | cut -f 1)" >>{output.tsv}
         """
 
 
@@ -4249,7 +4252,7 @@ rule experiment_mapping_stats_real_tsv:
         slurm_partition=choose_partition(60)
     shell:
         """
-        printf "condition\truntime(min)\tstartup_time(min)\tsampling_time(min)\tmemory(GB)\tsoftclipped(bp)\thardclipped(bp)\tunmapped(bp)\ttotal(bp)\n" >> {output.tsv} 
+        printf "condition\truntime(min)\tstartup_time(min)\tsampling_time(min)\tmemory(GB)\tsoftclipped(bp)\thardclipped(bp)\tunmapped(bp)\ttotal(bp)\ttotal_read_bases(bp)\n" >> {output.tsv} 
         cat {input} /dev/null >>{output.tsv}
         """
 ruleorder: experiment_mapping_stats_real_tsv > experiment_stat_table
@@ -4794,10 +4797,10 @@ rule length:
 rule length_by_mapping:
     input:
         fastq=fastq,
-        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        length_by_name=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv")
     output:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv",
-        length_by_name="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv",
         mapped_names="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv"
     threads: 16
     resources:
@@ -4809,11 +4812,40 @@ rule length_by_mapping:
         # So we get all the mapped reads and then all the unmapped reads. See <https://unix.stackexchange.com/a/588652>
         """
         vg filter --only-mapped -t {threads} -T "name" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_names}
-        seqkit fx2tab -n -l {input.fastq} | sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' > {output.length_by_name}
-        join -j 1 {output.length_by_name} {output.mapped_names} | awk -v OFS='\t' '{{print "mapped",$2}}' > {output.tsv}
-        join -j 1 -a 1 -v 2 {output.length_by_name} {output.mapped_names} | awk -v OFS='\t' '{{print "unmapped",$2}}' >> {output.tsv}
+        join -j 1 {input.length_by_name} {output.mapped_names} | awk -v OFS='\t' '{{print "mapped",$2}}' > {output.tsv}
+        join -j 1 -a 1 -v 2 {input.length_by_name} {output.mapped_names} | awk -v OFS='\t' '{{print "unmapped",$2}}' >> {output.tsv}
         """
 
+#How many base pairs per read
+rule read_length_by_name:
+    input:
+        fastq=fastq,
+    output:
+        tsv=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv")
+    threads: 2
+    resources:
+        mem_mb=28000,
+        runtime=720,
+        slurm_partition=choose_partition(720)
+    shell:
+        """
+        seqkit fx2tab -n -l {input.fastq} | sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' >{output.tsv}
+        """
+#How many base pairs are in the read file
+rule read_bases_total:
+    input:
+        tsv=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv")
+    output:
+        tsv=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_bases_total.tsv")
+    threads: 2
+    resources:
+        mem_mb=28000,
+        runtime=720,
+        slurm_partition=choose_partition(720)
+    shell:
+        """
+        awk '{{sum+=$2}} END {{print sum}}' {input.tsv} >{output.tsv}
+        """
 
 rule unmapped_length:
     input:
@@ -4879,7 +4911,7 @@ rule softclips_by_name_gam:
         mapper="(minigraph|graphaligner-.*|giraffe.*)",
         # This is too slow to do for Illumina; we're supposed to use _empty
         # rules later to fill in 0s for Illumina conditions.
-        tech="(?!illumina)(?!element)[a-zA-Z0-9]+"
+        tech="(?!(illumina|element))[a-zA-Z0-9]+"
     threads: 5
     resources:
         mem_mb=2000,
@@ -4905,7 +4937,7 @@ rule softclips_by_name_other:
         mapper="(?!(minigraph|graphaligner-.*|giraffe.*)).+",
         # This is too slow to do for Illumina; we're supposed to use _empty
         # rules later to fill in 0s for Illumina conditions.
-        tech="(?!illumina)(?!element)[a-zA-Z0-9]+"
+        tech="(?!(illumina|element))[a-zA-Z0-9]+"
     threads: 9
     resources:
         mem_mb=2000,
@@ -4949,16 +4981,16 @@ ruleorder: softclips_by_name_gam > softclips_by_name_other
 rule hardclips_by_name_gam:
     input:
         fastq=fastq,
-        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        read_length_by_name=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv")
     output:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips_by_name.tsv",
-        read_length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
         mapped_length_by_name=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_length_by_name.tsv")
     wildcard_constraints:
         mapper="(minigraph|graphaligner-.*|giraffe.*)",
         # This is too slow to do for Illumina; we're supposed to use _empty
         # rules later to fill in 0s for Illumina conditions.
-        tech="(?!illumina)(?!element)[a-zA-Z0-9]+"
+        tech="(?!(illumina|element))[a-zA-Z0-9]+"
     threads: 2
     resources:
         mem_mb=28000,
@@ -4974,8 +5006,7 @@ rule hardclips_by_name_gam:
         # We use -a 2 on the join to exclude fully-unmapped reads.
         """
         vg filter -t {threads} -T "name;length" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_length_by_name}
-        seqkit fx2tab -n -l {input.fastq} | sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' > {output.read_length_by_name}
-        join -a 2 {output.read_length_by_name} {output.mapped_length_by_name} | awk -v OFS='\t' '{{print $1,$2-$3}}' > {output.tsv}
+        join -a 2 {input.read_length_by_name} {output.mapped_length_by_name} | awk -v OFS='\t' '{{print $1,$2-$3}}' > {output.tsv}
         """
 
 rule hardclips_by_name_other:
@@ -4987,7 +5018,7 @@ rule hardclips_by_name_other:
         mapper="(?!(minigraph|graphaligner-.*|giraffe.*)).+",
         # This is too slow to do for Illumina; we're supposed to use _empty
         # rules later to fill in 0s for Illumina conditions.
-        tech="(?!illumina)(?!element)[a-zA-Z0-9]+"
+        tech="(?!(illumina|element))[a-zA-Z0-9]+"
     threads: 7
     resources:
         mem_mb=2000,
@@ -6104,14 +6135,8 @@ ruleorder: sv_summary_table > experiment_stat_table
 rule all_paper_figures:
     input:
         mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.tsv", expname=config["real_exps"]),
-        mapping_stats_real_latex=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.latex.tsv", expname=config["real_exps"]),
-        clipped_or_unmapped=expand(ALL_OUT_DIR + "/experiments/{expname}/results/clipped_or_unmapped_percent.tsv", expname=config["headline_real_exps"]),
-        unmapped_length=expand(ALL_OUT_DIR + "/experiments/{expname}/results/unmapped_length_percent.tsv", expname=config["headline_real_exps"]),
-        runtime=expand(ALL_OUT_DIR + "/experiments/{expname}/results/run_and_sampling_time_from_benchmark.tsv", expname=config["headline_real_exps"]),
-        index_time=expand(ALL_OUT_DIR + "/experiments/{expname}/results/index_load_time.tsv", expname=config["headline_real_exps"]),
-        memory=expand(ALL_OUT_DIR + "/experiments/{expname}/results/memory_from_benchmark.tsv", expname=config["headline_real_exps"]),
-        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=list(set(config["headline_sim_exps"] + config["sim_exps"]))),
-        compared_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/compared.tsv", expname=config["headline_sim_exps"]),
+        mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=config["sim_exps"]),
+        compared_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/compared.tsv", expname=config["sim_exps"]),
         dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_indel_summary.tsv", expname=config["dv_exps"]),
         dv_indel_pdf=expand(ALL_OUT_DIR + "/experiments/{expname}/plots/dv_indel_summary.pdf", expname=config["dv_exps"]),
         dv_snp=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_snp_summary.tsv", expname=config["dv_exps"]),
