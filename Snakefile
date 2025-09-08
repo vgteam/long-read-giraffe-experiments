@@ -2787,7 +2787,7 @@ rule call_variants_dv:
         else:
             # Default to old DeepVariant until https://ucsc-gi.slack.com/archives/C01D0M09G5D/p1753482919257519?thread_ts=1753201495.785309&cid=C01D0M09G5D is fixed.
             dv_docker = "gcr.io/deepvariant-docker/deepvariant:head756846963"
-        wf_source = "#workflow/github.com/vgteam/vg_wdl/DeepVariant:lr-giraffe"
+        wf_source = "#workflow/github.com/vgteam/vg_wdl/DeepVariant:lr-giraffe-paper"
         wf_inputs = {
             "DeepVariant.MERGED_BAM_FILE": input.sorted_bam,
             "DeepVariant.MERGED_BAM_FILE_INDEX": input.sorted_bam_index,
