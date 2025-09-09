@@ -4724,7 +4724,7 @@ rule mapped_names:
         # Because GraphAligner doesn't output unmapped reads, we need to get the lengths from the original FASTQ
         # So we get all the mapped reads and then all the unmapped reads. See <https://unix.stackexchange.com/a/588652>
         """
-        vg filter --only-mapped -t {threads} -T "name" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_names}
+        vg filter --only-mapped -t {threads} -T "name" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]$//g' > {output.mapped_names}
         """
 
 # tsv of "mapped"/"unmapped" and the length of the original read
@@ -5047,6 +5047,39 @@ rule clipped:
                     total += float(line)
         with open(output[0], "w") as f:
             f.write(f"{total}\n")
+
+#Getting this for short reads is super slow and we don't really care so skip it
+rule hardclips_empty:
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips.tsv"
+    wildcard_constraints:
+        tech="(illumina|element)"
+    threads: 1
+    resources:
+        mem_mb=400,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        """
+        echo "0" >{output}
+        """
+ruleorder: hardclips_empty > hardclips
+rule softclips_empty:
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv"
+    wildcard_constraints:
+        tech="(illumina|element)"
+    threads: 1
+    resources:
+        mem_mb=400,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        """
+        echo "0" >{output}
+        """
+ruleorder: softclips_empty > softclips
+
 
 #Getting this for short reads is super slow and we don't really care so skip it
 rule clipped_empty:
