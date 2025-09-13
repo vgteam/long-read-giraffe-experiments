@@ -2270,12 +2270,15 @@ rule minimap2_index_reference:
          "minimap2 -t {threads} -x {wildcards.preset} -d {output.index} {input.reference_fasta}"
 
 
+# Note: This changes the simulated read names so that it will be run paired ended.
 rule minimap2_sim_reads:
     input:
         minimap2_index=minimap2_index,
-        fastq=fastq
+        fastq_gz=fastq_gz
     output:
         sam=temp("{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
+    params:
+        temp_fastq="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.temp_reads.fq.gz"
     log:"{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim"
@@ -2285,7 +2288,11 @@ rule minimap2_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
+        """
+        zcat {input.fastq_gz} | awk '{{gsub("_1$", ""); gsub("_2$", ""); print $0}}' | gzip > {params.temp_fastq} 
+        minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {params.temp_fastq} >{output.sam} 2> {log}
+        rm {params.temp_fastq}
+        """
 
 rule minimap2_real_reads:
     input:
@@ -2370,6 +2377,7 @@ rule bwa_index_reference:
     shell:
          "bwa index {input.reference_fasta}"
 
+# Note: This changes the simulated read names so that it will be run paired ended.
 rule bwa_sim_reads:
     input:
         unpack(bwa_index_set),
@@ -2383,14 +2391,19 @@ rule bwa_sim_reads:
         tech="(illumina|element)",
         pairing="(-pe|)"
     params:
-        pairing_flag=lambda w: "-p" if w["pairing"] == "-pe" else ""
+        pairing_flag=lambda w: "-p" if w["pairing"] == "-pe" else "",
+        temp_fastq="{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.temp_reads.fq.gz"
     threads: auto_mapping_threads
     resources:
         mem_mb=30000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "bwa mem -t {threads} -R '@RG\\tID:1\\tLB:lib1\\tSM:{wildcards.sample}\\tPL:{wildcards.tech}\\tPU:unit1' {params.pairing_flag} {input.reference_fasta} {input.fastq_gz} >{output.sam} 2> {log}"
+        """
+        zcat {input.fastq_gz} | awk '{{gsub("_1$", ""); gsub("_2$", ""); print $0}}' | gzip > {params.temp_fastq} 
+        bwa mem -t {threads} -R '@RG\\tID:1\\tLB:lib1\\tSM:{wildcards.sample}\\tPL:{wildcards.tech}\\tPU:unit1' {params.pairing_flag} {input.reference_fasta} {params.temp_fastq} >{output.sam} 2> {log}
+        rm {params.temp_fastq}
+        """
 
 rule bwa_real_reads:
     input:
