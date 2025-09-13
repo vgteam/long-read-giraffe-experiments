@@ -2290,7 +2290,7 @@ rule minimap2_sim_reads:
     shell:
         """
         zcat {input.fastq_gz} | awk '{{gsub("_1$", ""); gsub("_2$", ""); print $0}}' | gzip > {params.temp_fastq} 
-        minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {params.temp_fastq} >{output.sam} 2> {log}
+        minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {params.temp_fastq} 2> {log} > {output.sam}
         rm {params.temp_fastq}
         """
 
@@ -2384,7 +2384,7 @@ rule bwa_sim_reads:
         reference_fasta=reference_fasta,
         fastq_gz=fastq_gz,
     output:
-        sam=temp("{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
+        sam="{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
     log:"{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim",
@@ -2401,7 +2401,7 @@ rule bwa_sim_reads:
     shell:
         """
         zcat {input.fastq_gz} | awk '{{gsub("_1$", ""); gsub("_2$", ""); print $0}}' | gzip > {params.temp_fastq} 
-        bwa mem -t {threads} -R '@RG\\tID:1\\tLB:lib1\\tSM:{wildcards.sample}\\tPL:{wildcards.tech}\\tPU:unit1' {params.pairing_flag} {input.reference_fasta} {params.temp_fastq} >{output.sam} 2> {log}
+        bwa mem -t {threads} -R '@RG\\tID:1\\tLB:lib1\\tSM:{wildcards.sample}\\tPL:{wildcards.tech}\\tPU:unit1' {params.pairing_flag} {input.reference_fasta} {params.temp_fastq} 2> {log} > {output.sam}
         rm {params.temp_fastq}
         """
 
@@ -2652,7 +2652,7 @@ rule inject_bam:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg inject --threads {threads} -x {input.gbz} {input.bam} >{output.gam}"
+        "vg inject --threads {threads} -x {input.gbz} {input.bam} | vg view -aj - | sed 's/\/1/_1/g' | sed 's/\/2/_2/g' | vg view -aGJ - >{output.gam} "
 
 rule surject_gam:
     input:
