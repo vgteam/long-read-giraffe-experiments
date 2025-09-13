@@ -4724,7 +4724,7 @@ rule mapped_names:
         # Because GraphAligner doesn't output unmapped reads, we need to get the lengths from the original FASTQ
         # So we get all the mapped reads and then all the unmapped reads. See <https://unix.stackexchange.com/a/588652>
         """
-        vg filter --only-mapped -t {threads} -T "name" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]$//g' > {output.mapped_names}
+        vg filter --only-mapped -t {threads} -T "name" {input.gam} | grep -v "#" | sed 's/\/[1-2]$//g' | sort -s -k 1b,1 > {output.mapped_names}
         """
 
 # tsv of "mapped"/"unmapped" and the length of the original read
