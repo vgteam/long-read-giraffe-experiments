@@ -2652,7 +2652,26 @@ rule inject_bam:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
+        "vg inject --threads {threads} -x {input.gbz} {input.bam} - >{output.gam} "
+
+# Change the automatic /1 to _1, but only for simulated reads so that downstream real read rules cane take out the \1
+rule inject_bam_add_pairing:
+    input:
+        gbz=gbz,
+        bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    output:
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        mapper="(minimap2.+|bwa(-pe)?)",
+        realness="sim"
+    threads: 64
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
         "vg inject --threads {threads} -x {input.gbz} {input.bam} | vg view -aj - | sed 's/\/1/_1/g' | sed 's/\/2/_2/g' | vg view -aGJ - >{output.gam} "
+ruleorder: inject_bam_add_pairing > inject_bam
 
 rule surject_gam:
     input:
