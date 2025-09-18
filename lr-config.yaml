@@ -550,21 +550,14 @@ experiments:
       reference: chm13
       sample: HG002
       realness: real
+      refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
+      callparams: ".model2025-03-26noinfo.olddv"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6
       truthref: chm13
     vary:
-      mapper: ["giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-hifi-99930d-mmcs100"]
-      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval-sampled16o", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
-      callparams: [".newdv", ".nomodel.newdv"]
-    constrain:
-      - refgraph: "hprc-v2.0-mc-eval-sampled16o"
-        mapper: "pbmm2"
-        callparams: ".nomodel.newdv"
-      - mapper: ["giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-hifi-99930d-mmcs100"]
-        callparams: [".newdv", ".model2025-03-26noinfo.olddv"]
-        refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
+      mapper: ["giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-hifi-8a0e9e-noflags"]
 
   hifi_sim_scorescale_chm13:
     control:
@@ -638,14 +631,15 @@ experiments:
       reference: chm13
       sample: HG002
       realness: real
+      refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
+      callparams: ".nomodel.olddv"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6
       truthref: chm13
     vary:
-      mapper: ["giraffe-k31.w50.W-r10-99930d-noflags", "giraffe-k31.w50.W-r10-791547-noflags"]
-      refgraph: ["hprc-v2.0-mc-eval-sampled16o"]
-      callparams: [".nomodel.olddv"]
+      mapper: ["giraffe-k31.w50.W-r10-99930d-noflags", "giraffe-k31.w50.W-r10-8a0e9e-noflags"]
+      
 
   r10y2025_real_100k:
     control:
