@@ -551,7 +551,7 @@ experiments:
       sample: HG002
       realness: real
       refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
-      callparams: ".model2025-03-26noinfo.olddv"
+      callparams: ".model2025-03-26noinfo"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6
@@ -632,7 +632,7 @@ experiments:
       sample: HG002
       realness: real
       refgraph: "hprc-v2.0-mc-eval.ec1M-sampled16o"
-      callparams: ".nomodel.olddv"
+      callparams: ".nomodel"
       # SV specific parameters with generic names
       caller: vgcall
       truthset: giab6
