@@ -2787,7 +2787,7 @@ rule call_variants_dv:
         else:
             # Default to old DeepVariant until https://ucsc-gi.slack.com/archives/C01D0M09G5D/p1753482919257519?thread_ts=1753201495.785309&cid=C01D0M09G5D is fixed.
             dv_docker = "gcr.io/deepvariant-docker/deepvariant:head756846963"
-        wf_source = "#workflow/github.com/vgteam/vg_wdl/DeepVariant:lr-giraffe"
+        wf_source = "#workflow/github.com/vgteam/vg_wdl/DeepVariant:lr-giraffe-paper"
         wf_inputs = {
             "DeepVariant.MERGED_BAM_FILE": input.sorted_bam,
             "DeepVariant.MERGED_BAM_FILE_INDEX": input.sorted_bam_index,
@@ -4793,14 +4793,12 @@ rule length:
     shell:
         "cut -f2 {input} >{output}"
 
-# tsv of "mapped"/"unmapped" and the length of the original read
-rule length_by_mapping:
+# Just a list of read names that were mapped
+# Used for length_by_mapping
+rule mapped_names:
     input:
-        fastq=fastq,
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
-        length_by_name=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv")
     output:
-        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv",
         mapped_names="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv"
     threads: 16
     resources:
@@ -4811,9 +4809,67 @@ rule length_by_mapping:
         # Because GraphAligner doesn't output unmapped reads, we need to get the lengths from the original FASTQ
         # So we get all the mapped reads and then all the unmapped reads. See <https://unix.stackexchange.com/a/588652>
         """
-        vg filter --only-mapped -t {threads} -T "name" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_names}
-        join -j 1 {input.length_by_name} {output.mapped_names} | awk -v OFS='\t' '{{print "mapped",$2}}' > {output.tsv}
-        join -j 1 -a 1 -v 2 {input.length_by_name} {output.mapped_names} | awk -v OFS='\t' '{{print "unmapped",$2}}' >> {output.tsv}
+        vg filter --only-mapped -t {threads} -T "name" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]$//g' > {output.mapped_names}
+        """
+
+# tsv of "mapped"/"unmapped" and the length of the original read
+# This only does the mapped portion
+rule length_by_mapping_mapped:
+    input:
+        length_by_name=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
+        mapped_names="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.mapped.tsv"
+    threads: 16
+    resources:
+        mem_mb=28000,
+        runtime=1000,
+        slurm_partition=choose_partition(1000)
+    shell:
+        # Because GraphAligner doesn't output unmapped reads, we need to get the lengths from the original FASTQ
+        # So we get all the mapped reads and then all the unmapped reads. See <https://unix.stackexchange.com/a/588652>
+        """
+        join -j 1 {input.length_by_name} {input.mapped_names} | awk -v OFS='\t' '{{print "mapped",$2}}' > {output.tsv}
+        """
+
+
+# tsv of "mapped"/"unmapped" and the length of the original read
+# This only does the unmapped portion
+rule length_by_mapping_unmapped:
+    input:
+        length_by_name=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
+        mapped_names="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.unmapped.tsv"
+    threads: 16
+    resources:
+        mem_mb=28000,
+        runtime=1000,
+        slurm_partition=choose_partition(1000)
+    shell:
+        # Because GraphAligner doesn't output unmapped reads, we need to get the lengths from the original FASTQ
+        # So we get all the mapped reads and then all the unmapped reads. See <https://unix.stackexchange.com/a/588652>
+        """
+        join -j 1 -a 1 -v 2 {input.length_by_name} {input.mapped_names} | awk -v OFS='\t' '{{print "unmapped",$2}}' >> {output.tsv}
+        """
+
+
+# tsv of "mapped"/"unmapped" and the length of the original read
+rule length_by_mapping:
+    input:
+        mapped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.mapped.tsv",
+        unmapped="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.unmapped.tsv"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
+    threads: 16
+    resources:
+        mem_mb=2800,
+        runtime=120,
+        slurm_partition=choose_partition(120)
+    shell:
+        """
+        cp {input.mapped} {output.tsv}
+        cat {input.unmapped} >> {output.tsv}
         """
 
 #How many base pairs per read
@@ -5076,6 +5132,39 @@ rule clipped:
                     total += float(line)
         with open(output[0], "w") as f:
             f.write(f"{total}\n")
+
+#Getting this for short reads is super slow and we don't really care so skip it
+rule hardclips_empty:
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips.tsv"
+    wildcard_constraints:
+        tech="(illumina|element)"
+    threads: 1
+    resources:
+        mem_mb=400,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        """
+        echo "0" >{output}
+        """
+ruleorder: hardclips_empty > hardclips
+rule softclips_empty:
+    output:
+        "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.softclips.tsv"
+    wildcard_constraints:
+        tech="(illumina|element)"
+    threads: 1
+    resources:
+        mem_mb=400,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        """
+        echo "0" >{output}
+        """
+ruleorder: softclips_empty > softclips
+
 
 #Getting this for short reads is super slow and we don't really care so skip it
 rule clipped_empty:
