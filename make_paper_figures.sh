@@ -57,7 +57,7 @@ GIRAFFE_PRIMARY_HIFI=giraffe,primary
 GIRAFFE_PRIMARY_R10=giraffe,primary
 GIRAFFE_PRIMARY_SR=giraffe,primary
 PBMM=pbmm2,hprc-v2.0-mc-eval-d46
-BWA=bwa,hprc-v2.0-mc-eval-d46
+BWA=bwa-pe,hprc-v2.0-mc-eval-d46
 
 MINIGRAPH_MINIGRAPH=minigraph,hprc-v2.0-minigraph-eval
 GRAPHALIGNER_MINIGRAPH=graphaligner-default,hprc-v2.0-minigraph-eval
@@ -126,9 +126,9 @@ Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline.pdf $(echo $HIF
 
 Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
 
-Rscript plot-roc.R ${ILLUMINA_ACCURACY} ${OUT_DIR}/roc_illumina_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Illumina ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' ) '0.0001,0.03,0.918,0.985'
+Rscript plot-roc.R ${ILLUMINA_ACCURACY} ${OUT_DIR}/roc_illumina_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Illumina ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' ) '0.0001,0.02,0.94,0.985'
 
-Rscript plot-roc.R ${ELEMENT_ACCURACY} ${OUT_DIR}/roc_element_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Element ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' )
+Rscript plot-roc.R ${ELEMENT_ACCURACY} ${OUT_DIR}/roc_element_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Element ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' ) '0.0001,0.02,0.94,0.985'
 
 # headline qq plots
 Rscript plot-qq.R ${HIFI_ACCURACY} ${OUT_DIR}/qq_hifi_headline.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI QQ" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
@@ -177,10 +177,10 @@ python3 barchart.py ${HIFI_CLIPS} --divisions ${HIFI_UNMAPPED} --min ${LIMIT}  -
 python3 barchart.py ${R10_CLIPS} --divisions ${R10_UNMAPPED} --title 'R10 Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_r10_headline.pdf
 
 #illumina softclips
-python3 barchart.py ${ILLUMINA_UNMAPPED} --title 'ILLUMINA Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_illumina_headline.pdf
+python3 barchart.py ${ILLUMINA_UNMAPPED} --title 'ILLUMINA Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_illumina_headline.pdf
 
 #element softclips
-python3 barchart.py ${ELEMENT_UNMAPPED} --title 'ELEMENT Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_element_headline.pdf
+python3 barchart.py ${ELEMENT_UNMAPPED} --title 'ELEMENT Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_element_headline.pdf
 
 rm $HIFI_UNMAPPED
 rm $R10_UNMAPPED
@@ -233,8 +233,8 @@ rm ${ILLUMINA_RUNTIME}
 rm ${ELEMENT_RUNTIME}
 ####################################### Memory
 R10_MEMORY=${OUT_DIR}/r10_memory.tsv
-ILLUMINA_MEMORY=${OUT_DIR}/illumina_memory.tsv
-ELEMENT_MEMORY=${OUT_DIR}/element_memory.tsv
+LLUMINA_MEMORY=${OUT_DIR}/illumina_memory.tsv
+LEMENT_MEMORY=${OUT_DIR}/element_memory.tsv
 
 grep -E $(echo ${HIFI_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${HIFI_REAL} | awk -v OFS='\t' '{{print $1,$5}}' > ${HIFI_MEMORY}
 grep -E $(echo ${R10_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${R10_REAL} | awk -v OFS='\t' '{{print $1,$5}}' > ${R10_MEMORY}
@@ -254,7 +254,7 @@ rm $R10_MEMORY
 rm $ILLUMINA_MEMORY
 rm $ELEMENT_MEMORY
 
-####################################### SV Calling
+######################################## SV Calling
 
 GIRAFFE_VGCALL_HIFI=chm13,chm13,vgcall,hifi,giraffe-hifi-mmcs100,eval-d46
 GIRAFFE_SAMPLED_VGCALL_HIFI=chm13,chm13,vgcall,hifi,giraffe-hifi-mmcs100,eval.ec1M-sampled16o
