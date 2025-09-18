@@ -21,7 +21,7 @@ SV_SUMMARY=${ROOT_DIR}/experiments/sv_calling/results/sv_summary.tsv
 SNP_SUMMARY=${ROOT_DIR}/experiments/dv_calling/results/dv_snp_summary.tsv
 INDEL_SUMMARY=${ROOT_DIR}/experiments/dv_calling/results/dv_indel_summary.tsv
 
-################################### Simulated read tables
+################################## Simulated read tables
 
 # Assumes 1 mil reads
 for SIM_FILE in $HIFI_SIM $R10_SIM $ILLUMINA_SIM $ELEMENT_SIM ;
@@ -59,6 +59,23 @@ do
     printf "\t& \t& \t& (+ Sampling (min)) \t& \t& clipped Bases (\\%%)\t& Bases (\\%%) \\\\\\ \n" >>$CURRENT_OUTFILE
     printf "\\hline\n" >> $CURRENT_OUTFILE
     tail -n +2 ${REAL_FILE} | awk -v OFS='\t' '{printf "%0s\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\n",$1,$2,$3,$5,(100*($6+$7))/$10,(100*$8)/$10}' | ./format_tsv.sh >> $CURRENT_OUTFILE 
+    printf "SAMPLING TIMES\n" >>$CURRENT_OUTFILE
+    tail -n +2 ${REAL_FILE} | awk -v OFS='\t' '$4 != 0 {print $1,$4}'  >> $CURRENT_OUTFILE 
+done
+
+for REAL_FILE in $ELEMENT_REAL $ILLUMINA_REAL;
+do
+
+    CURRENT_OUTFILE=${OUT_DIR}/trash.txt
+    if [ $REAL_FILE == $ILLUMINA_REAL ]; then
+        CURRENT_OUTFILE=${OUT_DIR}/real_illumina.tsv
+    elif [ $REAL_FILE == $ELEMENT_REAL ]; then
+        CURRENT_OUTFILE=${OUT_DIR}/real_element.tsv
+    fi    
+    printf "Reference\t& Mapper\t& Runtime (min)\t& Index time (min)\t& Memory (GB)\t& Unmapped \\\\\\ \n" >$CURRENT_OUTFILE
+    printf "\t& \t& \t& (+ Sampling (min)) \t& \t& Bases (\\%%) \\\\\\ \n" >>$CURRENT_OUTFILE
+    printf "\\hline\n" >> $CURRENT_OUTFILE
+    tail -n +2 ${REAL_FILE} | awk -v OFS='\t' '{printf "%0s\t%.4f\t%.4f\t%.4f\t%.4f\n",$1,$2,$3,$5,(100*$8)/$10}' | ./format_tsv.sh >> $CURRENT_OUTFILE 
     printf "SAMPLING TIMES\n" >>$CURRENT_OUTFILE
     tail -n +2 ${REAL_FILE} | awk -v OFS='\t' '$4 != 0 {print $1,$4}'  >> $CURRENT_OUTFILE 
 done

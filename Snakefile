@@ -2281,12 +2281,15 @@ rule minimap2_index_reference:
          "minimap2 -t {threads} -x {wildcards.preset} -d {output.index} {input.reference_fasta}"
 
 
+# Note: This changes the simulated read names so that it will be run paired ended.
 rule minimap2_sim_reads:
     input:
         minimap2_index=minimap2_index,
-        fastq=fastq
+        fastq_gz=fastq_gz
     output:
         sam=temp("{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
+    params:
+        temp_fastq="{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.temp_reads.fq.gz"
     log:"{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim"
@@ -2296,7 +2299,11 @@ rule minimap2_sim_reads:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq} >{output.sam} 2> {log}"
+        """
+        zcat {input.fastq_gz} | awk '{{gsub("_1$", ""); gsub("_2$", ""); print $0}}' | gzip > {params.temp_fastq} 
+        minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {params.temp_fastq} 2> {log} > {output.sam}
+        rm {params.temp_fastq}
+        """
 
 rule minimap2_real_reads:
     input:
@@ -2381,27 +2388,33 @@ rule bwa_index_reference:
     shell:
          "bwa index {input.reference_fasta}"
 
+# Note: This changes the simulated read names so that it will be run paired ended.
 rule bwa_sim_reads:
     input:
         unpack(bwa_index_set),
         reference_fasta=reference_fasta,
         fastq_gz=fastq_gz,
     output:
-        sam=temp("{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
+        sam="{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam"
     log:"{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim",
         tech="(illumina|element)",
         pairing="(-pe|)"
     params:
-        pairing_flag=lambda w: "-p" if w["pairing"] == "-pe" else ""
+        pairing_flag=lambda w: "-p" if w["pairing"] == "-pe" else "",
+        temp_fastq="{root}/aligned-secsup/{reference}/bwa{pairing}/{realness}/{tech}/{sample}{trimmedness}.{subset}.temp_reads.fq.gz"
     threads: auto_mapping_threads
     resources:
         mem_mb=30000,
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "bwa mem -t {threads} -R '@RG\\tID:1\\tLB:lib1\\tSM:{wildcards.sample}\\tPL:{wildcards.tech}\\tPU:unit1' {params.pairing_flag} {input.reference_fasta} {input.fastq_gz} >{output.sam} 2> {log}"
+        """
+        zcat {input.fastq_gz} | awk '{{gsub("_1$", ""); gsub("_2$", ""); print $0}}' | gzip > {params.temp_fastq} 
+        bwa mem -t {threads} -R '@RG\\tID:1\\tLB:lib1\\tSM:{wildcards.sample}\\tPL:{wildcards.tech}\\tPU:unit1' {params.pairing_flag} {input.reference_fasta} {params.temp_fastq} 2> {log} > {output.sam}
+        rm {params.temp_fastq}
+        """
 
 rule bwa_real_reads:
     input:
@@ -2650,7 +2663,26 @@ rule inject_bam:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg inject --threads {threads} -x {input.gbz} {input.bam} >{output.gam}"
+        "vg inject --threads {threads} -x {input.gbz} {input.bam} - >{output.gam} "
+
+# Change the automatic /1 to _1, but only for simulated reads so that downstream real read rules cane take out the \1
+rule inject_bam_add_pairing:
+    input:
+        gbz=gbz,
+        bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    output:
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        mapper="(minimap2.+|bwa(-pe)?)",
+        realness="sim"
+    threads: 64
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "vg inject --threads {threads} -x {input.gbz} {input.bam} | vg view -aj - | sed 's/\/1/_1/g' | sed 's/\/2/_2/g' | vg view -aGJ - >{output.gam} "
+ruleorder: inject_bam_add_pairing > inject_bam
 
 rule surject_gam:
     input:
@@ -4809,7 +4841,7 @@ rule mapped_names:
         # Because GraphAligner doesn't output unmapped reads, we need to get the lengths from the original FASTQ
         # So we get all the mapped reads and then all the unmapped reads. See <https://unix.stackexchange.com/a/588652>
         """
-        vg filter --only-mapped -t {threads} -T "name" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]$//g' > {output.mapped_names}
+        vg filter --only-mapped -t {threads} -T "name" {input.gam} | grep -v "#" | sed 's/\/[1-2]$//g' | sort -s -k 1b,1 > {output.mapped_names}
         """
 
 # tsv of "mapped"/"unmapped" and the length of the original read

@@ -153,11 +153,11 @@ experiments:
       sample: HG002
       realness: real
     vary:
-      mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-99930d-noflags"]
+      mapper: ["minimap2-sr", "bwa-pe", "giraffe-k29.w11-default-99930d-noflags"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d", "primary"]
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
-          mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-99930d-noflags"]
+          mapper: ["minimap2-sr", "bwa-pe", "giraffe-k29.w11-default-99930d-noflags"]
         - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
           mapper: ["giraffe-k29.w11-default-99930d-noflags"]
         - refgraph: "primary"
@@ -171,11 +171,11 @@ experiments:
       sample: HG002
       realness: real
     vary:
-      mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-99930d-noflags"]
+      mapper: ["minimap2-sr", "bwa-pe", "giraffe-k29.w11-default-99930d-noflags"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d", "primary"]
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
-          mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-99930d-noflags"]
+          mapper: ["minimap2-sr", "bwa-pe", "giraffe-k29.w11-default-99930d-noflags"]
         - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
           mapper: ["giraffe-k29.w11-default-99930d-noflags"]
         - refgraph: "primary"
@@ -271,11 +271,11 @@ experiments:
       sample: HG002
       realness: sim
     vary:
-      mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-99930d-noflags"]
+      mapper: ["minimap2-sr", "bwa-pe", "giraffe-k29.w11-default-99930d-noflags"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d", "primary"]
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
-          mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-99930d-noflags"]
+          mapper: ["minimap2-sr", "bwa-pe", "giraffe-k29.w11-default-99930d-noflags"]
         - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
           mapper: ["giraffe-k29.w11-default-99930d-noflags"]
         - refgraph: "primary"
@@ -289,11 +289,11 @@ experiments:
       sample: HG002
       realness: sim
     vary:
-      mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-99930d-noflags"]
+      mapper: ["minimap2-sr", "bwa-pe", "giraffe-k29.w11-default-99930d-noflags"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d", "primary"]
     constrain:
         - refgraph: "hprc-v2.0-mc-eval-d46"
-          mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-99930d-noflags"]
+          mapper: ["minimap2-sr", "bwa-pe", "giraffe-k29.w11-default-99930d-noflags"]
         - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
           mapper: ["giraffe-k29.w11-default-99930d-noflags"]
         - refgraph: "primary"
@@ -307,11 +307,11 @@ experiments:
       sample: HG002
       realness: sim
     vary:
-      mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-030329-noflags"]
+      mapper: ["minimap2-sr", "bwa-pe", "giraffe-k29.w11-default-030329-noflags"]
       refgraph: ["hprc-v1.1-mc-d9", "hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16", "primary"]
     constrain:
         - refgraph: "hprc-v1.1-mc-d9"
-          mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-030329-noflags"]
+          mapper: ["minimap2-sr", "bwa-pe", "giraffe-k29.w11-default-030329-noflags"]
         - refgraph: ["hprc-v1.1-mc-sampled32d", "hprc-v1.1-mc-sampled16"]
           mapper: []
         - refgraph: "primary"
