@@ -211,6 +211,7 @@ REAL_SLURM_EXTRA = config.get("real_slurm_extra", None) or ""
 # If set to True, jobs where we care about speed will demand entire nodes.
 # If False, they will just use one thread per core.
 EXCLUSIVE_TIMING = config.get("exclusive_timing", True)
+assert isinstance(EXCLUSIVE_TIMING, bool), f"exclusive_timing must be a bool, not {repr(EXCLUSIVE_TIMING)}"
 
 # Jobs of this many real reads or more will be timed exclusively, if
 # EXCLUSIVE_TIMING is on.
@@ -223,6 +224,7 @@ MAPPER_THREADS = 64 if EXCLUSIVE_TIMING else 32
 # We may not want to populate the MiniWDL task cache because it makes us take
 # more shared disk space.
 FILL_WDL_CACHE = "true" if config.get("fill_wdl_cache", True) else "false"
+assert isinstance(config.get("fill_wdl_cache", True), bool), f"fill_wdl_cache must be a bool, not {repr(config.get('fill_wdl_cache', True))}"
 
 # Figure out what columns to put in a table comparing all the conditions in an experiment.
 # TODO: Make this be per-experiment and let multiple tables be defined
@@ -1702,7 +1704,7 @@ rule haplotype_index_graph:
     output:
         haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.fragment.hapl"
     params:
-        vg_binary=VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION
+        vg_binary=get_vg_version(VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION)
     threads: 16
     resources:
         mem_mb=1000000,
