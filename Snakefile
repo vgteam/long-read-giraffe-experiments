@@ -1702,7 +1702,7 @@ rule haplotype_index_graph:
     output:
         haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.fragment.hapl"
     params:
-        vg_binary=VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION
+        vg_binary=get_vg_version(VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION)
     threads: 16
     resources:
         mem_mb=1000000,
@@ -2383,8 +2383,8 @@ rule bwa_index_reference:
     threads: 2
     resources:
         mem_mb=16000,
-        runtime=10,
-        slurm_partition=choose_partition(10)
+        runtime=120,
+        slurm_partition=choose_partition(120)
     shell:
          "bwa index {input.reference_fasta}"
 
