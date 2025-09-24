@@ -239,6 +239,8 @@ VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="v1.64.1"
 VG_HAPLOTYPE_SAMPLING_VERSION="v1.64.1"
 # What version of vg should be used to haplotype-sample graphs when we want to keep just one reference?
 VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="v1.64.1"
+# What version of vg should be used to surject reads?
+VG_SURJECT_VERSION="99930d"
 
 wildcard_constraints:
     expname="[^/]+",
@@ -2672,14 +2674,15 @@ rule surject_gam:
         mapper="(giraffe.*|graphaligner-.*)"
     params:
         # The default preset is paired
-        paired_flag=lambda w: "-i" if re.match("giraffe-[^-]*-default-[^-]*-[^-]*", w["mapper"]) else ""
+        paired_flag=lambda w: "-i" if re.match("giraffe-[^-]*-default-[^-]*-[^-]*", w["mapper"]) else "",
+        vg_binary=get_vg_version(VG_SURJECT_VERSION)
     threads: 40
     resources:
         mem_mb=lambda w: (600000 / 64 * 40) if w["tech"] in ("r10", "r10y2025") else (150000 / 64 * 40),
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg surject -F {input.reference_dict} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
+        vg_binary + " surject -F {input.reference_dict} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
 
 rule sort_gam:
     input:
