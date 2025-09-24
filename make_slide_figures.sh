@@ -4,29 +4,29 @@ CATEGORIES=(minimap2-map-hifi,hprc-v2.0-mc-eval-d46 pbmm2,hprc-v2.0-mc-eval-d46 
 COLORS=('#9B8BF4' '#B3C7F7' '#53AEDF' '#6396B0' '#D066A3' '#C44601' '#F57600')
 LABELS=("Minimap2" "pbmm2" "$(printf 'Giraffe\n(Linear)')" "Minigraph" "$(printf 'GraphAligner\n(Fast)')" "Giraffe" "$(printf 'Giraffe\n(Personal)')")
 grep -E $(echo "${CATEGORIES[@]}" | sed 's/ /|/g') /private/groups/patenlab/project-lrg/experiments/hifi_real_full/results/mapping_stats_real.tsv > hifi-runtime.tsv
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' hifi-runtime.tsv) --title "$(printf 'HiFi Runtime\n(66x coverage, 64 cores)')" --y_label 'Time (hours)' --x_label Mapper --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --x_sideways --save hifi_runtime_ga.png --width 3 --height 3 --dpi 200 && imgcat hifi_runtime_ga.png --height 20
-python3 barchart.py <(tail -n +2 /private/groups/patenlab/project-lrg/experiments/hifi_sim_1m/results/mapping_stats_sim.tsv | cut -f1,5)  --title 'HiFi Wrong Reads' --y_label 'Count' --x_label 'Mapper' --x_sideways --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --save hifi_incorrect_ga.png --width 3 --height 3 --dpi 200 && imgcat hifi_incorrect_ga.png --height 20
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' hifi-runtime.tsv) --title "$(printf 'HiFi Runtime\n(66x coverage, 64 cores)')" --y_label 'Time (hours)' --x_label Mapper --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --x_sideways --save hifi_runtime_ga.png --width 3 --height 3 --dpi 600 && imgcat hifi_runtime_ga.png --height 20
+python3 barchart.py <(tail -n +2 /private/groups/patenlab/project-lrg/experiments/hifi_sim_1m/results/mapping_stats_sim.tsv | cut -f1,5)  --title "$(printf 'HiFi Wrong Reads\n(of 1M)')" --y_label 'Count' --x_label 'Mapper' --x_sideways --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --save hifi_incorrect_ga.png --width 3 --height 3 --dpi 600 && imgcat hifi_incorrect_ga.png --height 20
 
 CATEGORIES=(minimap2-map-hifi,hprc-v2.0-mc-eval-d46 pbmm2,hprc-v2.0-mc-eval-d46 giraffe,primary minigraph,hprc-v2.0-minigraph-eval giraffe,hprc-v2.0-mc-eval-d46 giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o)
 COLORS=('#9B8BF4' '#B3C7F7' '#53AEDF' '#6396B0' '#C44601' '#F57600')
 LABELS=("Minimap2" "pbmm2" "$(printf 'Giraffe\n(Linear)')" "Minigraph" "Giraffe" "$(printf 'Giraffe\n(Personal)')")
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' hifi-runtime.tsv) --title "$(printf 'HiFi Runtime\n(66x coverage, 64 cores)')" --y_label 'Time (hours)' --x_label Mapper --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --x_sideways --save hifi_runtime_noga.png --width 3 --height 3 --dpi 200 && imgcat hifi_runtime_noga.png --height 20
-python3 barchart.py <(tail -n +2 /private/groups/patenlab/project-lrg/experiments/hifi_sim_1m/results/mapping_stats_sim.tsv | cut -f1,5)  --title 'HiFi Wrong Reads' --y_label 'Count' --x_label 'Mapper' --x_sideways --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --save hifi_incorrect_noga.png --width 3 --height 3 --dpi 200 && imgcat hifi_incorrect_noga.png --height 20
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' hifi-runtime.tsv) --title "$(printf 'HiFi Runtime\n(66x coverage, 64 cores)')" --y_label 'Time (hours)' --x_label Mapper --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --x_sideways --save hifi_runtime_noga.png --width 3 --height 3 --dpi 600 && imgcat hifi_runtime_noga.png --height 20
+python3 barchart.py <(tail -n +2 /private/groups/patenlab/project-lrg/experiments/hifi_sim_1m/results/mapping_stats_sim.tsv | cut -f1,5)  --title "$(printf 'HiFi Wrong Reads\n(of 1M)')" --y_label 'Count' --x_label 'Mapper' --x_sideways --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --save hifi_incorrect_noga.png --width 3 --height 3 --dpi 600 && imgcat hifi_incorrect_noga.png --height 20
 
 
-CATEGORIES=(minimap2-lr:hqae,hprc-v2.0-mc-eval-d46 giraffe,primary minigraph,hprc-v2.0-minigraph-eval graphaligner-fast,hprc-v2.0-mc-eval-d46 giraffe,hprc-v2.0-mc-eval-d46 giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o)
-COLORS=('#9B8BF4' '#53AEDF' '#6396B0' '#D066A3' '#C44601' '#F57600')
-LABELS=("Minimap2" "$(printf 'Giraffe\n(Linear)')" "Minigraph" "$(printf 'GraphAligner\n(Fast)')" "Giraffe" "$(printf 'Giraffe\n(Personal)')")
+CATEGORIES=(minimap2-lr:hqae,hprc-v2.0-mc-eval-d46 winnowmap,hprc-v2.0-mc-eval-d46 giraffe,primary minigraph,hprc-v2.0-minigraph-eval graphaligner-fast,hprc-v2.0-mc-eval-d46 giraffe,hprc-v2.0-mc-eval-d46 giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o)
+COLORS=('#9B8BF4' '#C49AB6' '#53AEDF' '#6396B0' '#D066A3' '#C44601' '#F57600')
+LABELS=("Minimap2" "Winnowmap" "$(printf 'Giraffe\n(Linear)')" "Minigraph" "$(printf 'GraphAligner\n(Fast)')" "Giraffe" "$(printf 'Giraffe\n(Personal)')")
 grep -E $(echo "${CATEGORIES[@]}" | sed 's/ /|/g') /private/groups/patenlab/project-lrg/experiments/r10y2025_real_full/results/mapping_stats_real.tsv > r10-runtime.tsv
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' r10-runtime.tsv) --title "$(printf 'R10 Runtime\n(50x coverage, 64 cores)')" --y_label 'Time (hours)' --x_label Mapper --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --x_sideways --save r10_runtime_ga.png --width 3 --height 3 --dpi 200 && imgcat r10_runtime_ga.png --height 20
-python3 barchart.py <(tail -n +2 /private/groups/patenlab/project-lrg/experiments/r10y2025_sim_1m/results/mapping_stats_sim.tsv | cut -f1,5)  --title 'R10 Wrong Reads' --y_label 'Count' --x_label 'Mapper' --x_sideways --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --save r10_incorrect_ga.png --width 3 --height 3 --dpi 200 && imgcat r10_incorrect_ga.png --height 20
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' r10-runtime.tsv) --title "$(printf 'R10 Runtime\n(50x coverage, 64 cores)')" --y_label 'Time (hours)' --x_label Mapper --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --x_sideways --save r10_runtime_ga.png --width 3 --height 3 --dpi 600 && imgcat r10_runtime_ga.png --height 20
+python3 barchart.py <(tail -n +2 /private/groups/patenlab/project-lrg/experiments/r10y2025_sim_1m/results/mapping_stats_sim.tsv | cut -f1,5)  --title "$(printf 'R10 Wrong Reads\n(of 1M)')" --y_label 'Count' --x_label 'Mapper' --x_sideways --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --save r10_incorrect_ga.png --width 3 --height 3 --dpi 600 && imgcat r10_incorrect_ga.png --height 20
 
-CATEGORIES=(minimap2-lr:hqae,hprc-v2.0-mc-eval-d46 giraffe,primary minigraph,hprc-v2.0-minigraph-eval giraffe,hprc-v2.0-mc-eval-d46 giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o)
-COLORS=('#9B8BF4' '#53AEDF' '#6396B0' '#C44601' '#F57600')
-LABELS=("Minimap2" "$(printf 'Giraffe\n(Linear)')" "Minigraph" "Giraffe" "$(printf 'Giraffe\n(Personal)')")
+CATEGORIES=(minimap2-lr:hqae,hprc-v2.0-mc-eval-d46 winnowmap,hprc-v2.0-mc-eval-d46 giraffe,primary minigraph,hprc-v2.0-minigraph-eval giraffe,hprc-v2.0-mc-eval-d46 giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o)
+COLORS=('#9B8BF4' '#C49AB6' '#53AEDF' '#6396B0' '#C44601' '#F57600')
+LABELS=("Minimap2" "Winnowmap" "$(printf 'Giraffe\n(Linear)')" "Minigraph" "Giraffe" "$(printf 'Giraffe\n(Personal)')")
 grep -E $(echo "${CATEGORIES[@]}" | sed 's/ /|/g') /private/groups/patenlab/project-lrg/experiments/r10y2025_real_full/results/mapping_stats_real.tsv > r10-runtime.tsv
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' r10-runtime.tsv) --title "$(printf 'R10 Runtime\n(50x coverage, 64 cores)')" --y_label 'Time (hours)' --x_label Mapper --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --x_sideways --save r10_runtime_noga.png --width 3 --height 3 --dpi 200 && imgcat r10_runtime_noga.png --height 20
-python3 barchart.py <(tail -n +2 /private/groups/patenlab/project-lrg/experiments/r10y2025_sim_1m/results/mapping_stats_sim.tsv | cut -f1,5)  --title 'R10 Wrong Reads' --y_label 'Count' --x_label 'Mapper' --x_sideways --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --save r10_incorrect_noga.png --width 3 --height 3 --dpi 200 && imgcat r10_incorrect_noga.png --height 20
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' r10-runtime.tsv) --title "$(printf 'R10 Runtime\n(50x coverage, 64 cores)')" --y_label 'Time (hours)' --x_label Mapper --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --x_sideways --save r10_runtime_noga.png --width 3 --height 3 --dpi 600 && imgcat r10_runtime_noga.png --height 20
+python3 barchart.py <(tail -n +2 /private/groups/patenlab/project-lrg/experiments/r10y2025_sim_1m/results/mapping_stats_sim.tsv | cut -f1,5)  --title "$(printf 'R10 Wrong Reads\n(of 1M)')" --y_label 'Count' --x_label 'Mapper' --x_sideways --no_n --categories "${CATEGORIES[@]}" --colors "${COLORS[@]}" --category_labels "${LABELS[@]}" --save r10_incorrect_noga.png --width 3 --height 3 --dpi 600 && imgcat r10_incorrect_noga.png --height 20
 
 R --no-save <<'EOF'
 
@@ -39,7 +39,7 @@ dat <- read.table("/private/groups/patenlab/project-lrg/experiments/dv_calling/r
 
 categories <- c("hifi,minimap2-map-hifi,eval-d46,.nomodel", "hifi,pbmm2,eval-d46,.nomodel", "hifi,giraffe-hifi-mmcs100,eval-d46,.model2025-03-26noinfo", "hifi,giraffe-hifi-mmcs100,eval.ec1M-sampled16o,.model2025-03-26noinfo")
 colors <- c("#9B8BF4", "#B3C7F7", "#C44601", "#F57600")
-category.names <- c("minimap2", "pbmm2", "Giraffe", "Giraffe\n(Personal)")
+category.names <- c("Minimap2", "pbmm2", "Giraffe", "Giraffe\n(Personal)")
 
 # A set of aligners to plot is specified. Parse it.
 condition.set <- unlist(categories)
@@ -61,9 +61,8 @@ dat %>%
   geom_col() +
   scale_fill_brewer(palette="Set2") +
   labs(x="Mapper", y="Errors", title="HiFi SNP Errors", fill="Error Type") + 
-  theme_bw() +
-  theme(legend.position='bottom') +
-  theme(axis.text.x = element_text(angle = 90, vjust=0.5, hjust=1))
+  theme_classic() +
+  theme(legend.position='bottom', text=element_text(family="DejaVu Sans"), axis.text.x = element_text(angle = 90, vjust=0.5, hjust=1), axis.text=element_text(size=14, colour="black"), axis.title=element_text(size=14))
 
 
 dev.off()
@@ -82,7 +81,7 @@ dat <- read.table("/private/groups/patenlab/project-lrg/experiments/dv_calling/r
 
 categories <- c("hifi,minimap2-map-hifi,eval-d46,.nomodel", "hifi,pbmm2,eval-d46,.nomodel", "hifi,giraffe-hifi-mmcs100,eval-d46,.model2025-03-26noinfo", "hifi,giraffe-hifi-mmcs100,eval.ec1M-sampled16o,.model2025-03-26noinfo")
 colors <- c("#9B8BF4", "#B3C7F7", "#C44601", "#F57600")
-category.names <- c("minimap2", "pbmm2", "Giraffe", "Giraffe\n(Personal)")
+category.names <- c("Minimap2", "pbmm2", "Giraffe", "Giraffe\n(Personal)")
 
 # A set of aligners to plot is specified. Parse it.
 condition.set <- unlist(categories)
@@ -104,9 +103,8 @@ dat %>%
   geom_col() +
   scale_fill_brewer(palette="Set2") +
   labs(x="Mapper", y="Errors", title="HiFi Indel Errors", fill="Error Type") + 
-  theme_bw() +
-  theme(legend.position='bottom') +
-  theme(axis.text.x = element_text(angle = 90, vjust=0.5, hjust=1))
+  theme_classic() +
+  theme(legend.position='bottom', text=element_text(family="DejaVu Sans"), axis.text.x = element_text(angle = 90, vjust=0.5, hjust=1), axis.text=element_text(size=14, colour="black"), axis.title=element_text(size=14))
 
 
 dev.off()
@@ -125,7 +123,7 @@ dat <- read.table("/private/groups/patenlab/project-lrg/experiments/dv_calling/r
 
 categories <- c("r10y2025,minimap2-lr:hqae,eval-d46,.nomodel", "r10y2025,giraffe-r10-noflags,eval-d46,.nomodel", "r10y2025,giraffe-r10-noflags,eval.ec1M-sampled16o,.nomodel")
 colors <- c("#9B8BF4", "#C44601", "#F57600")
-category.names <- c("minimap2", "pbmm2", "Giraffe", "Giraffe\n(Personal)")
+category.names <- c("Minimap2", "Giraffe", "Giraffe\n(Personal)")
 
 # A set of aligners to plot is specified. Parse it.
 condition.set <- unlist(categories)
@@ -147,9 +145,8 @@ dat %>%
   geom_col() +
   scale_fill_brewer(palette="Set2") +
   labs(x="Mapper", y="Errors", title="R10 SNP Errors", fill="Error Type") + 
-  theme_bw() +
-  theme(legend.position='bottom') +
-  theme(axis.text.x = element_text(angle = 90, vjust=0.5, hjust=1))
+  theme_classic() +
+  theme(legend.position='bottom', text=element_text(family="DejaVu Sans"), axis.text.x = element_text(angle = 90, vjust=0.5, hjust=1), axis.text=element_text(size=14, colour="black"), axis.title=element_text(size=14))
 
 
 dev.off()
@@ -168,7 +165,7 @@ dat <- read.table("/private/groups/patenlab/project-lrg/experiments/dv_calling/r
 
 categories <- c("r10y2025,minimap2-lr:hqae,eval-d46,.nomodel", "r10y2025,giraffe-r10-noflags,eval-d46,.nomodel", "r10y2025,giraffe-r10-noflags,eval.ec1M-sampled16o,.nomodel")
 colors <- c("#9B8BF4", "#C44601", "#F57600")
-category.names <- c("minimap2", "Giraffe", "Giraffe\n(Personal)")
+category.names <- c("Minimap2", "Giraffe", "Giraffe\n(Personal)")
 
 # A set of aligners to plot is specified. Parse it.
 condition.set <- unlist(categories)
@@ -190,9 +187,8 @@ dat %>%
   geom_col() +
   scale_fill_brewer(palette="Set2") +
   labs(x="Mapper", y="Errors", title="R10 Indel Errors", fill="Error Type") + 
-  theme_bw() +
-  theme(legend.position='bottom') +
-  theme(axis.text.x = element_text(angle = 90, vjust=0.5, hjust=1))
+  theme_classic() +
+  theme(legend.position='bottom', text=element_text(family="DejaVu Sans"), axis.text.x = element_text(angle = 90, vjust=0.5, hjust=1), axis.text=element_text(size=14, colour="black"), axis.title=element_text(size=14))
 
 
 dev.off()
