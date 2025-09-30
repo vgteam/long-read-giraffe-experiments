@@ -252,16 +252,21 @@ experiments:
         - refgraph: "hprc-v2.0-minigraph-eval"
           mapper: ["minigraph", "graphaligner-default", "graphaligner-fast"]
 
-  hifi_sim_compare:
+  hifi_sim_compare_grch38:
     control:
       subset: 10k
       tech: hifi
-      reference: chm13
+      reference: grch38
       sample: HG002
       realness: sim
     vary:
-      mapper: ["pbmm2", "winnowmap", "giraffe-k31.w50.W-hifi-99930d-noflags", "giraffe-k31.w50.W-hifi-99930d-mmcs80", "giraffe-k31.w50.W-hifi-99930d-mmcs90", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-hifi-99930d-mmcs120", "giraffe-k31.w50.W-hifi-99930d-mmcs140", "giraffe-k31.w50.W-hifi-99930d-mmcs160", "giraffe-k31.w50.W-hifi-99930d-mmcs180", "giraffe-k31.w50.W-hifi-99930d-mmcs200"]
-      refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o"]
+      mapper: ["minimap2-map-hifi", "pbmm2", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-hifi-8a0e9e-noflags"]
+      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-sep8-mc-eval-sampled16o"]
+    constrain:
+        - refgraph: "hprc-v2.0-mc-eval-d46"
+          mapper: ["minimap2-map-hifi", "pbmm2"]
+        - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-sep8-mc-eval-sampled16o"]
+          mapper: ["giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-hifi-8a0e9e-noflags"]
     
   illumina_sim_1m:
     control:
