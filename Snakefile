@@ -4996,7 +4996,7 @@ rule mapq_by_correctness:
 rule softclips_by_name_gam:
     input:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
-        length_by_name="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv",
+        length_by_name=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
     output:
         mapped_tsv=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_softclips_by_name.tsv"),
         sorted_tsv=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted_mapped_softclips_by_name.tsv"),
