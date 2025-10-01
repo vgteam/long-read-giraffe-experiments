@@ -267,6 +267,22 @@ experiments:
           mapper: ["minimap2-map-hifi", "pbmm2"]
         - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-sep8-mc-eval-sampled16o"]
           mapper: ["giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-hifi-8a0e9e-noflags"]
+
+  hifi_sim_compare_chm13:
+    control:
+      subset: 10k
+      tech: hifi
+      reference: chm13
+      sample: HG002
+      realness: sim
+    vary:
+      mapper: ["minimap2-map-hifi", "pbmm2", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-hifi-8a0e9e-noflags"]
+      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
+    constrain:
+        - refgraph: "hprc-v2.0-mc-eval-d46"
+          mapper: ["minimap2-map-hifi", "pbmm2"]
+        - refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-sep8-mc-eval-sampled16o"]
+          mapper: ["giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-hifi-8a0e9e-noflags"]
     
   illumina_sim_1m:
     control:

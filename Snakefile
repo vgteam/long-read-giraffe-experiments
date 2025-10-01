@@ -902,6 +902,12 @@ def hg(wildcards):
     """
     return graph_base(wildcards) + ".hg"
 
+def all_refs_hg(wildcards):
+    """
+    Find a graph hg file with all linear references from reference.
+    """
+    return graph_base(wildcards, force_all_refs=True) + ".hg"
+
 def gfa(wildcards):
     """
     Find a graph GFA file from reference.
@@ -2170,8 +2176,8 @@ rule giraffe_sim_reads:
         unpack(indexed_graph),
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
-        gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    log:"{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+        gam="{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    log:"{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
     wildcard_constraints:
         realness="sim"
     threads: auto_mapping_threads
@@ -3024,7 +3030,7 @@ rule compare_alignments_not_category:
 
 rule annotate_alignments:
     input:
-        gbz=gbz,
+        gbz=all_refs_gbz,
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     output:
         gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
@@ -3035,11 +3041,12 @@ rule annotate_alignments:
         slurm_partition=choose_partition(600)
     shell:
         "vg annotate -t16 -a {input.gam} -x {input.gbz} -m --search-limit=-1 >{output.gam}"
-ruleorder: giraffe_sim_reads > annotate_alignments
+ruleorder: annotate_preannotated_alignments_right_ref > annotate_alignments
+ruleorder: annotate_preannotated_alignments_right_sampling > annotate_alignments
 
 rule annotate_alignments_against_hg:
     input:
-        hg=hg,
+        hg=all_refs_hg,
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     output:
         gam="{root}/annotated-1/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
@@ -3051,15 +3058,41 @@ rule annotate_alignments_against_hg:
     shell:
         "vg annotate -t16 -a {input.gam} -x {input.hg} -m --search-limit=-1 >{output.gam}"
 ruleorder: annotate_alignments > annotate_alignments_against_hg
-ruleorder: giraffe_sim_reads > annotate_alignments_against_hg
+ruleorder: annotate_preannotated_alignments_right_ref > annotate_alignments_against_hg
+ruleorder: annotate_preannotated_alignments_right_sampling > annotate_alignments_against_hg
 
-rule de_annotate_sim_alignments:
+# For Giraffe on sim reads, we annotate the alignments against the mapping
+# target graph when we make them. Since the truth positions in the simulated
+# reads are all on CHM13, if the target graph contained CHM13 (i.e. wasn't a
+# one-ref-sampled GRCh38-based graph), we can use those annotations instead.
+
+# So we cover all the graphs that are CHM13-based and not GRCh38-based
+rule annotate_preannotated_alignments_right_ref:
     input:
-        gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    output:
         gam="{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output:
+        gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
-        realness="sim"
+        realness="sim",
+        reference="chm13|chm13v1"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "ln {input.gam} {output.gam}"
+ruleorder: annotate_preannotated_alignments_right_sampling > annotate_preannotated_alignments_right_ref
+
+# And we also cover all the graphs that aren't one-ref-sampled
+rule annotate_preannotated_alignments_right_sampling:
+    input:
+        gam="{root}/aligned/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    output:
+        gam="{root}/annotated-1/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{vgversion}-{vgflag}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        realness="sim",
+        refgraph="(?!model)(?!legacy)(?!olddv)(?!newdv)((?!sampled[0-9a-z]+o)[^/_-]+?)(-(?!sampled[0-9a-z]+o)[^/_-]+?)*"
     threads: 1
     resources:
         mem_mb=2000,
