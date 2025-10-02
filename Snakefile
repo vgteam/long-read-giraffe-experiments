@@ -792,7 +792,7 @@ def surjectable_gam(wildcards):
 
     return "{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam".format(**format_data)
 
-def graph_base(wildcards, force_all_refs=False):
+def graph_base(wildcards, force_all_refs=False, skip_sampling=False):
     """
     Find the base name for a collection of graph files from reference and either refgraph or all of refgraphbase, modifications, and clipping.
 
@@ -803,6 +803,9 @@ def graph_base(wildcards, force_all_refs=False):
     If force_all_refs is set, will drop 'o' from the sampling flags, if present,
     to get the version of the graph that has all the references present in the
     base graph.
+
+    If skip_sampling is set, will get the graph that would be sampled from
+    instead of the sampled graph.
     """
 
     # For membership testing, we need a set of wildcard keys
@@ -866,7 +869,8 @@ def graph_base(wildcards, force_all_refs=False):
                 # references instead.
                 last = last[:-1]
 
-            modifications.append(f"-{last}_fragmentlinked-for-real-{wildcards['tech']}-{wildcards['sample']}{sampling_trimmedness}-full")
+            if not skip_sampling:
+                modifications.append(f"-{last}_fragmentlinked-for-real-{wildcards['tech']}-{wildcards['sample']}{sampling_trimmedness}-full")
             parts.pop()
         elif re.fullmatch("d[0-9]+", last):
             # We have a clipping modifier, which gets a dot.
@@ -906,6 +910,12 @@ def all_refs_gbz(wildcards):
     Find a graph GBZ file with all linear references from reference.
     """
     return graph_base(wildcards, force_all_refs=True) + ".gbz"
+
+def unsampled_gbz(wildcards):
+    """
+    Find a graph GBZ file with no haplotype sampling.
+    """
+    return graph_base(wildcards, skip_sampling=True) + ".gbz"
 
 def hg(wildcards):
     """
@@ -2704,7 +2714,11 @@ rule inject_bam:
 
 rule surject_gam:
     input:
-        gbz=gbz,
+        # We surject onto the un-sampled graph because the sampled graph (as of
+        # vg 99930d) drops any contigs that don't have any snarls on them, and
+        # then surject complains about the graph not matching the reference
+        # info from the dict.
+        gbz=unsampled_gbz,
         # We surject onto all target reference paths, even those we can't call
         # on, like Y in CHM13 (due to different Ys being used in different
         # graphs), and the _random contigs in GRCh38. Otherwise mappers mapping
