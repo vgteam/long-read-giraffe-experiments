@@ -580,6 +580,22 @@ experiments:
     vary:
       mapper: ["giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-hifi-8a0e9e-noflags"]
 
+  hifi_real_dvdebug_grch38:
+    control:
+      subset: full
+      tech: hifi
+      reference: grch38
+      sample: HG002
+      realness: real
+      mapper: "giraffe-k31.w50.W-hifi-8a0e9e-noflags"
+      callparams: ".model2025-03-26noinfo"
+      # SV specific parameters with generic names
+      caller: vgcall
+      truthset: giab6
+      truthref: chm13
+    vary:
+      refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-sep8-mc-eval-sampled16o"]
+
   hifi_sim_scorescale_chm13:
     control:
       subset: 100k

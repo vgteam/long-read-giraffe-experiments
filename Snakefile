@@ -154,6 +154,11 @@ READS_DIR = config.get("reads_dir", None) or "/private/groups/patenlab/anovak/pr
 # and .fa.fai without pansn names, and _PAR.bed files with the pseudo-autosomal
 # regions.
 #
+# We generate -Nonly.fa versions of the FASTA files, because vg can't represent
+# non-N ambiguity codes and will treat them as N, meaning the surjected
+# alignments can only really be interpreted against a linear reference that
+# only uses N.
+#
 # We also use, but can generate:
 #
 # Index files for Minimap2 for each preset (here "hifi", can also be "ont" or "sr", and can be generated from the FASTA):
@@ -504,6 +509,8 @@ def reference_basename(wildcards):
     elif wildcards["reference"] == "chm13v1":
         # Use this for the older version, so just chm13 without the v1 and without the newY
         parts[0] = "chm13"
+    # We can't take non-N ambiguity codes in the reference.
+    parts.append("Nonly")
     return os.path.join(REFS_DIR, "-".join(parts))
 
 def reference_fasta(wildcards):
@@ -572,14 +579,18 @@ def calling_reference_fasta(wildcards):
 
     For CHM13, we always use CHM13v2.0 as the calling reference since that's
     the one we can get a truth on.
+
+    We always use references with N as the only ambiguity code. (For CHM13,
+    this should end up being the same thing, since CHM13 doesn't use other
+    codes.)
     """
     match wildcards["reference"]:
         case "chm13":
-            return os.path.join(REFS_DIR, "chm13v2.0.fa")
+            return os.path.join(REFS_DIR, "chm13v2.0-Nonly.fa")
         case "chm13v1":
-            return os.path.join(REFS_DIR, "chm13v2.0.fa")
+            return os.path.join(REFS_DIR, "chm13v2.0-Nonly.fa")
         case reference:
-            return os.path.join(REFS_DIR, reference + ".fa")
+            return os.path.join(REFS_DIR, reference + "-Nonly.fa")
 
 def calling_reference_fasta_index(wildcards):
     """
@@ -2051,6 +2062,22 @@ rule merge_graphaligner_gams:
 
 # Prefer to chunk gams for graphaligner, but only works for real reads on the full hprc graph
 ruleorder: merge_graphaligner_gams > graphaligner_real_reads
+
+rule remove_reference_ambiguity_codes:
+    input:
+        fasta=REFS_DIR + "/{basename}.fa"
+    output:
+        fasta=REFS_DIR + "/{basename}-Nonly.fa",
+        fasta_index=REFS_DIR + "/{basename}-Nonly.fa.fai"
+    threads: 1
+    resources:
+        mem_mb=8000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        # Replace all non-N ambiguity codes on non-header lines with N. See:
+        # Chua, Eng Guan. (2017). Re: How to remove ambiguous DNA characters form mulit-sequence FASTA file?. Retrieved from: https://www.researchgate.net/post/How_to_remove_ambiguous_DNA_characters_form_mulit-sequence_FASTA_file/5a3c7390cd0201daa15ec4a3/citation/download.
+        "sed '/^[^>]/s/[R|Y|W|S|M|K|H|B|V|D]/N/g' {input.fasta} >{output.fasta} && samtools faidx {output.fasta}"
 
 rule dict_index_reference:
     input:
