@@ -2079,6 +2079,19 @@ rule remove_reference_ambiguity_codes:
         # Chua, Eng Guan. (2017). Re: How to remove ambiguous DNA characters form mulit-sequence FASTA file?. Retrieved from: https://www.researchgate.net/post/How_to_remove_ambiguous_DNA_characters_form_mulit-sequence_FASTA_file/5a3c7390cd0201daa15ec4a3/citation/download.
         "sed '/^[^>]/s/[R|Y|W|S|M|K|H|B|V|D]/N/g' {input.fasta} >{output.fasta} && samtools faidx {output.fasta}"
 
+rule copy_par_bed:
+    input:
+        bed=REFS_DIR + "/{basename}_PAR.bed"
+    output:
+        bed=REFS_DIR + "/{basename}-Nonly_PAR.bed",
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+       "cp {input.bed} {output.bed}"
+
 rule dict_index_reference:
     input:
         reference_fasta=REFS_DIR + "/{basename}.fa"
