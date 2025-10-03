@@ -2892,7 +2892,7 @@ rule call_variants_dv:
             "DeepVariant.OUTPUT_CALLING_BAMS": False,
             "DeepVariant.CALL_CORES": 8 * 4,
             "DeepVariant.CALL_MEM": 50 * 4,
-            "DeepVariant.MAKE_EXAMPLES_MEM": 75
+            "DeepVariant.MAKE_EXAMPLES_MEM": 100 if wildcards.reference == "grch38" else 50
         }
         if dv_docker == "gcr.io/deepvariant-docker/deepvariant:head756846963":
             # We can't use a model example_info file, so we still need to set some flags.
