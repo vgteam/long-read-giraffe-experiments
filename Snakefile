@@ -2738,7 +2738,7 @@ rule surject_gam:
         vg_binary=get_vg_version(VG_SURJECT_VERSION)
     threads: 40
     resources:
-        mem_mb=lambda w: (600000 / 64 * 40) if w["tech"] in ("r10", "r10y2025") else (150000 / 64 * 40),
+        mem_mb=lambda w: (500000 / 64 * 40) if w["tech"] in ("r10", "r10y2025") else (300000 / 64 * 40),
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
