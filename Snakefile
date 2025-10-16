@@ -2898,6 +2898,7 @@ rule call_variants_dv:
             "DeepVariant.OUTPUT_CALLING_BAMS": False,
             "DeepVariant.CALL_CORES": 8 * 4,
             "DeepVariant.CALL_MEM": 50 * 4,
+            "DeepVariant.EVAL_MEM": 120,
             "DeepVariant.MAKE_EXAMPLES_MEM": 100 if wildcards.reference == "grch38" else 50
         }
         if dv_docker == "gcr.io/deepvariant-docker/deepvariant:head756846963":
