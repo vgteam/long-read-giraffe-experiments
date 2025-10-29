@@ -5825,7 +5825,7 @@ rule mapq_by_correctness_histogram:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "python3 histogram.py {input.tsv} --log_counts --bins 61 --title '{wildcards.tech} {wildcards.realness} MAPQ for {wildcards.mapper}' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories correct incorrect off-reference --category_labels Correct Incorrect 'Off Reference' --legend_overlay 'best' --line --save {output}"
+        "python3 histogram.py {input.tsv} --log_counts --bins 61 --title '{wildcards.tech} {wildcards.realness} MAPQ for {wildcards.mapper}' --y_label 'Items' --x_label 'MAPQ (Phred)' --no_n --categories correct incorrect off-reference --category_labels Correct Incorrect 'Off Reference' --legend_overlay 'best' --line --save {output}"
 
 
 rule mapping_accuracy:
