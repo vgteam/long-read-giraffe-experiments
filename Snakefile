@@ -2772,6 +2772,25 @@ rule reheader_bam:
     shell:
         "samtools reheader -c 'sed -e \"s/SN:[^\\t#]*#0#/SN:/g\"' {input.bam} >{output.bam} && samtools index -b {output.bam} {output.bai}"
 
+#DeepVariant can't use files with colons so symlink minimap2-lr:hqae reads to be called minimap2-lr-hqae 
+rule symlink_minimap2_bam_with_colon:
+    input:
+        bam="{root}/aligned/{reference}/{refgraph}/minimap2-lr:hqae/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
+        bam_index="{root}/aligned/{reference}/{refgraph}/minimap2-lr:hqae/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai",
+    output:
+        bam="{root}/aligned/{reference}/{refgraph}/minimap2-lr-hqae/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",
+        bam_index="{root}/aligned/{reference}/{refgraph}/minimap2-lr-hqae/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai",
+    threads: 1
+    resources:
+        mem_mb=10,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        """
+        ln -s {input.bam} {output.bam}
+        ln -s {input.bam_index} {output.bam_index}
+        """
+
 rule call_variants_dv:
     input:
         sorted_bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam",

@@ -439,7 +439,7 @@ experiments:
       trimmedness: ""
     vary:
       tech: ["hifi", "r10y2025"]
-      mapper: ["minimap2-map-hifi", "minimap2-lr:hqae", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
+      mapper: ["minimap2-map-hifi", "minimap2-lr-hqae", "giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
       refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
       callparams: [".nomodel", ".model2025-03-26noinfo"]
       reference: ["chm13", "chm13v1"]
@@ -449,7 +449,7 @@ experiments:
         - tech: "hifi"
           mapper: ["minimap2-map-hifi", "giraffe-k31.w50.W-hifi-99930d-mmcs100"]
         - tech: "r10y2025"
-          mapper: ["minimap2-lr:hqae", "giraffe-k31.w50.W-r10-99930d-noflags"]
+          mapper: ["minimap2-lr-hqae", "giraffe-k31.w50.W-r10-99930d-noflags"]
       -
         # Use the right calling model for each tech and mapper
         - tech: "hifi"
@@ -464,7 +464,7 @@ experiments:
         # Don't use the linear mappers on all the graphs
         - mapper: ["giraffe-k31.w50.W-hifi-99930d-mmcs100", "giraffe-k31.w50.W-r10-99930d-noflags"]
           refgraph: ["hprc-v2.0-mc-eval.ec1M-sampled16o", "hprc-v1.1-mc-sampled32d"]
-        - mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr:hqae"]
+        - mapper: ["minimap2-map-hifi", "pbmm2", "minimap2-lr-hqae"]
           refgraph: ["hprc-v2.0-mc-eval-d46"]
       - 
         # use the correct reference
