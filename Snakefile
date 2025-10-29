@@ -52,6 +52,7 @@ configfile: "lr-config.yaml"
 # hprc-v1.1-mc-chm13.fragment.hapl
 #
 GRAPHS_DIR = config.get("graphs_dir", None) or "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
+INDEX_DIR = config.get("index_dir", None) or GRAPHS_DIR
 
 #
 # For SV calling, we need a truth vcf and a BED file with confident regions
@@ -798,11 +799,23 @@ def surjectable_gam(wildcards):
 
     return "{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam".format(**format_data)
 
-def graph_base(wildcards, force_all_refs=False, skip_sampling=False):
+def _base_path(base_dir, wildcards, force_all_refs=False, skip_sampling=False):
     """
-    Find the base name for a collection of graph files from reference and either refgraph or all of refgraphbase, modifications, and clipping.
+    Construct the base path (without extension) for graph and index files.
 
-    For graphs ending in "-sampled" and sampling parameters, autodetects the right haplotype-sampled full graph name to use from tech and sample.
+    This function builds paths like "/path/to/hprc-v1.1-mc-chm13.d9" which can then
+    have extensions added (.gbz for graphs, .dist for distance indexes, .min for
+    minimizer indexes, .zipcodes for zipcode indexes, etc.).
+
+    base_dir: The directory where files should be located. Use GRAPHS_DIR for graph
+              files (.gbz, .hg, .gfa) or INDEX_DIR for index files (.dist, .min,
+              .zipcodes, .ri, .hapl).
+
+    wildcards: Snakemake wildcards describing the graph, including reference genome
+               and various modifications (clipping, chopping, haplotype sampling, etc.).
+
+    For graphs ending in "-sampled" and sampling parameters, autodetects the right
+    haplotype-sampled full graph name to use from tech and sample.
 
     For GraphAligner, selects an unchopped version of the graph based on mapper.
 
@@ -845,7 +858,7 @@ def graph_base(wildcards, force_all_refs=False, skip_sampling=False):
         # And -sampled10d needs to be expanded to say what sample and read set we are haplotype sampling from.
 
         # TODO: If it's not -mc, where would the reference go?
-        
+
         refgraph = wildcards["refgraph"]
 
         parts = refgraph.split("-")
@@ -864,7 +877,7 @@ def graph_base(wildcards, force_all_refs=False, skip_sampling=False):
             # Which means we need some info about the sample we are working on.
             assert "tech" in wc_keys, "No tech known for haplotype sampling graph " + wildcards["refgraph"]
             assert "sample" in wc_keys, "No sample known for haplotype sampling graph " + wildcards["refgraph"]
-           
+
             # TODO: We always sample for the full real trimmed-if-R10 version
             # of whatever reads we're going to map, so we can consistently use
             # one graph. Note r10y2025 doesn't get trimmed.
@@ -882,28 +895,40 @@ def graph_base(wildcards, force_all_refs=False, skip_sampling=False):
             # We have a clipping modifier, which gets a dot.
             modifications.append("." + last)
             parts.pop()
-        
+
         while len(parts) > 3:
             # We have more than just the 3-tuple of name, version, algorithm. Take the last thing into modifications.
             modifications.append("-" + parts[-1])
             parts.pop()
-        
+
         last = parts[-1]
         if last.endswith(".full"):
             # Move a .full over the reference
             modifications.append(".full")
             last = last[:-5]
             parts[-1] = last
-        
+
 
         # Now we have all the modifications. Flip them around the right way.
         modifications.reverse()
-        
+
         # The first 3 or fewer parts are the graph base name.
         refgraphbase = "-".join(parts)
 
-    result = os.path.join(GRAPHS_DIR, refgraphbase + "-" + reference + "".join(modifications))
+    result = os.path.join(base_dir, refgraphbase + "-" + reference + "".join(modifications))
     return result
+
+def graph_base(wildcards, force_all_refs=False, skip_sampling=False):
+    """
+    Find the base name for a collection of graph files from reference and either refgraph or all of refgraphbase, modifications, and clipping.
+    """
+    return _base_path(GRAPHS_DIR, wildcards, force_all_refs, skip_sampling)
+
+def index_base(wildcards, force_all_refs=False, skip_sampling=False):
+    """
+    Find the base name for a collection of index files from reference and either refgraph or all of refgraphbase, modifications, and clipping.
+    """
+    return _base_path(INDEX_DIR, wildcards, force_all_refs, skip_sampling)
 
 def gbz(wildcards):
     """
@@ -977,7 +1002,7 @@ def dist_indexed_graph(wildcards):
     """
     Find a GBZ and its dist index from reference.
     """
-    base = graph_base(wildcards)
+    base = index_base(wildcards)
     return {
         "gbz": gbz(wildcards),
         "dist": base + ".dist"
@@ -989,7 +1014,7 @@ def indexed_graph(wildcards):
 
     Also checks vgversion to see if we need a no-zipcodes index for old vg.
     """
-    base = graph_base(wildcards)
+    base = index_base(wildcards)
     indexes = dist_indexed_graph(wildcards)
     # Some versions of Giraffe can't use zipcodes. But all the Giraffe versions
     # we test can use the same distance indexes.
@@ -1013,7 +1038,7 @@ def r_and_snarl_indexed_graph(wildcards):
 
     Uses the full distance index if present or the snarls-only one otherwise.
     """
-    base = graph_base(wildcards)
+    base = index_base(wildcards)
     return {
         "gbz": gbz(wildcards),
         "ri": base + ".ri",
@@ -1026,7 +1051,7 @@ def haplotype_indexed_graph(wildcards):
 
     Distance and ri indexes are not needed for haplotype sampling.
     """
-    base = graph_base(wildcards)
+    base = index_base(wildcards)
     return {
         "gbz": gbz(wildcards),
         "hapl": base + ".fragment.hapl"
@@ -1675,10 +1700,10 @@ rule gbz_index_primary_graph:
 
 rule distance_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.gbz"
+        gbz=GRAPHS_DIR + "/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.gbz"
     output:
-        distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.dist"
-    benchmark: "{graphs_dir}/indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.benchmark"
+        distfile=INDEX_DIR + "/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.dist"
+    benchmark: INDEX_DIR + "/indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.benchmark"
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
     resources:
@@ -1703,10 +1728,10 @@ rule precompute_snarls:
 
 rule tcdist_index_graph:
     input:
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.gbz"
+        gbz=GRAPHS_DIR + "/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.gbz"
     output:
-        tcdistfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.tcdist"
-    benchmark: "{graphs_dir}/indexing_benchmarks/tcdistance_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.benchmark"
+        tcdistfile=INDEX_DIR + "/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.tcdist"
+    benchmark: INDEX_DIR + "/indexing_benchmarks/tcdistance_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.benchmark"
 
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
@@ -1722,9 +1747,9 @@ rule tcdist_index_graph:
 rule r_index_graph:
     input:
         # We don't operate on clipped graphs
-        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.gbz"
+        gbz=GRAPHS_DIR + "/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.gbz"
     output:
-        rifile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.ri"
+        rifile=INDEX_DIR + "/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.ri"
     threads: 16
     resources:
         mem_mb=lambda w: 120000 if w["full"] == "" else 240000,
@@ -1737,7 +1762,7 @@ rule haplotype_index_graph:
     input:
         unpack(r_and_snarl_indexed_graph),
     output:
-        haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.fragment.hapl"
+        haplfile=INDEX_DIR + "/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.fragment.hapl"
     params:
         vg_binary=get_vg_version(VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION)
     threads: 16
@@ -1807,9 +1832,9 @@ rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
     output:
-        minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.withzip.min",
-        zipfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.zipcodes"
-    benchmark: "{graphs_dir}/indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.benchmark"
+        minfile=INDEX_DIR + "/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.withzip.min",
+        zipfile=INDEX_DIR + "/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.zipcodes"
+    benchmark: INDEX_DIR + "/indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.benchmark"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
@@ -1829,7 +1854,7 @@ rule non_zipcode_minimizer_index_graph:
         unpack(dist_indexed_graph),
         non_zipcode_vg="vg_v1.62.0"
     output:
-        minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.nozip.min",
+        minfile=INDEX_DIR + "/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.nozip.min",
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
@@ -3619,9 +3644,9 @@ rule haplotype_sampling_time_empty:
 rule haplotype_sampling_time_giraffe:
     input:
         kmer_counting=kmer_counts_benchmark,
-        haplotype_sampling=os.path.join(GRAPHS_DIR, "indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}_fragmentlinked-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
-        distance_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}_fragmentlinked-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
-        minimizer_indexing=os.path.join(GRAPHS_DIR, "indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}_fragmentlinked-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.k{k}.w{w}{weightedness}.benchmark")
+        haplotype_sampling=os.path.join(INDEX_DIR, "indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}_fragmentlinked-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
+        distance_indexing=os.path.join(INDEX_DIR, "indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}_fragmentlinked-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark"),
+        minimizer_indexing=os.path.join(INDEX_DIR, "indexing_benchmarks/minimizer_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}_fragmentlinked-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.k{k}.w{w}{weightedness}.benchmark")
     params:
         condition_name=condition_name
     output:
