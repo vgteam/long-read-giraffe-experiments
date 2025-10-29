@@ -247,6 +247,8 @@ VG_HAPLOTYPE_SAMPLING_VERSION="v1.64.1"
 VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="v1.64.1"
 # What version of vg should be used to surject reads?
 VG_SURJECT_VERSION="99930d"
+# What version of vg should be used to make minimizer and zipcode indexes?
+VG_MINIMIZER_INDEXING_VERSION=config.get("vg_minimizer_indexing_version", VG_HAPLOTYPE_SAMPLING_VERSION)
 
 wildcard_constraints:
     expname="[^/]+",
@@ -1840,14 +1842,15 @@ rule minimizer_index_graph:
         k="[0-9]+",
         w="[0-9]+"
     params:
-        weighting_option=lambda w: "--weighted" if w["weightedness"] == ".W" else ""
+        weighting_option=lambda w: "--weighted" if w["weightedness"] == ".W" else "",
+        vg_binary=get_vg_version(VG_MINIMIZER_INDEXING_VERSION)
     threads: 16
     resources:
         mem_mb=lambda w: 600000 if ("hprc-v2" in w["refgraphbase"]  or "hprc-v1.1-nov.11.2024" in w["refgraphbase"]) else 320000 if w["weightedness"] == ".W" else 80000,
         runtime=240,
         slurm_partition=choose_partition(240)
     shell:
-        "vg minimizer --progress -k {wildcards.k} -w {wildcards.w} {params.weighting_option} -t {threads} -p -d {input.dist} -z {output.zipfile} -o {output.minfile} {input.gbz}"
+        "{params.vg_binary} minimizer --progress -k {wildcards.k} -w {wildcards.w} {params.weighting_option} -t {threads} -p -d {input.dist} -z {output.zipfile} -o {output.minfile} {input.gbz}"
 
 rule non_zipcode_minimizer_index_graph:
     input:

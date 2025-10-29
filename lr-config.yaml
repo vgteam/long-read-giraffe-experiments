@@ -345,14 +345,20 @@ experiments:
       tech: illumina
       sample: HG002
       realness: sim
+      mapper: "giraffe-k29.w11-default-default-noflags"
     vary:
-      mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-v1.64.1-noflags"]
-      refgraph: ["hprc-v2.0-mc-eval-d46", "primary"]
-    constrain:
-        - refgraph: "hprc-v2.0-mc-eval-d46"
-          mapper: ["minimap2-sr", "bwa", "giraffe-k29.w11-default-v1.64.1-noflags"]
-        - refgraph: "primary"
-          mapper: ["giraffe-k29.w11-default-v1.64.1-noflags"]
+      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
+
+  hifi_sim_tiny:
+    control:
+      subset: 1k
+      reference: chm13
+      tech: hifi
+      sample: HG002
+      realness: sim
+      mapper: "giraffe-k29.w11-hifi-default-noflags" 
+    vary:
+      refgraph: ["hprc-v2.0-mc-eval-d46", "hprc-v2.0-mc-eval.ec1M-sampled16o"]
 
   #For variant calling
   dv_calling:
