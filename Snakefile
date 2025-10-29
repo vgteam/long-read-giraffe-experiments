@@ -2790,6 +2790,7 @@ rule symlink_minimap2_bam_with_colon:
         ln -s {input.bam} {output.bam}
         ln -s {input.bam_index} {output.bam_index}
         """
+ruleorder: symlink_minimap2_bam_with_colon > sort_bam
 
 rule call_variants_dv:
     input:
