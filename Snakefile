@@ -2782,7 +2782,7 @@ rule symlink_minimap2_bam_with_colon:
         bam_index="{root}/aligned/{reference}/{refgraph}/minimap2-lr-hqae/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted.bam.bai",
     threads: 1
     resources:
-        mem_mb=10,
+        mem_mb=1000,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
