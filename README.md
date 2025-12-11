@@ -78,6 +78,13 @@ To run all the rules, you will need to have installations of:
 * Singularity, for running fastqsplitter, [Truvari](https://github.com/ACEnglish/truvari), [mafft](https://mafft.cbrc.jp/alignment/software/installation_without_root.html) which Truvari calls, vcfwave, vcfbub, sniffles, and GraphAligner
 * [toil](https://github.com/DataBiosphere/toil) for DeepVariant
 
+The following conda environment was sufficient to run vg version comparison variant calling tests on the Phoenix cluster:
+```
+conda create -n long-read-exp -c bioconda -c conda-forge snakemake=9.13.7 toil=9.1.2 \
+    bidict snakemake-executor-plugin-slurm snakemake-storage-plugin-http
+```
+Note that the vg installations had to be provided as binaries which had undergone `make static` and `strip -d`.
+
 ## Available Experiment Outputs:
 
 In these file name templates, `{root}` is your base output directory, `{expname}` is the name of the experiment defined in the config file, and `{ext}` is the image format you want the plot in, such as `png`.
