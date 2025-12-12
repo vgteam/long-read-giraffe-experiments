@@ -81,7 +81,8 @@ To run all the rules, you will need to have installations of:
 The following conda environment was sufficient to run vg version comparison variant calling tests on the Phoenix cluster:
 ```
 conda create -n long-read-exp -c conda-forge -c bioconda snakemake=9.13.7 \
-    toil bidict snakemake-executor-plugin-slurm snakemake-storage-plugin-http singularity
+    toil snakemake-executor-plugin-slurm snakemake-storage-plugin-http singularity \
+    bidict matplotlib
 ```
 Note that the vg installations had to be provided as binaries which had undergone `make static` and `strip -d`.
 
