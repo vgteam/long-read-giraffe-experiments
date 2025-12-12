@@ -33,7 +33,7 @@ vg paths --extract-fasta --sample CHM13 -x graphs/hprc-v2.0-mc-chm13-eval.gbz > 
     You can also run jobs on Slurm, where they will be automatically assigned to the correct partitions for UCSC's Phoenix cluster:
 
     ```
-    snakemake --rerun-incomplete --use-singularity --singularity-args "-B /private" --slurm --latency-wait 120 -j128 output/experiments/r10_accuracy_small/plots/mapping_rate.png
+    snakemake --rerun-incomplete --use-singularity --singularity-args "-B /private" --executor slurm --latency-wait 120 -j128 output/experiments/r10_accuracy_small/plots/mapping_rate.png
     ```
 
     This will run on Slurm, waiting up to 120 seconds for files created on the worker nodes to become visible to the head node, and using up to 128 cores total.
@@ -41,7 +41,7 @@ vg paths --extract-fasta --sample CHM13 -x graphs/hprc-v2.0-mc-chm13-eval.gbz > 
     You can also ask for multiple output files in a single run:
 
     ```
-    snakemake --rerun-incomplete --use-singularity --singularity-args "-B /private" --slurm --latency-wait 120 -j128 \
+    snakemake --rerun-incomplete --use-singularity --singularity-args "-B /private" --executor slurm --latency-wait 120 -j128 \
         output/experiments/r10_accuracy_small/plots/mapping_rate.png \
         output/experiments/r10_accuracy_small/plots/correct.png \
         output/plots/chm13/hprc-v1.1-mc-d9/minimap2-lr:hq/length_by_correctness-sim-r10-HG002.trimmed.1k.png
@@ -58,7 +58,7 @@ vg paths --extract-fasta --sample CHM13 -x graphs/hprc-v2.0-mc-chm13-eval.gbz > 
     And to run all the plots for the paper into the configured `all_out_dir` (expected to be group sticky):
 
     ```
-    (umask 0002; snakemake -j128 --rerun-incomplete --use-singularity --singularity-args "-B /private" --latency-wait 120 --slurm all_paper_figures)
+    (umask 0002; snakemake -j128 --rerun-incomplete --use-singularity --singularity-args "-B /private" --latency-wait 120 --executor slurm all_paper_figures)
     ```
 
 ## Dependencies
@@ -142,7 +142,7 @@ chmod g+s /private/groups/patenlab/project-lrg
 
 Then run the Snakemake in a subshell with a group-writable umask set, and ask for a file under that directory:
 ```
-(umask 0002; snakemake -j128 --rerun-incomplete --use-singularity --singularity-args "-B /private" --latency-wait 120 --slurm /private/groups/patenlab/project-lrg/output/plots/chm13/hprc-v1.1-mc-d9/giraffe-k31.w50.W-hifi-default-noflags/time_used-real-hifi-HG002.1k.png)
+(umask 0002; snakemake -j128 --rerun-incomplete --use-singularity --singularity-args "-B /private" --latency-wait 120 --executor slurm /private/groups/patenlab/project-lrg/output/plots/chm13/hprc-v1.1-mc-d9/giraffe-k31.w50.W-hifi-default-noflags/time_used-real-hifi-HG002.1k.png)
 ```
 
 The file and all intermediates will end up owned and writable by the correct group.
@@ -152,7 +152,7 @@ The file and all intermediates will end up owned and writable by the correct gro
 First, make sure you have run the `all_paper_figures` rule:
 
 ```
-(umask 002 && snakemake -j128 --rerun-incomplete --keep-incomplete --use-singularity --singularity-args "-B /private" --latency-wait 120 --slurm --keep-going all_paper_figures)
+(umask 002 && snakemake -j128 --rerun-incomplete --keep-incomplete --use-singularity --singularity-args "-B /private" --latency-wait 120 --executor slurm --keep-going all_paper_figures)
 ```
 
 Then:
