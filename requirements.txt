@@ -4,3 +4,5 @@ matplotlib==3.10.8
 snakemake==9.13.7
 singularity==3.8.6
 toil==9.1.2
+snakemake-executor-plugin-slurm
+snakemake-storage-plugin-http singularity
