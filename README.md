@@ -78,6 +78,8 @@ To run all the rules, you will need to have installations of:
 * Singularity, for running fastqsplitter, [Truvari](https://github.com/ACEnglish/truvari), [mafft](https://mafft.cbrc.jp/alignment/software/installation_without_root.html) which Truvari calls, vcfwave, vcfbub, sniffles, and GraphAligner
 * [toil](https://github.com/DataBiosphere/toil) for DeepVariant
 
+Versions of things are in `requirements.txt`
+
 The following conda environment was sufficient to run vg version comparison variant calling tests on the Phoenix cluster:
 ```
 conda create -n long-read-exp -c conda-forge -c bioconda snakemake=9.13.7 \
