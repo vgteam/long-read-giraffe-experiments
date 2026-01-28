@@ -232,11 +232,11 @@ IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["spee
 NON_ZIPCODE_GIRAFFE_VERSIONS = set(config.get("non_zipcode_giraffe_versions")) if "non_zipcode_giraffe_versions" in config else set()
 
 # What version of vg should be used to make fragment-aware haplotype indexes?
-VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="v1.64.1"
+VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="vg_elina"
 # What version of vg should be used to haplotype-sample graphs?
-VG_HAPLOTYPE_SAMPLING_VERSION="v1.64.1"
+VG_HAPLOTYPE_SAMPLING_VERSION="vg_elina"
 # What version of vg should be used to haplotype-sample graphs when we want to keep just one reference?
-VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="v1.64.1"
+VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="vg_elina"
 
 wildcard_constraints:
     expname="[^/]+",
@@ -3229,7 +3229,7 @@ rule speed_from_log_giraffe_stats:
         mapper="giraffe.*"
     threads: 1
     resources:
-        mem_mb=200,
+        mem_mb=600,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
@@ -3286,7 +3286,7 @@ rule memory_from_log_giraffe_stat:
         mapper="giraffe.*"
     threads: 1
     resources:
-        mem_mb=200,
+        mem_mb=600,
         runtime=5,
         slurm_partition=choose_partition(5)
     shell:
@@ -4841,16 +4841,18 @@ rule mapped_names:
         # Because GraphAligner doesn't output unmapped reads, we need to get the lengths from the original FASTQ
         # So we get all the mapped reads and then all the unmapped reads. See <https://unix.stackexchange.com/a/588652>
         """
-        vg filter --only-mapped -t {threads} -T "name" {input.gam} | grep -v "#" | sed 's/\/[1-2]$//g' | sort -s -k 1b,1 > {output.mapped_names}
+        vg filter --only-mapped -t {threads} -T "name" {input.gam} | grep -v "#" | sed 's/\/[1-2]$//g' | LC_ALL=C sort -k 1b,1 > {output.mapped_names}
         """
 
 # tsv of "mapped"/"unmapped" and the length of the original read
 # This only does the mapped portion
 rule length_by_mapping_mapped:
     input:
-        length_by_name=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
+        read_length_by_name=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
         mapped_names="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv"
     output:
+        m_sorted_read_length=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.m_sorted_read_length.tsv"),
+        m_sorted_mapped_names=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.m_sorted_mapped_names.tsv"),
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.mapped.tsv"
     threads: 16
     resources:
@@ -4861,7 +4863,9 @@ rule length_by_mapping_mapped:
         # Because GraphAligner doesn't output unmapped reads, we need to get the lengths from the original FASTQ
         # So we get all the mapped reads and then all the unmapped reads. See <https://unix.stackexchange.com/a/588652>
         """
-        join -j 1 {input.length_by_name} {input.mapped_names} | awk -v OFS='\t' '{{print "mapped",$2}}' > {output.tsv}
+        LC_ALL=C sort -k 1b,1 {input.read_length_by_name} > {output.m_sorted_read_length}
+        LC_ALL=C sort -k 1b,1 {input.mapped_names} > {output.m_sorted_mapped_names}
+        join -j 1 {output.m_sorted_read_length} {ouput.m_sorted_mapped_names} | awk -v OFS='\t' '{{print "mapped",$2}}' > {output.tsv}
         """
 
 
@@ -4869,9 +4873,11 @@ rule length_by_mapping_mapped:
 # This only does the unmapped portion
 rule length_by_mapping_unmapped:
     input:
-        length_by_name=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
+        read_length_by_name=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
         mapped_names="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv"
     output:
+        um_sorted_read_length=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.um_sorted_read_length.tsv"),
+        um_sorted_mapped_names=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.um_sorted_mapped_names.tsv"),
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.unmapped.tsv"
     threads: 16
     resources:
@@ -4882,7 +4888,9 @@ rule length_by_mapping_unmapped:
         # Because GraphAligner doesn't output unmapped reads, we need to get the lengths from the original FASTQ
         # So we get all the mapped reads and then all the unmapped reads. See <https://unix.stackexchange.com/a/588652>
         """
-        join -j 1 -a 1 -v 2 {input.length_by_name} {input.mapped_names} | awk -v OFS='\t' '{{print "unmapped",$2}}' >> {output.tsv}
+        LC_ALL=C sort -k 1b,1 {input.read_length_by_name} > {output.um_sorted_read_length}
+        LC_ALL=C sort -k 1b,1 {input.mapped_names} > {output.um_sorted_mapped_names}
+        join -j 1 -a 1 -v 2 {output.um_sorted_read_length} {output.um_sorted_mapped_names} | awk -v OFS='\t' '{{print "unmapped",$2}}' >> {output.tsv}
         """
 
 
@@ -4917,7 +4925,7 @@ rule read_length_by_name:
         slurm_partition=choose_partition(720)
     shell:
         """
-        seqkit fx2tab -n -l {input.fastq} | sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' >{output.tsv}
+        seqkit fx2tab -n -l {input.fastq} | LC_ALL=C sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' >{output.tsv}
         """
 #How many base pairs are in the read file
 rule read_bases_total:
@@ -4989,8 +4997,9 @@ rule mapq_by_correctness:
 
 rule softclips_by_name_gam:
     input:
+        fastq=fastq,
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
-        length_by_name="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_name.tsv",
+        read_length_by_name=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv")
     output:
         mapped_tsv=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_softclips_by_name.tsv"),
         sorted_tsv=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sorted_mapped_softclips_by_name.tsv"),
@@ -5008,12 +5017,12 @@ rule softclips_by_name_gam:
     shell:
         # We need to make sure we have 0 values for softclips for reads that
         # weren't mapped, so we can compute correct average softclips. We know
-        # the length_by_name TSV contains all read names.
+        # the read_length_by_name TSV contains all read names.
         """
         set -x
         time vg filter -t {threads} -T \"name;softclip_start;softclip_end\" {input.gam} | grep -v \"#\" > {output.mapped_tsv}
-        time sort -k 1b,1 {output.mapped_tsv} | sed 's/\/[1-2]\$//g' > {output.sorted_tsv}
-        time join -a 1 {input.length_by_name} {output.sorted_tsv} | awk -v OFS='\t' '{{ if ($NF < 3) {{ print $1,0,0 }} else {{ print $1,$3,$4 }} }}' > {output.tsv}
+        time LC_ALL=C sort -k 1b,1 {output.mapped_tsv} | sed 's/\/[1-2]\$//g' > {output.sorted_tsv}
+        time join -a 1 {input.read_length_by_name} {output.sorted_tsv} | awk -v OFS='\t' '{{ if ($NF < 3) {{ print $1,0,0 }} else {{ print $1,$3,$4 }} }}' > {output.tsv}
         """
 
 rule softclips_by_name_other:
@@ -5093,7 +5102,7 @@ rule hardclips_by_name_gam:
         # length_by_mapping above).
         # We use -a 2 on the join to exclude fully-unmapped reads.
         """
-        vg filter -t {threads} -T "name;length" {input.gam} | grep -v "#" | sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_length_by_name}
+        vg filter -t {threads} -T "name;length" {input.gam} | grep -v "#" | LC_ALL=C sort -k 1b,1 | sed 's/\/[1-2]\$//g' > {output.mapped_length_by_name}
         join -a 2 {input.read_length_by_name} {output.mapped_length_by_name} | awk -v OFS='\t' '{{print $1,$2-$3}}' > {output.tsv}
         """
 
