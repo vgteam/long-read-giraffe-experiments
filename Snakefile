@@ -4865,7 +4865,7 @@ rule length_by_mapping_mapped:
         """
         LC_ALL=C sort -k 1b,1 {input.read_length_by_name} > {output.m_sorted_read_length}
         LC_ALL=C sort -k 1b,1 {input.mapped_names} > {output.m_sorted_mapped_names}
-        join -j 1 {output.m_sorted_read_length} {ouput.m_sorted_mapped_names} | awk -v OFS='\t' '{{print "mapped",$2}}' > {output.tsv}
+        join -j 1 {output.m_sorted_read_length} {output.m_sorted_mapped_names} | awk -v OFS='\t' '{{print "mapped",$2}}' > {output.tsv}
         """
 
 
