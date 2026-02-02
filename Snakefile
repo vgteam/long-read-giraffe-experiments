@@ -202,7 +202,7 @@ SLURM_PARTITIONS = [
 PARAM_SEARCH = parameter_search.ParameterSearch()
 
 # Where is a large temp directory?
-LARGE_TEMP_DIR = config.get("large_temp_dir", "/data/tmp")
+LARGE_TEMP_DIR = config.get("large_temp_dir", "/data/tmp/elewilso")
 
 #Different phoenix nodes seem to run at different speeds, so we can specify which node to run
 #This gets added as a slurm_extra for all the real read runs
@@ -4851,8 +4851,6 @@ rule length_by_mapping_mapped:
         read_length_by_name=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
         mapped_names="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv"
     output:
-        m_sorted_read_length=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.m_sorted_read_length.tsv"),
-        m_sorted_mapped_names=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.m_sorted_mapped_names.tsv"),
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.mapped.tsv"
     threads: 16
     resources:
@@ -4863,9 +4861,8 @@ rule length_by_mapping_mapped:
         # Because GraphAligner doesn't output unmapped reads, we need to get the lengths from the original FASTQ
         # So we get all the mapped reads and then all the unmapped reads. See <https://unix.stackexchange.com/a/588652>
         """
-        LC_ALL=C sort -k 1b,1 {input.read_length_by_name} > {output.m_sorted_read_length}
-        LC_ALL=C sort -k 1b,1 {input.mapped_names} > {output.m_sorted_mapped_names}
-        join -j 1 {output.m_sorted_read_length} {output.m_sorted_mapped_names} | awk -v OFS='\t' '{{print "mapped",$2}}' > {output.tsv}
+        export LC_ALL=C;
+        join -j 1 <(sort -k 1b,1 {input.read_length_by_name}) <(sort -k 1b,1 {input.mapped_names}) | awk -v OFS='\t' '{{print "mapped", $2}}' > {output.tsv}
         """
 
 
@@ -4876,8 +4873,6 @@ rule length_by_mapping_unmapped:
         read_length_by_name=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv"),
         mapped_names="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapped_names.tsv"
     output:
-        um_sorted_read_length=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.um_sorted_read_length.tsv"),
-        um_sorted_mapped_names=temp("{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.um_sorted_mapped_names.tsv"),
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.unmapped.tsv"
     threads: 16
     resources:
@@ -4888,9 +4883,8 @@ rule length_by_mapping_unmapped:
         # Because GraphAligner doesn't output unmapped reads, we need to get the lengths from the original FASTQ
         # So we get all the mapped reads and then all the unmapped reads. See <https://unix.stackexchange.com/a/588652>
         """
-        LC_ALL=C sort -k 1b,1 {input.read_length_by_name} > {output.um_sorted_read_length}
-        LC_ALL=C sort -k 1b,1 {input.mapped_names} > {output.um_sorted_mapped_names}
-        join -j 1 -a 1 -v 2 {output.um_sorted_read_length} {output.um_sorted_mapped_names} | awk -v OFS='\t' '{{print "unmapped",$2}}' >> {output.tsv}
+        export LC_ALL=C;
+        join -j 1 -a 1 -v 2 <(sort -k 1b,1 {input.read_length_by_name}) <(sort -k 1b,1 {input.mapped_names}) | awk -v OFS='\t' '{{print "unmapped",$2}}' >> {output.tsv}
         """
 
 
@@ -4925,7 +4919,7 @@ rule read_length_by_name:
         slurm_partition=choose_partition(720)
     shell:
         """
-        seqkit fx2tab -n -l {input.fastq} | LC_ALL=C sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' >{output.tsv}
+        seqkit fx2tab -n -l {input.fastq} | awk -v OFS='\t' '{{print $1,$NF}}' | LC_ALL=C sort -k 1b,1 >{output.tsv}
         """
 #How many base pairs are in the read file
 rule read_bases_total:
