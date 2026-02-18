@@ -923,3 +923,46 @@ experiments:
       sample: HG002
     vary:
       mapper: ["giraffe-k29.w11.W-default-default-noflags", "giraffe-k29.w11.W-default-default-noflags", "minimap2"]
+
+
+  # This experiment is for making the HPRC year 2 marker paper plots
+  hprc_y2_marker:
+    control:
+      subset: full
+      reference: chm13
+      sample: HG002
+      realness: real
+      # SV specific parameters with generic names
+      caller: vgcall
+      truthset: giab6
+      truthref: chm13
+    vary:
+      tech: ["hifi", "r10y2025"]
+      mapper: ["giraffe-k31.w50.W-hifi-ef6e3e-noflags", "giraffe-k31.w50.W-r10-ef6e3e-noflags", "minimap2-lr:hqae", "minimap2-map-hifi"]
+      refgraph: ["hprc-v1.1-mc-sampled4o", "hprc-v2.1-mc-eval-sampled16o"]
+      callparams: [".model2025-03-26noinfo", ".nomodel"]
+    constrain:
+      -
+        # Use the right mapping preset for each tech
+        - tech: hifi
+          mapper: ["giraffe-k31.w50.W-hifi-ef6e3e-noflags", "minimap2-map-hifi"]
+        - tech: r10y2025
+          mapper: ["giraffe-k31.w50.W-r10-ef6e3e-noflags", "minimap2-lr:hqae"]
+      -
+        # Use the right calling model for each tech and mapper
+        - tech: "hifi"
+          mapper: "giraffe-k31.w50.W-hifi-ef6e3e-noflags"
+          callparams: ".model2025-03-26noinfo"
+        - tech: "hifi"
+          mapper: "minimap2-map-hifi"
+          callparams: ".nomodel"
+        - tech: "r10y2025"
+          callparams: ".nomodel"
+      - 
+        # Don't use the linear mappers on all the graphs
+        - mapper: ["giraffe-k31.w50.W-hifi-ef6e3e-noflags", "giraffe-k31.w50.W-r10-ef6e3e-noflags"]
+        - mapper: ["minimap2-map-hifi", "minimap2-lr:hqae"]
+          refgraph: "hprc-v1.1-mc-sampled4o"
+        
+
+
