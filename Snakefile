@@ -240,13 +240,13 @@ IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["spee
 NON_ZIPCODE_GIRAFFE_VERSIONS = set(config.get("non_zipcode_giraffe_versions")) if "non_zipcode_giraffe_versions" in config else set()
 
 # What version of vg should be used to make fragment-aware haplotype indexes?
-VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="v1.64.1"
+VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="v1.70.0"
 # What version of vg should be used to haplotype-sample graphs?
-VG_HAPLOTYPE_SAMPLING_VERSION="v1.64.1"
+VG_HAPLOTYPE_SAMPLING_VERSION="v1.70.0"
 # What version of vg should be used to haplotype-sample graphs when we want to keep just one reference?
-VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="v1.64.1"
+VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="v1.70.0"
 # What version of vg should be used to surject reads?
-VG_SURJECT_VERSION="99930d"
+VG_SURJECT_VERSION="v1.70.0"
 # What version of vg should be used to make minimizer and zipcode indexes?
 VG_MINIMIZER_INDEXING_VERSION=config.get("vg_minimizer_indexing_version", VG_HAPLOTYPE_SAMPLING_VERSION)
 
