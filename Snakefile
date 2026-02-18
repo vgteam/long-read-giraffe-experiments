@@ -240,15 +240,17 @@ IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["spee
 NON_ZIPCODE_GIRAFFE_VERSIONS = set(config.get("non_zipcode_giraffe_versions")) if "non_zipcode_giraffe_versions" in config else set()
 
 # What version of vg should be used to make fragment-aware haplotype indexes?
-VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="v1.70.0"
+VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="ef6e3e"
 # What version of vg should be used to haplotype-sample graphs?
-VG_HAPLOTYPE_SAMPLING_VERSION="v1.70.0"
+VG_HAPLOTYPE_SAMPLING_VERSION="ef6e3e"
 # What version of vg should be used to haplotype-sample graphs when we want to keep just one reference?
-VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="v1.70.0"
+VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="ef6e3e"
 # What version of vg should be used to surject reads?
-VG_SURJECT_VERSION="v1.70.0"
+VG_SURJECT_VERSION="ef6e3e"
+# What version of vg should be used to make distance indexes?
+VG_DISTANCE_INDEXING_VERSION=config.get("vg_distance_indexing_version", VG_HAPLOTYPE_SAMPLING_VERSION)
 # What version of vg should be used to make minimizer and zipcode indexes?
-VG_MINIMIZER_INDEXING_VERSION=config.get("vg_minimizer_indexing_version", VG_HAPLOTYPE_SAMPLING_VERSION)
+VG_MINIMIZER_INDEXING_VERSION=config.get("vg_minimizer_indexing_version", VG_DISTANCE_INDEXING_VERSION)
 
 wildcard_constraints:
     expname="[^/]+",
@@ -1706,6 +1708,8 @@ rule distance_index_graph:
     output:
         distfile=INDEX_DIR + "/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.dist"
     benchmark: INDEX_DIR + "/indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.benchmark"
+    params:
+        vg_binary=lambda w: get_vg_version(VG_DISTANCE_INDEXING_VERSION)
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
     resources:
@@ -1713,7 +1717,7 @@ rule distance_index_graph:
         runtime=240,
         slurm_partition=choose_partition(240)
     shell:
-        "vg index -t {threads} -j {output.distfile} {input.gbz}"
+        "{params.vg_binary} index -t {threads} -j {output.distfile} {input.gbz}"
 
 rule precompute_snarls:
     input:
@@ -1734,7 +1738,8 @@ rule tcdist_index_graph:
     output:
         tcdistfile=INDEX_DIR + "/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.tcdist"
     benchmark: INDEX_DIR + "/indexing_benchmarks/tcdistance_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.benchmark"
-
+    params:
+        vg_binary=lambda w: get_vg_version(VG_DISTANCE_INDEXING_VERSION)
     # TODO: Distance indexing only really uses 1 thread
     threads: 1
     resources:
@@ -1744,7 +1749,7 @@ rule tcdist_index_graph:
         runtime=2880,
         slurm_partition=choose_partition(2880)
     shell:
-        "vg index -t {threads} --no-nested-distance -j {output.tcdistfile} {input.gbz}"
+        "{params.vg_binary} index -t {threads} --no-nested-distance -j {output.tcdistfile} {input.gbz}"
 
 rule r_index_graph:
     input:
