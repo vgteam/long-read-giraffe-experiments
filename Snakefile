@@ -539,6 +539,17 @@ def reference_path_list_callable(wildcards):
     """
     return reference_fasta(wildcards) + ".paths" + wildcards.get("region", "") + ".callable.txt"
 
+def reference_path_dict_surjectable(wildcards):
+    """
+    Find the path dict file for a linear reference that we can surject to, from reference and region.
+   
+    We need this because when surjecting to a non-base reference we can't infer
+    path lengths from the graph. We also need to restrict the paths to avoid
+    trying to surject to paths like CHM13#0#chrM that are different in
+    different HPRC graph versions.
+    """
+    return reference_fasta(wildcards) + ".paths" + wildcards.get("region", "") + ".surjectable.dict"
+
 def reference_path_dict_callable(wildcards):
     """
     Find the path dict file for a linear reference that we can actually call on, from reference and region.
@@ -636,6 +647,49 @@ def sv_calling_vntr_bed(wildcards):
         case reference:
             return os.path.join(SV_DATA_DIR, "human_GRCh38_no_alt_analysis_set.trf.bed")
 
+
+def unsurjectable_contig_regex(wildcards):
+    """
+    Get a grep regex matching a substring in all unsurjectable contigs in the
+    calling or PanSN reference, from reference or basename.
+
+    This is a search, not a full match.
+
+    We expect basename to start with a reference identifier like "chm13", maybe
+    with other stuff after a "-".
+
+    This will be a regex compatible with non-E grep, or a regex that doesn't
+    match any path names if all paths are surjectable.
+
+    Anything matched by this must also be matched by uncallable_contig_regex()
+    """
+
+    wc_dict = dict(wildcards)
+    if "reference" in wc_dict:
+        reference = wc_dict["reference"]
+    else:
+        reference = wc_dict["basename"].split("-")[0]
+    match reference:
+        case "chm13":
+            # HPRC v1.1 graphs use a differently-rotated chrM, which modern vg
+            # surject won't allow.
+            #
+            # We surject onto all other target reference paths, even those we
+            # can't call on, like Y in CHM13 (due to different Ys being used in
+            # different graphs), and the _random contigs in GRCh38. Otherwise
+            # mappers mapping against GRCh38 with its _random contigs have an
+            # advantage when calling there, because Giraffe will stick all the
+            # _random reads in the main genome.
+            return "chrM"
+        case "chm13v1":
+            return "chrM"
+        case _:
+            # Otherwise all paths are surjectable. We need a regex that won't
+            # match any. It's not easy to construct a regex for basic Grep that
+            # doesn't match anything, so we look for something we know won't be
+            # in any path names.
+            # Chosen by fair dice roll, guaranteed to be random.
+            return "c61526d8-9e8e-4f73-a273-09ef3a16a1e4"
 
 def uncallable_contig_regex(wildcards):
     """
@@ -2168,26 +2222,30 @@ rule paths_index_reference:
     shell:
         "cat {input.reference_dict} | grep '^@SQ' | sed 's/^@SQ.*[[:blank:]]SN:\\([^[:blank:]]*\\).*/\\1/g' | grep '{wildcards.region}$' > {output.index}"
 
-rule callable_paths_index_reference:
+rule callable_surjectable_paths_index_reference:
     input:
         paths=REFS_DIR + "/{basename}.fa.paths{region}.txt"
     output:
-        paths=REFS_DIR + "/{basename}.fa.paths{region}.callable.txt"
+        paths=REFS_DIR + "/{basename}.fa.paths{region}.{pathkind}.txt"
+    wildcard_constraints:
+        pathkind="(callable|surjectable)"
     params:
-        uncallable_contig_regex=uncallable_contig_regex
+        regex=lambda w: uncallable_contig_regex(w) if w["pathkind"] == "uncallable" else unsurjectable_contig_regex(w)
     threads: 1
     resources:
         mem_mb=1000,
         runtime=5,
         slurm_partition=choose_partition(5)
-    shell: "cat {input.paths} | grep -v '{params.uncallable_contig_regex}' > {output.paths}"
+    shell: "cat {input.paths} | grep -v '{params.regex}' > {output.paths}"
 
-rule callable_paths_dict_reference:
+rule callable_surjectable_paths_dict_reference:
     input:
-        paths=REFS_DIR + "/{basename}.fa.paths{region}.callable.txt",
+        paths=REFS_DIR + "/{basename}.fa.paths{region}.{pathkind}.txt",
         reference_dict=REFS_DIR + "/{basename}.fa.dict"
     output:
-        callable_dict=REFS_DIR + "/{basename}.fa.paths{region}.callable.dict",
+        callable_dict=REFS_DIR + "/{basename}.fa.paths{region}.{pathkind}.dict"
+    wildcard_constraints:
+        pathkind="(callable|surjectable)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -2205,7 +2263,7 @@ rule callable_paths_dict_reference:
                     out.write(line)
                     out.write("\n")
                 elif parts[0] == "@SQ":
-                    # Retain only @SQ lines from the dict for callable paths
+                    # Retain only @SQ lines from the dict for listed paths
                     keep = False
                     for part in parts:
                         if part.startswith("SN:"):
@@ -2790,13 +2848,8 @@ rule surject_gam:
         # then surject complains about the graph not matching the reference
         # info from the dict.
         gbz=unsampled_gbz,
-        # We surject onto all target reference paths, even those we can't call
-        # on, like Y in CHM13 (due to different Ys being used in different
-        # graphs), and the _random contigs in GRCh38. Otherwise mappers mapping
-        # against GRCh38 with its _random contigs have an advantage when
-        # calling there, because Giraffe will stick all the _random reads in
-        # the main genome.
-        reference_dict=reference_dict,
+        
+        reference_path_dict_surjectable=reference_path_dict_surjectable,
         gam=surjectable_gam
     output:
         # Don't keep this around because we're going to keep the sorted version and use that for most things.
@@ -2813,7 +2866,7 @@ rule surject_gam:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "{params.vg_binary} surject -F {input.reference_dict} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
+        "{params.vg_binary} surject -F {input.reference_path_dict_surjectable} -x {input.gbz} -t {threads} --bam-output --sample {wildcards.sample} --read-group \"ID:1 LB:lib1 SM:{wildcards.sample} PL:{wildcards.tech} PU:unit1\" --prune-low-cplx {params.paired_flag} {input.gam} > {output.bam}"
 
 rule sort_gam:
     input:
