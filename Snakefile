@@ -344,6 +344,8 @@ def auto_mapping_memory(wildcards):
         scale_mb = 240000
     elif wildcards["tech"] == "r10":
         scale_mb = 600000
+    elif wildcards["tech"] == "r10y2025":
+        scale_mb = 300000
     else:
         scale_mb = 210000
 
