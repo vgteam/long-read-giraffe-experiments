@@ -929,7 +929,6 @@ experiments:
   hprc_y2_marker:
     control:
       subset: full
-      reference: chm13
       sample: HG002
       realness: real
       # SV specific parameters with generic names
@@ -940,6 +939,7 @@ experiments:
       tech: ["hifi", "r10y2025"]
       mapper: ["giraffe-k31.w50.W-hifi-ef6e3e-noflags", "giraffe-k31.w50.W-r10-ef6e3e-noflags", "minimap2-lr:hqae", "minimap2-map-hifi"]
       refgraph: ["hprc-v1.1-mc-sampled4o", "hprc-v2.1-mc-eval-sampled16o"]
+      reference: ["chm13", "chm13v1"]
       callparams: [".model2025-03-26noinfo", ".nomodel"]
     constrain:
       -
@@ -962,7 +962,13 @@ experiments:
         # Don't use the linear mappers on all the graphs
         - mapper: ["giraffe-k31.w50.W-hifi-ef6e3e-noflags", "giraffe-k31.w50.W-r10-ef6e3e-noflags"]
         - mapper: ["minimap2-map-hifi", "minimap2-lr:hqae"]
+          refgraph: "hprc-v2.1-mc-eval-sampled16o"
+      -
+        # Use chm13v1 with the HPRCv1.1 graph that uses its old Y, and chm13 elsewhere
+        - reference: "chm13v1"
           refgraph: "hprc-v1.1-mc-sampled4o"
+        - reference: "chm13"
+          refgraph: "hprc-v2.1-mc-eval-sampled16o"
         
 
 
