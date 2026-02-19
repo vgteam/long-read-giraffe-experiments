@@ -266,6 +266,9 @@ wildcard_constraints:
     chopping="\\.unchopped|",
     # After a full graph, we might have sampling stuff in a graph name
     sampling="(-[^-]+)*",
+    # In minimap2 mode specifiers, we replace : with ! so Toil can use the
+    # paths with Singularity, which can't mount anything with : in the path. 
+    minimapmode="[a-zA-Z0-9-!]*", 
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)",
     basename=".+(?<!\\.trimmed)",
@@ -470,7 +473,14 @@ def minimap_derivative_mode(wildcards):
     """
     explicit_mode = wildcards.get("minimapmode", None)
     if explicit_mode is not None:
-        return explicit_mode
+        # We can't allow colons in paths that a Toil jobstore or input might
+        # need to be in, or we won't be able to mount those paths into
+        # Singularity containers. So instead of having the colons that appear
+        # in minimap2 mapping presets, we replace them with a different
+        # character (!) that we substitute with colon when building the command
+        # line.
+        # TODO: If these need ! in them we need to decode it too.
+        return explicit_mode.replace("!", ":")
 
     MODE_BY_TECH = {
         "r9": "map-ont",
@@ -1454,6 +1464,12 @@ def all_experiment(wildcard_values, pattern, filter_function=None, empty_ok=Fals
 
     If provided, restricts to conditions passing the filter function.
 
+    If {category} is set, also fills in {dot} with ".".
+
+    The returned values are guaranteed not to contain colons (":"). Colon will
+    be replaced by exclamation point ("!"), and existing exclamation points
+    will be doubled to distinguish them.
+
     Throws an error if nothing is produced and empty_ok is not set.
 
     Needs to be used like:
@@ -1478,7 +1494,10 @@ def all_experiment(wildcard_values, pattern, filter_function=None, empty_ok=Fals
         if debug:
             print(f"Evaluate {pattern} in {merged} from {wildcard_values} and {condition}")
         filename = pattern.format(**merged)
-        yield filename
+        # Encode special characters to avoid colons in filename paths.
+        # Note that anything parsing out a value that might contain ! or : from
+        # a filename will have to reverse the encoding.
+        yield filename.replace("!", "!!").replace(":", "!")
         empty = False
     if empty:
         if debug:
@@ -2374,15 +2393,17 @@ rule winnowmap_real_reads:
 rule minimap2_index_reference:
     input:
         reference_fasta=REFS_DIR + "/{basename}.fa"
+    params:
+        mode=minimap_derivative_mode
     output:
-        index=REFS_DIR + "/{basename}.{preset}.mmi"
+        index=REFS_DIR + "/{basename}.{minimapmode}.mmi"
     threads: 16
     resources:
         mem_mb=16000,
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-         "minimap2 -t {threads} -x {wildcards.preset} -d {output.index} {input.reference_fasta}"
+         "minimap2 -t {threads} -x {params.mode} -d {output.index} {input.reference_fasta}"
 
 
 # Note: This changes the simulated read names so that it will be run paired ended.
@@ -2390,6 +2411,8 @@ rule minimap2_sim_reads:
     input:
         minimap2_index=minimap2_index,
         fastq_gz=fastq_gz
+    params:
+        mode=minimap_derivative_mode
     output:
         sam=temp("{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     params:
@@ -2405,7 +2428,7 @@ rule minimap2_sim_reads:
     shell:
         """
         zcat {input.fastq_gz} | awk '{{gsub("_1$", ""); gsub("_2$", ""); print $0}}' | gzip > {params.temp_fastq} 
-        minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {params.temp_fastq} 2> {log} > {output.sam}
+        minimap2 -t {threads} -ax {params.mode} --secondary=no {input.minimap2_index} {params.temp_fastq} 2> {log} > {output.sam}
         rm {params.temp_fastq}
         """
 
@@ -2413,6 +2436,8 @@ rule minimap2_real_reads:
     input:
         minimap2_index=minimap2_index,
         fastq_gz=fastq_gz
+    params:
+        mode=minimap_derivative_mode
     output:
         sam=temp("{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.sam")
     benchmark: "{root}/aligned-secsup/{reference}/minimap2-{minimapmode}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
@@ -2429,7 +2454,7 @@ rule minimap2_real_reads:
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell:
-        "minimap2 -t {threads} -ax {wildcards.minimapmode} --secondary=no {input.minimap2_index} {input.fastq_gz} >{output.sam} 2> {log}"
+        "minimap2 -t {threads} -ax {params.mode} --secondary=no {input.minimap2_index} {input.fastq_gz} >{output.sam} 2> {log}"
 
 # pbmm2 uses the same indexes as minimap2
 # TODO: pbmm2 makes BAM output but we're calling it SAM here.
