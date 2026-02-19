@@ -149,7 +149,9 @@ READS_DIR = config.get("reads_dir", None) or "/private/groups/patenlab/anovak/pr
 # A FASTA file with PanSN-style (CHM13#0#chr1) contig names: 
 # chm13-pansn-newY.fa
 #
-# (For grch38 we don't use the -newY part.)
+# (For grch38 we don't use the -newY part. If using the HPRCv1.1 graphs, we
+# also need a version without -newY containing CHM13 as used for HPRC1.1, with
+# its old Y and its old rotation of chrM.)
 #
 # For the calling references (chm13v2.0 and grch38) we also need a plain .fa
 # and .fa.fai without pansn names, and _PAR.bed files with the pseudo-autosomal
@@ -504,17 +506,18 @@ def reference_basename(wildcards):
     Find the linear reference base name without extension from a reference.
 
     This reference is used for mapping. Calling may be against a different
-    calling reference (with possibly a different Y) or renamed contigs.
+    calling reference (with possibly a different Y and M) or renamed contigs.
 
     This reference will use PanSN contig names.
     """
     parts = [wildcards["reference"], "pansn"]
     if wildcards["reference"] == "chm13":
         # We want to use a version of the reference FASTA with the "new"
-        # non-HG002, non-GRCh38 Y contig.
+        # non-HG002, non-GRCh38 Y contig, and the new rotation of chrM.
         parts.append("newY")
     elif wildcards["reference"] == "chm13v1":
-        # Use this for the older version, so just chm13 without the v1 and without the newY
+        # Use this for the older version, so just chm13 without the v1 and
+        # without the newY (and with chrM rotated the other way)
         parts[0] = "chm13"
     # We can't take non-N ambiguity codes in the reference.
     parts.append("Nonly")
