@@ -16,6 +16,12 @@ if (length(commandArgs(TRUE)) > 2) {
     dat$condition <- factor(dat$condition, levels=condition.set)
 }
 
+# Determine title
+title <- ''
+if (length(commandArgs(TRUE)) > 3) {
+    title <- commandArgs(TRUE)[4]
+}
+
 ## save a PDF
 pdf(commandArgs(TRUE)[2], 7, 3)
 
@@ -31,7 +37,8 @@ dat %>%
   theme_bw() +
   scale_color_brewer(palette="Set2") +
   coord_flip() + 
-  theme(legend.position='bottom', axis.text.y=element_blank())
+  theme(legend.position='bottom', axis.text.y=element_blank()) +
+  if (title != '') ggtitle(title) else 0 # 0 is the ggplot additive identity
 
 ## With name
 dat %>% 
@@ -44,7 +51,8 @@ dat %>%
   theme_bw() +
   scale_color_brewer(palette="Set2") +
   coord_flip() + 
-  theme(legend.position='bottom')
+  theme(legend.position='bottom') +
+  if (title != '') ggtitle(title) else 0
 
 
 
@@ -59,7 +67,8 @@ dat %>%
   ylab('variant call') + 
   theme_bw() +
   coord_flip() + 
-  theme(legend.position='bottom', axis.text.y=element_blank())
+  theme(legend.position='bottom', axis.text.y=element_blank()) +
+  if (title != '') ggtitle(title) else 0
 
 ## With name
 dat %>% 
@@ -71,7 +80,8 @@ dat %>%
   ylab('variant call') + 
   theme_bw() +
   coord_flip() + 
-  theme(legend.position='bottom')
+  theme(legend.position='bottom') +
+  if (title != '') ggtitle(title) else 0
 
 
 dev.off()

@@ -3118,6 +3118,52 @@ rule dv_summary_table:
         cat {input} >>{output.tsv}
         """
 
+rule dv_total_summary_table:
+    input:
+        snp_tsv="{root}/experiments/{expname}/results/dv_snp_summary.tsv",
+        indel_tsv="{root}/experiments/{expname}/results/dv_indel_summary.tsv"
+    output:
+        tsv="{root}/experiments/{expname}/results/dv_total_summary.tsv"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    run:
+        # To combine the summaries, we need to sum these columns by
+        # "condition", and then recompute "recall", "precision", and "F1"
+        SUM_COLS = ("TP", "FN", "FP")
+        combined = {}
+        for in_file in (input.snp_tsv, input.indel_tsv):
+            headers = []
+            for line in open(in_file):
+                parts = line.rstrip().split("\t")
+                if not headers:
+                    headers = parts
+                else:
+                    row = dict(zip(headers, parts))
+                    condition = row["condition"]
+                    to_add = {k: int(row[k]) for k in SUM_COLS}
+                    if condition not in combined:
+                        combined[condition] = to_add
+                    else:
+                        for k in SUM_COLS:
+                            combined[condition][k] += to_add[k]
+        with open(output.tsv, "w") as f:
+            f.write("condition\t")
+            for stat in SUM_COLS:
+                f.write(f"{stat}\t")
+            f.write("recall\tprecision\tF1\n")
+            for condition, stats in combined.items():
+                f.write(f"{condition}\t")
+                for stat in SUM_COLS:
+                    f.write(f"{stats[stat]}\t")
+                recall = stats["TP"] / (stats["TP"] + stats["FN"])
+                precision = stats["TP"] / (stats["TP"] + stats["FP"])
+                f1 = 2 / (1 / precision + 1 / recall)
+                f.write(f"{recall}\t{precision}\t{f1}\n")
+
+
 
 
 rule compare_alignments:
