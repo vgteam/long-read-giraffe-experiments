@@ -38,7 +38,7 @@ dat %>%
   scale_color_brewer(palette="Set2") +
   coord_flip() + 
   theme(legend.position='bottom', axis.text.y=element_blank()) +
-  if (title != '') ggtitle(title) else 0 # 0 is the ggplot additive identity
+  if (title != '') ggtitle(paste(title, 'F1', sep=' ')) else 0 # 0 is the ggplot additive identity
 
 ## With name
 dat %>% 
@@ -52,7 +52,7 @@ dat %>%
   scale_color_brewer(palette="Set2") +
   coord_flip() + 
   theme(legend.position='bottom') +
-  if (title != '') ggtitle(title) else 0
+  if (title != '') ggtitle(paste(title, 'F1', sep=' ')) else 0
 
 
 
@@ -68,7 +68,7 @@ dat %>%
   theme_bw() +
   coord_flip() + 
   theme(legend.position='bottom', axis.text.y=element_blank()) +
-  if (title != '') ggtitle(title) else 0
+  if (title != '') ggtitle(paste(title, 'Errors', sep=' ')) else 0
 
 ## With name
 dat %>% 
@@ -81,7 +81,7 @@ dat %>%
   theme_bw() +
   coord_flip() + 
   theme(legend.position='bottom') +
-  if (title != '') ggtitle(title) else 0
+  if (title != '') ggtitle(paste(title, 'Errors', sep=' ')) else 0
 
 
 dev.off()
