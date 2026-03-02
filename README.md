@@ -75,6 +75,7 @@ To run all the rules, you will need to have installations of:
 * Java
 * Picard (as `picard.jar` in the current directory)
 * bcftools
+* meryl
 * Singularity, for running fastqsplitter, [Truvari](https://github.com/ACEnglish/truvari), [mafft](https://mafft.cbrc.jp/alignment/software/installation_without_root.html) which Truvari calls, vcfwave, vcfbub, sniffles, and GraphAligner
 * [toil](https://github.com/DataBiosphere/toil) for DeepVariant
 
@@ -84,7 +85,7 @@ The following conda environment was sufficient to run vg version comparison vari
 ```
 conda create -n long-read-exp -c conda-forge -c bioconda snakemake=9.13.7 \
     toil snakemake-executor-plugin-slurm snakemake-storage-plugin-http singularity \
-    bidict matplotlib
+    bidict matplotlib meryl
 ```
 Note that the vg installations had to be provided as binaries which had undergone `make static` and `strip -d`.
 
@@ -100,6 +101,7 @@ In these file name templates, `{root}` is your base output directory, `{expname}
 * `{root}/experiments/{expname}/plots/chain_coverage.{ext}`: A bar chart of the best-chain coverage fraction of each Giraffe condition.
 * `{root}/experiments/{expname}/plots/pr.{ext}`: A precision-recall plot for mapping accuracy showing each condition.
 * `{root}/experiments/{expname}/plots/qq.{ext}`: A "QQ" plot with error bars, showing the calibration of mapping quality for detecting incorrectly-mapped reads.
+* `{root}/experiments/{expname}/plots/identity_line.{ext}`: A cumulative histogram of read identity masquerading as a line plot with error bars.
 
 ## Useful Per-Condition Outputs
 
