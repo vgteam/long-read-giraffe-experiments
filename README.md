@@ -68,7 +68,7 @@ To run all the rules, you will need to have installations of:
 * wget
 * curl
 * vg
-* minimap2
+* minimap2 (at least 2.28)
 * pbmm2
 * winnowmap
 * samtools
@@ -85,7 +85,7 @@ The following conda environment was sufficient to run vg version comparison vari
 ```
 conda create -n long-read-exp -c conda-forge -c bioconda snakemake=9.13.7 \
     toil snakemake-executor-plugin-slurm snakemake-storage-plugin-http singularity \
-    bidict matplotlib meryl
+    bidict matplotlib meryl 'minimap2>=2.28'
 ```
 Note that the vg installations had to be provided as binaries which had undergone `make static` and `strip -d`.
 
