@@ -2681,7 +2681,7 @@ rule inject_bam_add_pairing:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg inject --threads {threads} -x {input.gbz} {input.bam} | vg view -aj - | sed 's/\/1/_1/g' | sed 's/\/2/_2/g' | vg view -aGJ - >{output.gam} "
+        "vg inject --threads {threads} --add-identity -x {input.gbz} {input.bam} | vg view -aj - | sed 's/\/1/_1/g' | sed 's/\/2/_2/g' | vg view -aGJ - >{output.gam} "
 ruleorder: inject_bam_add_pairing > inject_bam
 
 rule surject_gam:
@@ -4317,7 +4317,7 @@ rule identity_from_alignments_gam:
         runtime=90,
         slurm_partition=choose_partition(90)
     shell:
-        "vg filter --tsv-out 'name;identity' -a {input.gam} >{output.stats}"
+        "vg filter --tsv-out 'name;identity' {input.gam} >{output.stats}"
 
 rule stats_from_alignments:
     input:
