@@ -202,7 +202,7 @@ SLURM_PARTITIONS = [
 PARAM_SEARCH = parameter_search.ParameterSearch()
 
 # Where is a large temp directory?
-LARGE_TEMP_DIR = config.get("large_temp_dir", "/data/tmp/elewilso")
+LARGE_TEMP_DIR = config.get("large_temp_dir", "/data/tmp/")
 
 #Different phoenix nodes seem to run at different speeds, so we can specify which node to run
 #This gets added as a slurm_extra for all the real read runs
