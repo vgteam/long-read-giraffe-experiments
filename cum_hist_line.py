@@ -60,8 +60,9 @@ def read_config(config_file: str, column_name: str) -> List[tuple]:
             if len(parts) != 3:
                 raise ValueError("Config file must have three columns: "
                                  "<file>\\t<format i>\\t<label>")
-            values = [float(row[column_name])
-                      for row in csv.DictReader(parts[0], delimiter='\t')]
+            with open(parts[0]) as tsv:
+                values = [float(row[column_name])
+                          for row in csv.DictReader(tsv, delimiter='\t')]
             format_index = parts[1]
 
             # Interpret format index (see file docstring)
@@ -116,7 +117,10 @@ def plot_cumulative_line(to_plot: List[tuple], column_name: str,
 
     plt.xlabel(column_name, fontsize=13)
     plt.ylabel('% reads ≥', fontsize=13)
-    plt.legend(loc='bottom left')
+
+    # Shrink plot area to make room for legend
+    plt.subplots_adjust(right=0.5)
+    plt.legend(bbox_to_anchor=(1.02, 1), loc='upper left')
 
     plt.savefig(output_file)
     plt.close()
