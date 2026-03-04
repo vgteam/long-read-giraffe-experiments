@@ -232,11 +232,11 @@ IMPORTANT_STATS_TABLE_COLUMNS=config.get("important_stats_table_columns", ["spee
 NON_ZIPCODE_GIRAFFE_VERSIONS = set(config.get("non_zipcode_giraffe_versions")) if "non_zipcode_giraffe_versions" in config else set()
 
 # What version of vg should be used to make fragment-aware haplotype indexes?
-VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="vg_elina"
+VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="v1.64.1"
 # What version of vg should be used to haplotype-sample graphs?
-VG_HAPLOTYPE_SAMPLING_VERSION="vg_elina"
+VG_HAPLOTYPE_SAMPLING_VERSION="v1.64.1"
 # What version of vg should be used to haplotype-sample graphs when we want to keep just one reference?
-VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="vg_elina"
+VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="v1.64.1"
 
 wildcard_constraints:
     expname="[^/]+",
@@ -4919,7 +4919,7 @@ rule read_length_by_name:
         slurm_partition=choose_partition(720)
     shell:
         """
-        seqkit fx2tab -n -l {input.fastq} | awk -v OFS='\t' '{{print $1,$NF}}' | LC_ALL=C sort -k 1b,1 >{output.tsv}
+        seqkit fx2tab -n -l {input.fastq} | LC_ALL=C sort -k 1b,1 | awk -v OFS='\t' '{{print $1,$NF}}' >{output.tsv}
         """
 #How many base pairs are in the read file
 rule read_bases_total:
@@ -5071,7 +5071,6 @@ ruleorder: softclips_by_name_gam > softclips_by_name_other
 # read name and the number of bases that didn't get put in the final alignment.
 rule hardclips_by_name_gam:
     input:
-        fastq=fastq,
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
         read_length_by_name=os.path.join(READS_DIR, "{realness}/{tech}/stats/{sample}{trimmedness}.{subset}.read_length_by_name.tsv")
     output:
