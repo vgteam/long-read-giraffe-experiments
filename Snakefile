@@ -5936,7 +5936,7 @@ rule cumulative_identity_tsv:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "ls {input} | awk -F '/' '{print $0, NR-1, $(NF-3)}' | tr ' ' '\t' >{output.tsv}"
+        "ls {input} | awk -F '/' '{{print $0, NR-1, $(NF-3)}}' | tr ' ' '\t' >{output.tsv}"
 
 rule plot_cumulative_identity_line:
     input:
