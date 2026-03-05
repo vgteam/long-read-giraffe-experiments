@@ -2663,7 +2663,7 @@ rule inject_bam:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg inject --threads {threads} -x {input.gbz} {input.bam} - >{output.gam} "
+        "vg inject --threads {threads} --add-identity -x {input.gbz} {input.bam} - >{output.gam} "
 
 # Change the automatic /1 to _1, but only for simulated reads so that downstream real read rules cane take out the \1
 rule inject_bam_add_pairing:
@@ -2681,7 +2681,7 @@ rule inject_bam_add_pairing:
         runtime=600,
         slurm_partition=choose_partition(600)
     shell:
-        "vg inject --threads {threads} -x {input.gbz} {input.bam} | vg view -aj - | sed 's/\/1/_1/g' | sed 's/\/2/_2/g' | vg view -aGJ - >{output.gam} "
+        "vg inject --threads {threads} --add-identity -x {input.gbz} {input.bam} | vg view -aj - | sed 's/\/1/_1/g' | sed 's/\/2/_2/g' | vg view -aGJ - >{output.gam} "
 ruleorder: inject_bam_add_pairing > inject_bam
 
 rule surject_gam:
@@ -4306,6 +4306,19 @@ rule experiment_mapping_stats_tsv:
         "join -t '\t' -a 1 -a 2 -o auto {input.sim} {input.real} >> {output.tsv}"
 ruleorder: experiment_mapping_stats_tsv > experiment_stat_table
 
+rule identity_from_alignments_gam:
+    input:
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+    output:
+        stats="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.identity.tsv"
+    threads: 16
+    resources:
+        mem_mb=10000,
+        runtime=90,
+        slurm_partition=choose_partition(90)
+    shell:
+        "vg filter --tsv-out 'name;identity' {input.gam} >{output.stats}"
+
 rule stats_from_alignments:
     input:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
@@ -5911,6 +5924,32 @@ rule plot_stat_vs_parameter:
         infile.close()
         # TODO: Aren't wildcards available here with {}?
         shell("cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $1}}' | ./scatter.py --title '" + wildcards.statname + " vs. " + wildcards.parameter + "' --x_label " + wildcards.parameter + " --y_label '" + wildcards.statname + "' --legend_overlay 'best' --save {output.plot} /dev/stdin")
+
+rule cumulative_identity_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.identity.tsv")
+    output:
+        tsv = "{root}/experiments/{expname}/results/identity_line_config.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "ls {input} | awk -F '/' '{{print $0, NR-1, $(NF-3)}}' | tr ' ' '\t' >{output.tsv}"
+
+rule plot_cumulative_identity_line:
+    input:
+        tsv = "{root}/experiments/{expname}/results/identity_line_config.tsv"
+    output:
+        plot = "{root}/experiments/{expname}/plots/identity_line.{ext}"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    run:
+        shell("./cum_hist_line.py --column-name identity --min-val 0.95 --max-val 1 --step 0.001 --title 'Cumulative identity' --output {output.plot} {input.tsv}")
 
 rule parameter_search_parametric_stats:
     input:
