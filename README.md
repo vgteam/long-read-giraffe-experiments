@@ -101,7 +101,7 @@ In these file name templates, `{root}` is your base output directory, `{expname}
 * `{root}/experiments/{expname}/plots/chain_coverage.{ext}`: A bar chart of the best-chain coverage fraction of each Giraffe condition.
 * `{root}/experiments/{expname}/plots/pr.{ext}`: A precision-recall plot for mapping accuracy showing each condition.
 * `{root}/experiments/{expname}/plots/qq.{ext}`: A "QQ" plot with error bars, showing the calibration of mapping quality for detecting incorrectly-mapped reads.
-* `{root}/experiments/{expname}/plots/identity_line.{ext}`: A cumulative histogram of read identity masquerading as a line plot with error bars.
+* `{root}/experiments/{expname}/plots/identity_line.{ext}`: A cumulative histogram of read identity masquerading as a line plot.
 
 ## Useful Per-Condition Outputs
 
