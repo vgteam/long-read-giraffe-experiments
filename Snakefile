@@ -305,6 +305,20 @@ def auto_mapping_slurm_extra(wildcards):
     else:
         return REAL_SLURM_EXTRA
 
+def auto_sim_pb_slurm_extra(wildcards):
+    return "--partition=gpu --gres=gpu:A5500:4 "
+
+def auto_real_pb_slurm_extra(wildcards):
+    """
+    Determine Slurm extra arguments for a timed, real-read mapping job from subset.
+    """
+    result = pb_slurm_extra(wildcards)
+    if exclusive_timing(wildcards):
+        return result + "--exclusive " + REAL_SLURM_EXTRA
+    else:
+        return result + REAL_SLURM_EXTRA
+
+
 def auto_mapping_full_cluster_nodes(wildcards):
     """
     Determine number of full cluster nodes for a timed, real-read mapping job from subset.
@@ -2204,6 +2218,30 @@ rule giraffe_sim_reads_with_correctness:
         zipcodes_flag=f"-z {input.zipfile}" if "zipfile" in dict(input).keys() else ""
 
         shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -G {input.gam} " + zipcodes_flag + " " + flags + " " + pairing_flag + " >{output.gam} 2>{log}")
+
+
+rule pb_giraffe_real_reads:
+    input:
+        unpack(indexed_graph),
+        fastq_gz=fastq_gz,
+    output:
+        bam="{root}/aligned/{reference}/{refgraph}/pbgiraffe/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    log:"{root}/aligned/{reference}/{refgraph}/pbgiraffe/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/pbgiraffe/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    wildcard_constraints:
+        realness="real"
+    threads: auto_mapping_threads
+    params:
+        exclusive_timing=exclusive_timing 
+    container: "nvcr.io/nvidia/clara/clara-parabricks:4.6.0-1"
+    resources:
+        mem_mb=auto_mapping_memory,
+        runtime=1200,
+        slurm_partition=choose_partition(1200),
+        slurm_extra=auto_real_pb_slurm_extra,
+        full_cluster_nodes=auto_mapping_full_cluster_nodes
+    shell: 
+        "pbrun giraffe --align-only --num-gpus {gpus} --dist-name {input.dist} --minimizer-name {input.minfile} --gbz-name {input.gbz}  --in-fq {input.fastq_gz} --out-bam {output_bam} 2>{log}"
 
 rule winnowmap_repetitive_kmers:
     input:
@@ -5088,7 +5126,7 @@ rule softclips_by_name_other:
         tech="(?!(illumina|element))[a-zA-Z0-9]+"
     threads: 9
     resources:
-        mem_mb=2000,
+        mem_mb=12000,
         runtime=120,
         slurm_partition=choose_partition(120)
     run:
