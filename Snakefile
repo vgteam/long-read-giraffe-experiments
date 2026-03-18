@@ -2305,6 +2305,30 @@ rule pb_giraffe_real_reads:
     shell: 
         "pbrun giraffe --align-only --low-memory --num-gpus {params.gpus} --dist-name {input.dist} --minimizer-name {input.minfile} --zipcodes-name {input.zipfile} --gbz-name {input.gbz}  --in-fq {input.fastq1}  {input.fastq2} --out-bam {output.bam} 2>{log}"
 
+rule pb_giraffe_sim_reads:
+    input:
+        unpack(indexed_graph),
+        fastq1="{root}/temp_pbreads/{realness}/{tech}/{sample}{trimmedness}.{subset}.1.fq.gz",
+        fastq2="{root}/temp_pbreads/{realness}/{tech}/{sample}{trimmedness}.{subset}.2.fq.gz"
+    output:
+        bam="{root}/aligned/{reference}/{refgraph}/pbgiraffe-{pbminparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    log:"{root}/aligned/{reference}/{refgraph}/pbgiraffe-{pbminparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/pbgiraffe-{pbminparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+    wildcard_constraints:
+        realness="sim"
+    threads: 64
+    params:
+        gpus=GPUS
+    container: "docker://nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1"
+    resources:
+        mem_mb=1000000,
+        runtime=1200,
+        slurm_partition="gpu",
+        slurm_extra=auto_pb_slurm_extra,
+        full_cluster_nodes=auto_mapping_full_cluster_nodes
+    shell: 
+        "pbrun giraffe --align-only --low-memory --num-gpus {params.gpus} --dist-name {input.dist} --minimizer-name {input.minfile} --zipcodes-name {input.zipfile} --gbz-name {input.gbz}  --in-fq {input.fastq1}  {input.fastq2} --out-bam {output.bam} 2>{log}"
+
 rule winnowmap_repetitive_kmers:
     input:
         fasta=REFS_DIR + "/{basename}.fa"
@@ -2842,7 +2866,7 @@ rule inject_bam_add_pairing:
     output:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
-        mapper="(minimap2.+|bwa(-pe)?|mm2plus-.+|pbgiraffe-.*)",
+        mapper="(minimap2.+|bwa(-pe)?|mm2plus-.+)",
         realness="sim"
     threads: 64
     resources:
@@ -6480,6 +6504,7 @@ ruleorder: sv_summary_table > experiment_stat_table
 rule all_paper_figures:
     input:
         mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.tsv", expname=config["real_exps"]),
+        identity=expand(ALL_OUT_DIR + "/experiments/{expname}/results/identity_line_config.tsv", expname=config["real_exps"]),
         mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=config["sim_exps"]),
         compared_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/compared.tsv", expname=config["sim_exps"]),
         dv_indel=expand(ALL_OUT_DIR + "/experiments/{expname}/results/dv_indel_summary.tsv", expname=config["dv_exps"]),
