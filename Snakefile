@@ -237,6 +237,9 @@ VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION="v1.64.1"
 VG_HAPLOTYPE_SAMPLING_VERSION="v1.64.1"
 # What version of vg should be used to haplotype-sample graphs when we want to keep just one reference?
 VG_HAPLOTYPE_SAMPLING_ONEREF_VERSION="v1.64.1"
+VG_NEW_MINIMZER_VERSION="v1.70.0"
+
+GPUS = config.get("gpus", "4")
 
 wildcard_constraints:
     expname="[^/]+",
@@ -305,19 +308,8 @@ def auto_mapping_slurm_extra(wildcards):
     else:
         return REAL_SLURM_EXTRA
 
-def auto_sim_pb_slurm_extra(wildcards):
-    return "--partition=gpu --gres=gpu:A5500:4 "
-
-def auto_real_pb_slurm_extra(wildcards):
-    """
-    Determine Slurm extra arguments for a timed, real-read mapping job from subset.
-    """
-    result = pb_slurm_extra(wildcards)
-    if exclusive_timing(wildcards):
-        return result + "--exclusive " + REAL_SLURM_EXTRA
-    else:
-        return result + REAL_SLURM_EXTRA
-
+def auto_pb_slurm_extra(wildcards):
+    return "--gres=gpu:A5500:" + GPUS + " "
 
 def auto_mapping_full_cluster_nodes(wildcards):
     """
@@ -957,7 +949,16 @@ def dist_indexed_graph(wildcards):
     base = graph_base(wildcards)
     return {
         "gbz": gbz(wildcards),
-        "dist": base + ".dist"
+        "dist": base + (".new.dist" if "pbminparams" in dict(wildcards).keys() else ".dist")
+    }
+def new_dist_indexed_graph(wildcards):
+    """
+    Find a GBZ and its dist index from reference.
+    """
+    base = graph_base(wildcards)
+    return {
+        "gbz": gbz(wildcards),
+        "dist": base + ".new.dist"
     }
 
 def indexed_graph(wildcards):
@@ -977,10 +978,18 @@ def indexed_graph(wildcards):
         }
     else:
         # Use zipcodes
-        new_indexes = {
-            "minfile": base + "." + wildcards["minparams"] + ".withzip.min",
-            "zipfile": base + "." + wildcards["minparams"] + ".zipcodes"
-        }
+        if "pbminparams" in dict(wildcards).keys():
+            # For pbgiraffe, which always has zipcodes, it always needs to be the new version because I can't find a parabricks version close to the right vg version
+            # Also override distance index
+            new_indexes = {
+                "minfile": base + "." + wildcards["pbminparams"] + ".new.withzip.min",
+                "zipfile": base + "." + wildcards["pbminparams"] + ".new.zipcodes"
+            }
+        else:
+            new_indexes = {
+                "minfile": base + "." + wildcards["minparams"] + ".withzip.min",
+                "zipfile": base + "." + wildcards["minparams"] + ".zipcodes"
+            }
     new_indexes.update(indexes)
     return new_indexes
 
@@ -1650,6 +1659,22 @@ rule gbz_index_primary_graph:
     shell:
         "vg gbwt --progress --num-threads {threads} -x {input.vg} -E --gbz-format -g {output.gbz}"
 
+rule new_distance_index_graph:
+    input:
+        gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.gbz"
+    output:
+        distfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.new.dist"
+    benchmark: "{graphs_dir}/indexing_benchmarks/distance_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.new.benchmark"
+    # TODO: Distance indexing only really uses 1 thread
+    threads: 1
+    resources:
+        mem_mb=lambda w: 120000 if w["full"] == "" else 2000000,
+        runtime=240,
+        slurm_partition=choose_partition(240)
+    shell:
+        "./vg_" + VG_NEW_MINIMZER_VERSION + " index -t {threads} -j {output.distfile} {input.gbz}"
+
+
 rule distance_index_graph:
     input:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.gbz"
@@ -1779,6 +1804,27 @@ rule haplotype_sample_graph:
     shell:
         "{params.vg_binary} haplotypes -v 2 -t {threads} --include-reference {params.haplotype_sampling_flags} -i {input.hapl} -k {input.kmer_counts} {input.gbz} -g {output.sampled_gbz}"
 
+
+rule new_minimizer_index_graph:
+    input:
+        unpack(new_dist_indexed_graph)
+    output:
+        minfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.new.withzip.min",
+        zipfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.new.zipcodes"
+    benchmark: "{graphs_dir}/indexing_benchmarks/minimizer_indexing_new_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}.k{k}.w{w}{weightedness}.benchmark"
+    wildcard_constraints:
+        weightedness="\\.W|",
+        k="[0-9]+",
+        w="[0-9]+"
+    params:
+        weighting_option=lambda w: "--weighted" if w["weightedness"] == ".W" else ""
+    threads: 16
+    resources:
+        mem_mb=lambda w: 600000 if ("hprc-v2" in w["refgraphbase"]  or "hprc-v1.1-nov.11.2024" in w["refgraphbase"]) else 320000 if w["weightedness"] == ".W" else 80000,
+        runtime=240,
+        slurm_partition=choose_partition(240)
+    shell:
+        "./vg_" + VG_NEW_MINIMZER_VERSION + " minimizer --progress -k {wildcards.k} -w {wildcards.w} {params.weighting_option} -t {threads} -p -d {input.dist} -z {output.zipfile} -o {output.minfile} {input.gbz}"
 
 rule minimizer_index_graph:
     input:
@@ -2219,29 +2265,45 @@ rule giraffe_sim_reads_with_correctness:
 
         shell(vg_binary + " giraffe -t{threads} --parameter-preset {wildcards.preset} --progress --track-provenance --track-correctness --set-refpos -Z {input.gbz} -d {input.dist} -m {input.minfile} -G {input.gam} " + zipcodes_flag + " " + flags + " " + pairing_flag + " >{output.gam} 2>{log}")
 
+rule deinterleave_read:
+    input: fastq_gz=fastq_gz
+    output:
+        fastq=temp("{root}/temp_pbreads/{realness}/{tech}/{sample}{trimmedness}.{subset}.{pair}.fq.gz"),
+    threads: 4
+    resources:
+        mem_mb=800,
+        runtime=6000,
+        slurm_partition=choose_partition(3600)
+    shell:
+        """
+        seqtk seq {input.fastq_gz} -{wildcards.pair} | pigz -p 4 > {output.fastq}
+        """
+
 
 rule pb_giraffe_real_reads:
     input:
         unpack(indexed_graph),
-        fastq_gz=fastq_gz,
+        fastq1="{root}/temp_pbreads/{realness}/{tech}/{sample}{trimmedness}.{subset}.1.fq.gz",
+        fastq2="{root}/temp_pbreads/{realness}/{tech}/{sample}{trimmedness}.{subset}.2.fq.gz"
     output:
-        bam="{root}/aligned/{reference}/{refgraph}/pbgiraffe/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
-    log:"{root}/aligned/{reference}/{refgraph}/pbgiraffe/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
-    benchmark: "{root}/aligned/{reference}/{refgraph}/pbgiraffe/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
+        bam="{root}/aligned/{reference}/{refgraph}/pbgiraffe-{pbminparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    log:"{root}/aligned/{reference}/{refgraph}/pbgiraffe-{pbminparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.log"
+    benchmark: "{root}/aligned/{reference}/{refgraph}/pbgiraffe-{pbminparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.benchmark"
     wildcard_constraints:
         realness="real"
-    threads: auto_mapping_threads
+    threads: 64
     params:
-        exclusive_timing=exclusive_timing 
-    container: "nvcr.io/nvidia/clara/clara-parabricks:4.6.0-1"
+        exclusive_timing=exclusive_timing,
+        gpus=GPUS
+    container: "docker://nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1"
     resources:
-        mem_mb=auto_mapping_memory,
+        mem_mb=1000000,
         runtime=1200,
-        slurm_partition=choose_partition(1200),
-        slurm_extra=auto_real_pb_slurm_extra,
+        slurm_partition="gpu",
+        slurm_extra=auto_pb_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell: 
-        "pbrun giraffe --align-only --num-gpus {gpus} --dist-name {input.dist} --minimizer-name {input.minfile} --gbz-name {input.gbz}  --in-fq {input.fastq_gz} --out-bam {output_bam} 2>{log}"
+        "pbrun giraffe --align-only --low-memory --num-gpus {params.gpus} --dist-name {input.dist} --minimizer-name {input.minfile} --zipcodes-name {input.zipfile} --gbz-name {input.gbz}  --in-fq {input.fastq1}  {input.fastq2} --out-bam {output.bam} 2>{log}"
 
 rule winnowmap_repetitive_kmers:
     input:
@@ -2308,6 +2370,8 @@ rule winnowmap_real_reads:
 rule minimap2_index_reference:
     input:
         reference_fasta=REFS_DIR + "/{basename}.fa"
+    input:
+        reference_fasta=REFS_DIR + "/{basename}.minimap2_index.benchmark"
     output:
         index=REFS_DIR + "/{basename}.{preset}.mmi"
     threads: 16
@@ -2459,6 +2523,8 @@ rule mm2plus_real_reads:
 rule bwa_index_reference:
     input:
         reference_fasta=REFS_DIR + "/{basename}.fa"
+    input:
+        reference_fasta=REFS_DIR + "/{basename}.bwa_index.benchmark"
     output:
         amb=REFS_DIR + "/{basename}.fa.amb",
         ann=REFS_DIR + "/{basename}.fa.ann",
@@ -2734,6 +2800,24 @@ rule select_best_duplicate_read_gaf:
     shell:
         "cat {input.gaf} | python3 select_best_gaf.py > {output.gaf}"
 
+# Used for pbgiraffe to inject back to the same graph that was mapped to, since pbgiraffe only outputs a bam
+rule inject_graph_bam:
+    input:
+        gbz=gbz,
+        bam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    output:
+        gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        mapper="pbgiraffe-.*"
+    threads: 64
+    resources:
+        mem_mb=300000,
+        runtime=600,
+        slurm_partition=choose_partition(600)
+    shell:
+        "vg inject --threads {threads} --add-identity -x {input.gbz} {input.bam} - >{output.gam} "
+
+
 rule inject_bam:
     input:
         gbz=gbz,
@@ -2758,7 +2842,7 @@ rule inject_bam_add_pairing:
     output:
         gam="{root}/aligned/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
-        mapper="(minimap2.+|bwa(-pe)?|mm2plus-.+)",
+        mapper="(minimap2.+|bwa(-pe)?|mm2plus-.+|pbgiraffe-.*)",
         realness="sim"
     threads: 64
     resources:
@@ -3540,7 +3624,7 @@ rule index_load_time_from_log_giraffe:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="giraffe.*"
+        mapper="(giraffe.*|pbgiraffe.*)"
     threads: 1
     resources:
         mem_mb=200,
@@ -5426,7 +5510,7 @@ rule runtime_from_benchmark_gam:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="(giraffe.*|graphaligner-.*|minigraph|panaligner)"
+        mapper="(giraffe.*|graphaligner-.*|minigraph|panaligner|pbgiraffe-.*)"
     threads: 1
     resources:
         mem_mb=1000,
@@ -5494,7 +5578,7 @@ rule memory_from_benchmark_gam:
     wildcard_constraints:
         refgraph="[^/_]+",
         realness="real",
-        mapper="(giraffe.*|graphaligner-.*|minigraph|panaligner)"
+        mapper="(giraffe.*|graphaligner-.*|minigraph|panaligner|pbgiraffe-.*)"
     threads: 1
     resources:
         mem_mb=1000,
