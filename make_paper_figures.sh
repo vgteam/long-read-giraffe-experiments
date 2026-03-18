@@ -1,7 +1,7 @@
 set -ex
 
 ROOT_DIR=/private/groups/patenlab/project-lrg
-OUT_DIR=./plots
+OUT_DIR=/private/groups/patenlab/xhchang/scratch/giraffe2/rocplots
 mkdir -p "${OUT_DIR}"
 
 
@@ -9,44 +9,80 @@ mkdir -p "${OUT_DIR}"
 # I left the --dry-run in because it keeps trying to re-run anything
 # Asking for all_paper_figures also works
 #(umask 0002 ; snakemake -p --dry-run --keep-going --rerun-triggers mtime --resources full_cluster_nodes=2 threads=256 --slurm --rerun-incomplete --latency-wait 120 -j128 --use-singularity --singularity-args '-B /private/home/jmonlong/workspace/lreval/data/:/private/home/jmonlong/workspace/lreval/data/ -B /private/groups/patenlab/project-lrg/:/private/groups/patenlab/project-lrg/ -B /private/groups/patenlab/anovak/projects/hprc/lr-giraffe/:/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/' \
-#/private/groups/patenlab/project-lrg/experiments/hifi_sim_1m_headline/results/compared.tsv \
-#/private/groups/patenlab/project-lrg/experiments/r10y2025_sim_1m_headline/results/compared.tsv \
-#/private/groups/patenlab/project-lrg/experiments/hifi_sim_1m_headline/results/mapping_stats_sim.tsv \
-#/private/groups/patenlab/project-lrg/experiments/r10y2025_sim_1m_headline/results/mapping_stats_sim.tsv \
-#/private/groups/patenlab/project-lrg/experiments/hifi_real_full_headline/results/clipped_or_unmapped_percent.tsv \
-#/private/groups/patenlab/project-lrg/experiments/r10_real_full_headline/results/clipped_or_unmapped_percent.tsv \
-#/private/groups/patenlab/project-lrg/experiments/hifi_real_full_headline/results/run_and_sampling_time_from_benchmark.tsv \
-#/private/groups/patenlab/project-lrg/experiments/r10_real_full_headline/results/run_and_sampling_time_from_benchmark.tsv \
-#/private/groups/patenlab/project-lrg/experiments/hifi_real_full_headline/results/index_load_time.tsv \
-#/private/groups/patenlab/project-lrg/experiments/hifi_real_full_headline/results/memory_from_benchmark.tsv \
-#/private/groups/patenlab/project-lrg/experiments/r10_real_full_headline/results/memory_from_benchmark.tsv)
+#/private/groups/patenlab/project-lrg/experiments/hifi_sim_1m/results/compared.tsv \
+#/private/groups/patenlab/project-lrg/experiments/r10y2025_sim_1m/results/compared.tsv \
+#/private/groups/patenlab/project-lrg/experiments/hifi_sim_1m/results/mapping_stats_sim.tsv \
+#/private/groups/patenlab/project-lrg/experiments/r10y2025_sim_1m/results/mapping_stats_sim.tsv \
+#/private/groups/patenlab/project-lrg/experiments/hifi_real_full/results/clipped_or_unmapped_percent.tsv \
+#/private/groups/patenlab/project-lrg/experiments/r10_real_full/results/clipped_or_unmapped_percent.tsv \
+#/private/groups/patenlab/project-lrg/experiments/hifi_real_full/results/run_and_sampling_time_from_benchmark.tsv \
+#/private/groups/patenlab/project-lrg/experiments/r10_real_full/results/run_and_sampling_time_from_benchmark.tsv \
+#/private/groups/patenlab/project-lrg/experiments/hifi_real_full/results/index_load_time.tsv \
+#/private/groups/patenlab/project-lrg/experiments/hifi_real_full/results/memory_from_benchmark.tsv \
+#/private/groups/patenlab/project-lrg/experiments/r10_real_full/results/memory_from_benchmark.tsv)
 
 ######################################### Define colors
 
-PURPLE=#9B8BF4
-LIGHT_PURPLE=#C49AB6
-BLUE=#53AEDF
-LIGHT_BLUE=#B3C7F7
-TEAL=#6396B0
-GREEN=#27A974
-YELLOW=#F2C300
+#I tried picking a colorblind friendly palette but it's really hard with so many colors. The purples and blues look similar so they should be used with mappers that don't get used together
+#eg, (pbmm2, winnowmap) only long reads and (bwa, pbgiraffe) only short reads
 DARK_ORANGE=#C44601
 ORANGE=#F57600
-PINK=#D066A3
-LIGHT_GREEN=#9CDA4D
+PALE_ORANGE=#FCC9B5
+
+YELLOW=#F2C300
+LIGHT_GREEN=#BFD396
+GREEN=#27A974
+
+DARK_BLUE=#6396B0
+BLUE=#53AEDF
+LIGHT_BLUE=#9ECEEE
+PURPLE=#877CE6
+LIGHT_PURPLE=#C49AB6
+MAGENTA=#B9518E
+RASPBERRY=#87185E
 
 
-BWA_COLOR=${LIGHT_GREEN}
-MINIMAP_COLOR=${PURPLE}
-WINNOWMAP_COLOR=${LIGHT_PURPLE}
-GIRAFFE_PRIMARY_COLOR=${BLUE}
-PBMM_COLOR=${LIGHT_BLUE}
-MINIGRAPH_MINIGRAPH_COLOR=${TEAL}
-GRAPHALIGNER_MINIGRAPH_COLOR=${GREEN}
-GRAPHALIGNER_DEFAULT_COLOR=${YELLOW}
-GRAPHALIGNER_FAST_COLOR=${PINK}
-GIRAFFE_COLOR=${DARK_ORANGE}
-GIRAFFE_SAMPLED_COLOR=${ORANGE}
+# Color gradients
+ORANGE1=#fcc9b5
+ORANGE2=#faaf90
+ORANGE3=#f57600
+ORANGE4=#dd5e00
+ORANGE5=#c44601
+
+YELLOW1=#fce6b5
+YELLOW2=#f8da92
+YELLOW3=#f2c300
+YELLOW4=#dba700
+YELLOW5=#c48b00
+
+GREEN1=#b5ddc7
+GREEN2=#91cbad
+GREEN3=#27a974
+GREEN4=#1e9361
+GREEN5=#147e4e
+
+BLUE1=#bcdef6
+BLUE2=#9eceee
+BLUE3=#53aedf
+BLUE4=#4299c9
+BLUE5=#3184b3
+
+GIRAFFE_PRIMARY_COLOR=${BLUE5}
+BWA_COLOR=${BLUE1}
+PBGIRAFFE_COLOR=${BLUE3}
+MINIMAP_COLOR=${GREEN5}
+PBMM_COLOR=${BLUE2}
+WINNOWMAP_COLOR=${GREEN3}
+MM2PLUS_COLOR=${GREEN1}
+
+MINIGRAPH_MINIGRAPH_COLOR=${ORANGE1}
+GRAPHALIGNER_MINIGRAPH_COLOR=${ORANGE3}
+
+GRAPHALIGNER_DEFAULT_COLOR=${YELLOW3}
+GRAPHALIGNER_FAST_COLOR=${YELLOW2}
+GIRAFFE_COLOR=${YELLOW5}
+
+GIRAFFE_SAMPLED_COLOR=${ORANGE5}
 
 ######################################### Define conditions
 MINIMAP_HIFI=minimap2-map-hifi,hprc-v2.0-mc-eval-d46
@@ -116,18 +152,22 @@ INDEL_SUMMARY=${ROOT_DIR}/experiments/dv_calling/results/dv_indel_summary.tsv
 ########################################### ROCs and QQs
 
 # Zoomed in headline roc plots
-Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline_zoomed.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.0001,0.03,0.9545,0.995'
+Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline_zoomed.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.0035,0.0085,0.99,0.995'
 
-Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline_zoomed.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.001,0.030,0.965,0.994'
+Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline_zoomed.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.007,0.018,0.982,0.992'
 
-# Zoomed out headline roc plots
-Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
+Rscript plot-roc.R ${ILLUMINA_ACCURACY} ${OUT_DIR}/roc_illumina_headline_zoomed.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Illumina ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' ) '0.0075,0.02,0.982,0.986'
 
-Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
+Rscript plot-roc.R ${ELEMENT_ACCURACY} ${OUT_DIR}/roc_element_headline_zoomed.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Element ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' ) '0.0075,0.02,0.982,0.986'
 
-Rscript plot-roc.R ${ILLUMINA_ACCURACY} ${OUT_DIR}/roc_illumina_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Illumina ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' ) '0.0001,0.02,0.94,0.985'
+ Zoomed out headline roc plots
+Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.00001,0.025,0.9545,0.995'
 
-Rscript plot-roc.R ${ELEMENT_ACCURACY} ${OUT_DIR}/roc_element_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Element ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' ) '0.0001,0.02,0.94,0.985'
+Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.001,0.25,0.945,0.994'
+
+Rscript plot-roc.R ${ILLUMINA_ACCURACY} ${OUT_DIR}/roc_illumina_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Illumina ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' ) '0.0001,0.1,0.94,0.985'
+
+Rscript plot-roc.R ${ELEMENT_ACCURACY} ${OUT_DIR}/roc_element_headline.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Element ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' ) '0.0001,0.1,0.94,0.985'
 
 # headline qq plots
 Rscript plot-qq.R ${HIFI_ACCURACY} ${OUT_DIR}/qq_hifi_headline.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI QQ" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' )
@@ -141,9 +181,9 @@ Rscript plot-qq.R ${ELEMENT_ACCURACY} ${OUT_DIR}/qq_element_headline.pdf $(echo 
 ########################################## Incorrect counts
 
 
-python3 barchart.py <(tail -n +2 ${HIFI_SIM} | cut -f1,5) --divisions <(tail -n +2 ${HIFI_SIM} | cut -f1,4)  --title 'HiFi incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --categories ${HIFI_SIM_1M_HEADLINE_CATEGORIES}  --colors ${HIFI_SIM_1M_HEADLINE_COLORS} --save ${OUT_DIR}/incorrectness_hifi.pdf
+python3 barchart.py <(tail -n +2 ${HIFI_SIM} | cut -f1,5) --divisions <(tail -n +2 ${HIFI_SIM} | cut -f1,4)  --title 'HiFi incorrect read count' --x_label 'Count' --y_label 'Condition' --plot_horizontal --no_n --categories ${HIFI_SIM_1M_HEADLINE_CATEGORIES}  --colors ${HIFI_SIM_1M_HEADLINE_COLORS} --save ${OUT_DIR}/incorrectness_hifi.pdf
 
-python3 barchart.py <(tail -n +2 ${R10_SIM} | cut -f1,5) --divisions <(tail -n +2 ${R10_SIM} | cut -f1,4)  --title 'R10 incorrect read count' --y_label 'Count' --x_label 'Condition' --x_sideways --no_n --categories ${R10_SIM_1M_HEADLINE_CATEGORIES}  --colors ${R10_SIM_1M_HEADLINE_COLORS}  --save ${OUT_DIR}/incorrectness_r10.pdf
+python3 barchart.py <(tail -n +2 ${R10_SIM} | cut -f1,5) --divisions <(tail -n +2 ${R10_SIM} | cut -f1,4)  --title 'R10 incorrect read count' --x_label 'Count' --y_label 'Condition' --plot_horizontal --no_n --categories ${R10_SIM_1M_HEADLINE_CATEGORIES}  --colors ${R10_SIM_1M_HEADLINE_COLORS}  --save ${OUT_DIR}/incorrectness_r10.pdf
 
 ########################################## Clips
 
@@ -166,20 +206,20 @@ grep -E $(echo ${SR_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${ELEMENT_RE
 
 #hifi softclips low
 LIMIT=$(python3 get_outlier_limit.py ${HIFI_CLIPS} small)
-python3 barchart.py ${HIFI_CLIPS} --divisions ${HIFI_UNMAPPED} --max ${LIMIT}  --title 'HiFi Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_hifi_headline_low.pdf
+python3 barchart.py ${HIFI_CLIPS} --divisions ${HIFI_UNMAPPED} --max ${LIMIT}  --title 'HiFi Clipped or Unmapped Bases' --x_label 'Percent of bases' --y_label 'Mapper' --plot_horizontal --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_hifi_headline_low.pdf
 
 #hifi softclips high
 LIMIT=$(python3 get_outlier_limit.py ${HIFI_CLIPS} big)
-python3 barchart.py ${HIFI_CLIPS} --divisions ${HIFI_UNMAPPED} --min ${LIMIT}  --title 'HiFi Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_hifi_headline_high.pdf
+python3 barchart.py ${HIFI_CLIPS} --divisions ${HIFI_UNMAPPED} --min ${LIMIT}  --title 'HiFi Clipped or Unmapped Bases' --x_label 'Percent of bases' --y_label 'Mapper' --plot_horizontal --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_hifi_headline_high.pdf
 
 #r10 softclips
-python3 barchart.py ${R10_CLIPS} --divisions ${R10_UNMAPPED} --title 'R10 Clipped or Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_r10_headline.pdf
+python3 barchart.py ${R10_CLIPS} --divisions ${R10_UNMAPPED} --title 'R10 Clipped or Unmapped Bases' --x_label 'Percent of bases' --y_label 'Mapper' --plot_horizontal --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_r10_headline.pdf
 
 #illumina softclips
-python3 barchart.py ${ILLUMINA_UNMAPPED} --title 'ILLUMINA Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_illumina_headline.pdf
+python3 barchart.py ${ILLUMINA_UNMAPPED} --title 'ILLUMINA Unmapped Bases' --x_label 'Percent of bases' --y_label 'Mapper' --plot_horizontal --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_illumina_headline.pdf
 
 #element softclips
-python3 barchart.py ${ELEMENT_UNMAPPED} --title 'ELEMENT Unmapped Bases' --y_label 'Percent of bases' --x_label 'Mapper' --x_sideways --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_element_headline.pdf
+python3 barchart.py ${ELEMENT_UNMAPPED} --title 'ELEMENT Unmapped Bases' --x_label 'Percent of bases' --y_label 'Mapper' --plot_horizontal --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/softclips_element_headline.pdf
 
 rm $HIFI_UNMAPPED
 rm $R10_UNMAPPED
@@ -203,50 +243,53 @@ grep -E $(echo ${SR_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${ELEMENT_RE
 
 # Higher hifi runtimes
 LIMIT=$(python3 get_outlier_limit.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) big)
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${HIFI_RUNTIME}) --min ${LIMIT}  --title 'HiFi Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_hifi_headline_slow.pdf
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${HIFI_RUNTIME}) --min ${LIMIT}  --title 'HiFi Runtime' --x_label 'Time (hours)' --y_label 'Mapper' --plot_horizontal --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_hifi_headline_slow.pdf
 
 # Lower hifi runtimes
 LIMIT=$(python3 get_outlier_limit.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) small)
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${HIFI_RUNTIME}) --max ${LIMIT}  --title 'HiFi Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_hifi_headline_fast.pdf
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${HIFI_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${HIFI_RUNTIME}) --max ${LIMIT}  --title 'HiFi Runtime' --x_label 'Time (hours)' --y_label 'Mapper' --plot_horizontal --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_hifi_headline_fast.pdf
 
 # R10 runtimes as one plot
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${R10_RUNTIME}) --title 'R10 Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_r10_headline.pdf
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${R10_RUNTIME}) --title 'R10 Runtime' --x_label 'Time (hours)' --y_label 'Mapper' --plot_horizontal --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_r10_headline.pdf
 
 # Higher r10 runtimes
 LIMIT=$(python3 get_outlier_limit.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) big)
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${R10_RUNTIME}) --min ${LIMIT}  --title 'R10 Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_r10_headline_slow.pdf
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${R10_RUNTIME}) --min ${LIMIT}  --title 'R10 Runtime' --x_label 'Time (hours)' --y_label 'Mapper' --plot_horizontal --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_r10_headline_slow.pdf
 
 # Lower R10 runtimes
 LIMIT=$(python3 get_outlier_limit.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) small)
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${R10_RUNTIME}) --max ${LIMIT}  --title 'R10 Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_r10_headline_fast.pdf
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${R10_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${R10_RUNTIME}) --max ${LIMIT}  --title 'R10 Runtime' --x_label 'Time (hours)' --y_label 'Mapper' --plot_horizontal --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_r10_headline_fast.pdf
 
 # Illumina runtimes as one plot
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${ILLUMINA_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${ILLUMINA_RUNTIME}) --title 'Illumina Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_illumina_headline.pdf
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${ILLUMINA_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${ILLUMINA_RUNTIME}) --title 'Illumina Runtime' --x_label 'Time (hours)' --y_label 'Mapper' --plot_horizontal --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_illumina_headline.pdf
 
 # Element runtimes as one plot
-python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${ELEMENT_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${ELEMENT_RUNTIME}) --title 'Element Runtime' --y_label 'Time (hours)' --x_label 'Mapper' --x_sideways --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_element_headline.pdf
+python3 barchart.py <(awk -v OFS='\t' '{{print $1,$2/60}}' ${ELEMENT_RUNTIME}) --divisions <(awk -v OFS='\t' '{{print $1,($3+$4)/60}}' ${ELEMENT_RUNTIME}) --title 'Element Runtime' --x_label 'Time (hours)' --y_label 'Mapper' --plot_horizontal --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/runtime_element_headline.pdf
 
 rm ${HIFI_RUNTIME}
 rm ${R10_RUNTIME}
 rm ${ILLUMINA_RUNTIME}
 rm ${ELEMENT_RUNTIME}
+
 ####################################### Memory
+
+HIFI_MEMORY=${OUT_DIR}/hifi_memory.tsv
 R10_MEMORY=${OUT_DIR}/r10_memory.tsv
-LLUMINA_MEMORY=${OUT_DIR}/illumina_memory.tsv
-LEMENT_MEMORY=${OUT_DIR}/element_memory.tsv
+ILLUMINA_MEMORY=${OUT_DIR}/illumina_memory.tsv
+ELEMENT_MEMORY=${OUT_DIR}/element_memory.tsv
 
 grep -E $(echo ${HIFI_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${HIFI_REAL} | awk -v OFS='\t' '{{print $1,$5}}' > ${HIFI_MEMORY}
 grep -E $(echo ${R10_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${R10_REAL} | awk -v OFS='\t' '{{print $1,$5}}' > ${R10_MEMORY}
 grep -E $(echo ${SR_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${ILLUMINA_REAL} | awk -v OFS='\t' '{{print $1,$5}}' > ${ILLUMINA_MEMORY}
 grep -E $(echo ${SR_REAL_FULL_HEADLINE_CATEGORIES} | sed 's/ /|/g') ${ELEMENT_REAL} | awk -v OFS='\t' '{{print $1,$5}}' > ${ELEMENT_MEMORY}
 
-python3 barchart.py ${HIFI_MEMORY} --title 'HiFi Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/memory_hifi.pdf
+python3 barchart.py ${HIFI_MEMORY} --title 'HiFi Memory From Benchmark' --x_label 'Memory (GB)' --y_label 'Mapper' --plot_horizontal --no_n --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/memory_hifi.pdf
 
-python3 barchart.py ${R10_MEMORY} --title 'R10 Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/memory_r10.pdf
+python3 barchart.py ${R10_MEMORY} --title 'R10 Memory From Benchmark' --x_label 'Memory (GB)' --y_label 'Mapper' --plot_horizontal --no_n --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/memory_r10.pdf
 
-python3 barchart.py ${ILLUMINA_MEMORY} --title 'Illumina Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/memory_illumina.pdf
+python3 barchart.py ${ILLUMINA_MEMORY} --title 'Illumina Memory From Benchmark' --x_label 'Memory (GB)' --y_label 'Mapper' --plot_horizontal --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/memory_illumina.pdf
 
-python3 barchart.py ${ELEMENT_MEMORY} --title 'Element Memory From Benchmark' --y_label 'Memory (GB)' --x_label 'Mapper' --x_sideways --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/memory_element.pdf
+python3 barchart.py ${ELEMENT_MEMORY} --title 'Element Memory From Benchmark' --x_label 'Memory (GB)' --y_label 'Mapper' --plot_horizontal --no_n --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --save ${OUT_DIR}/memory_element.pdf
 
 rm $HIFI_MEMORY
 rm $R10_MEMORY

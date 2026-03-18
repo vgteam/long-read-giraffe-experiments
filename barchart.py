@@ -60,7 +60,9 @@ def parse_args(args):
     parser.add_argument("--y_label", default="Y",
         help="the Y axis label")
     parser.add_argument("--log_y", action="store_true",
-        help="log Y axis")
+        help="log Y axis. If --plot_horizontal, this becomes a log X")
+    parser.add_argument("--plot_horizontal", action="store_true",
+        help="plot horizontal bars.")
     parser.add_argument("--font_size", type=int, default=12,
         help="the font size for text")
     parser.add_argument("--save",
@@ -243,12 +245,20 @@ def main(args):
     category_colors = [x for x in category_colors if x is not None]
 
     # Do the plot
-    pyplot.bar(list(range(len(category_order))), [categories[category] for category in 
-        category_order], bottom=[divisions[category] for category in 
-        category_order], color=category_colors, width=options.bar_width)
-    # Plot the below-division bars.
-    pyplot.bar(list(range(len(category_order))), [divisions[category] for category in 
-        category_order], width=options.bar_width)
+    if (options.plot_horizontal):
+        pyplot.barh(list(range(len(category_order))), [categories[category] for category in 
+            category_order], left=[divisions[category] for category in 
+            category_order], color=category_colors, height=options.bar_width)
+        # Plot the below-division bars.
+        pyplot.barh(list(range(len(category_order))), [divisions[category] for category in 
+            category_order], height=options.bar_width)
+    else:
+        pyplot.bar(list(range(len(category_order))), [categories[category] for category in 
+            category_order], bottom=[divisions[category] for category in 
+            category_order], color=category_colors, width=options.bar_width)
+        # Plot the below-division bars.
+        pyplot.bar(list(range(len(category_order))), [divisions[category] for category in 
+            category_order], width=options.bar_width)
         
     # StackOverflow provides us with font sizing
     # http://stackoverflow.com/questions/3899980/how-to-change-the-font-size-on-a-matplotlib-plot
@@ -261,30 +271,51 @@ def main(args):
     pyplot.xlabel(options.x_label)
     
     # Label the columns with the appropriate text. Account for 1-based ticks.
-    pyplot.xticks([x for x in range(len(category_order))],
-        category_labels, rotation=90 if options.x_sideways else 0)
+    if (options.plot_horizontal):
+        pyplot.yticks([x for x in range(len(category_order))],
+            category_labels, rotation=90 if options.x_sideways else 0)
+    else:
+        pyplot.xticks([x for x in range(len(category_order))],
+            category_labels, rotation=90 if options.x_sideways else 0)
     
     pyplot.ylabel(options.y_label)
     if options.log_y:
         # And log Y axis if desired.
-        pyplot.yscale("log")
+        if options.plot_horizontal:
+            pyplot.xscale("log")
+        else:
+            pyplot.yscale("log")
         
     if options.max is not None:
         # Set only the upper y limit
-        pyplot.ylim((pyplot.ylim()[0], options.max))
+        if options.plot_horizontal:
+            pyplot.xlim((pyplot.xlim()[0], options.max))
+        else:
+            pyplot.ylim((pyplot.ylim()[0], options.max))
 
     if options.min is not None:
         # Set only the lower y limit
-        pyplot.ylim((options.min, pyplot.ylim()[1]))
+        if options.plot_horizontal:
+            pyplot.xlim((options.min, pyplot.xlim()[1]))
+        else:
+            pyplot.ylim((options.min, pyplot.ylim()[1]))
+        
         
     if options.sparse_ticks:
         # Set up tickmarks to have only 2 per axis, at the ends
-        pyplot.gca().yaxis.set_major_locator(
-            matplotlib.ticker.FixedLocator(pyplot.ylim()))
+        if options.plot_horizontal:
+            pyplot.gca().xaxis.set_major_locator(
+                matplotlib.ticker.FixedLocator(pyplot.xlim()))
+        else:
+            pyplot.gca().yaxis.set_major_locator(
+                matplotlib.ticker.FixedLocator(pyplot.ylim()))
             
     # Make sure tick labels don't overlap. See
     # <http://stackoverflow.com/a/20599129/402891>
-    pyplot.gca().tick_params(axis="x", pad=0.5 * options.font_size)
+    if options.plot_horizontal:
+        pyplot.gca().tick_params(axis="y", pad=0.5 * options.font_size)
+    else:
+        pyplot.gca().tick_params(axis="x", pad=0.5 * options.font_size)
             
     # Make everything fit
     pyplot.tight_layout()

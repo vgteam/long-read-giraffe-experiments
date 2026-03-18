@@ -94,12 +94,18 @@ if (length(commandArgs(TRUE)) > 5) {
     print(zoom_coords)
     print(zoom_coords[1])
     dat.plot <- ggplot(dat.roc, aes( x= FPR, y = TPR, color = aligner, label=mq)) +
-        geom_line() +
+        geom_line(size=3) +
         #geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
-        geom_point(aes(size=Positive+Negative)) +
+        #geom_point() +
+        ####geom_point(aes(size=Positive+Negative)) +
         scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
-        scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
-        coord_trans(xlim = c(zoom_coords[1], zoom_coords[2]), x = "log",ylim = c(zoom_coords[3], zoom_coords[4])) +
+        #scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
+        # Scale for zoomed out
+        #scale_x_log10(breaks=c(1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 2e-1, 3e-1), oob=squish) +
+        #scale for zoomed in
+        scale_x_log10(breaks=c(.0004, .0005, .0006, .0007, .0008, .0009, .002, .004, .006, .008, .01, .012, .014, .016, .018, .02, .03, .04, .05, .06), oob=squish) +
+        #scale_y_continuous(limits=c(zoom_coords[3], zoom_coords[4])) +
+        coord_trans(xlim = c(zoom_coords[1], zoom_coords[2]), ylim = c(zoom_coords[3], zoom_coords[4])) +
         geom_vline(xintercept=1/total.reads) + # vertical line at one wrong read
         theme_bw() + 
         theme(legend.position=c(1,0), legend.justification=c(1,0)) +
@@ -107,11 +113,12 @@ if (length(commandArgs(TRUE)) > 5) {
 } else {
  
     dat.plot <- ggplot(dat.roc, aes( x= FPR, y = TPR, color = aligner, label=mq)) +
-        geom_line() +
+        geom_line(size=2) +
         #geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
-        geom_point(aes(size=Positive+Negative)) +
+        #geom_point() +
+        ####geom_point(aes(size=Positive+Negative)) +
         scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
-        scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
+        #scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
         scale_x_log10(limits=c(range.unlogged[1],range.unlogged[length(range.unlogged)]), breaks=range.unlogged, oob=squish) +
         geom_vline(xintercept=1/total.reads) + # vertical line at one wrong read
         theme_bw() + 
