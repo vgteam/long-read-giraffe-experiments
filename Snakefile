@@ -6127,9 +6127,26 @@ rule plot_stat_vs_parameter:
         # TODO: Aren't wildcards available here with {}?
         shell("cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $1}}' | ./scatter.py --title '" + wildcards.statname + " vs. " + wildcards.parameter + "' --x_label " + wildcards.parameter + " --y_label '" + wildcards.statname + "' --legend_overlay 'best' --save {output.plot} /dev/stdin")
 
+# This is used to make the config file for the cumulative identity plot. It is just the condition and the file name
+rule cumulative_identity_config_by_condition:
+    input:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.identity.tsv"
+    output:
+        tsv = "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.identity_config.tsv"
+    params:
+        condition_name=condition_name
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60,
+        slurm_partition=choose_partition(60)
+    shell:
+        "printf '{params.condition_name}\\t{input.tsv}' >{output.tsv}"
+
+
 rule cumulative_identity_tsv:
     input:
-        lambda w: all_experiment(w, "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.identity.tsv")
+        lambda w: all_experiment(w, "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.identity_config.tsv")
     output:
         tsv = "{root}/experiments/{expname}/results/identity_line_config.tsv"
     threads: 1
@@ -6138,7 +6155,7 @@ rule cumulative_identity_tsv:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "ls {input} | awk -F '/' '{{print $0, NR-1, $(NF-3)}}' | tr ' ' '\t' >{output.tsv}"
+        "awk -F '\t' -v OFS='\t' '{{print $0, NR-1, $1}}' {input} >{output.tsv}"
 
 rule plot_cumulative_identity_line:
     input:
