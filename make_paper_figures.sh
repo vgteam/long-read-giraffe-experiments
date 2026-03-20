@@ -72,17 +72,17 @@ BWA_COLOR=${BLUE1}
 PBGIRAFFE_COLOR=${BLUE3}
 MINIMAP_COLOR=${GREEN5}
 PBMM_COLOR=${BLUE2}
-WINNOWMAP_COLOR=${GREEN3}
+WINNOWMAP_COLOR=${GREEN2}
 MM2PLUS_COLOR=${GREEN1}
 
-MINIGRAPH_MINIGRAPH_COLOR=${ORANGE1}
-GRAPHALIGNER_MINIGRAPH_COLOR=${ORANGE3}
+MINIGRAPH_MINIGRAPH_COLOR=${YELLOW3}
+GRAPHALIGNER_MINIGRAPH_COLOR=${YELLOW5}
 
-GRAPHALIGNER_DEFAULT_COLOR=${YELLOW3}
-GRAPHALIGNER_FAST_COLOR=${YELLOW2}
-GIRAFFE_COLOR=${YELLOW5}
+GRAPHALIGNER_DEFAULT_COLOR=${ORANGE3}
+GRAPHALIGNER_FAST_COLOR=${ORANGE2}
+GIRAFFE_COLOR=${ORANGE5}
 
-GIRAFFE_SAMPLED_COLOR=${ORANGE5}
+GIRAFFE_SAMPLED_COLOR=${RASPBERRY}
 
 ######################################### Define conditions
 MINIMAP_HIFI=minimap2-map-hifi,hprc-v2.0-mc-eval-d46
@@ -91,7 +91,7 @@ MINIMAP_SR=minimap2-sr,hprc-v2.0-mc-eval-d46
 WINNOWMAP=winnowmap,hprc-v2.0-mc-eval-d46
 GIRAFFE_PRIMARY_HIFI=giraffe,primary
 GIRAFFE_PRIMARY_R10=giraffe,primary
-GIRAFFE_PRIMARY_SR=giraffe,primary
+GIRAFFE_PRIMARY_SR=giraffe-giraffe-default-99930d-noflags,primary
 PBMM=pbmm2,hprc-v2.0-mc-eval-d46
 BWA=bwa-pe,hprc-v2.0-mc-eval-d46
 
@@ -106,7 +106,7 @@ GIRAFFE_SR=giraffe,hprc-v2.0-mc-eval-d46
 
 GIRAFFE_SAMPLED_HIFI=giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o
 GIRAFFE_SAMPLED_R10=giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o
-GIRAFFE_SAMPLED_SR=giraffe,hprc-v2.0-mc-eval.ec1M-sampled16o
+GIRAFFE_SAMPLED_SR=giraffe-giraffe-default-99930d-noflags,hprc-v2.0-mc-eval.ec1M-sampled16o
 
 ###################################### Define conditions and colors for each experiment
 
@@ -145,6 +145,11 @@ R10_REAL=${ROOT_DIR}/experiments/r10y2025_real_full/results/mapping_stats_real.t
 ILLUMINA_REAL=${ROOT_DIR}/experiments/illumina_real_full/results/mapping_stats_real.tsv
 ELEMENT_REAL=${ROOT_DIR}/experiments/element_real_full/results/mapping_stats_real.tsv
 
+HIFI_IDENTITY=${ROOT_DIR}/experiments/hifi_real_full/results/identity_line_config.tsv
+R10_IDENTITY=${ROOT_DIR}/experiments/r10y2025_real_full/results/identity_line_config.tsv
+ILLUMINA_IDENTITY=${ROOT_DIR}/experiments/illumina_real_full/results/identity_line_config.tsv
+ELEMENT_IDENTITY=${ROOT_DIR}/experiments/element_real_full/results/identity_line_config.tsv
+
 SV_SUMMARY=${ROOT_DIR}/experiments/sv_calling/results/sv_summary.tsv
 SNP_SUMMARY=${ROOT_DIR}/experiments/dv_calling/results/dv_snp_summary.tsv
 INDEL_SUMMARY=${ROOT_DIR}/experiments/dv_calling/results/dv_indel_summary.tsv
@@ -160,7 +165,7 @@ Rscript plot-roc.R ${ILLUMINA_ACCURACY} ${OUT_DIR}/roc_illumina_headline_zoomed.
 
 Rscript plot-roc.R ${ELEMENT_ACCURACY} ${OUT_DIR}/roc_element_headline_zoomed.pdf $(echo $SR_SIM_1M_CATEGORIES | sed 's/ /;/g' ) "Element ROC" $(echo $SR_SIM_1M_COLORS | sed 's/ /,/g' ) '0.0075,0.02,0.982,0.986'
 
- Zoomed out headline roc plots
+ #Zoomed out headline roc plots
 Rscript plot-roc.R ${HIFI_ACCURACY} ${OUT_DIR}/roc_hifi_headline.pdf $(echo $HIFI_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "HIFI ROC" $(echo $HIFI_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.00001,0.025,0.9545,0.995'
 
 Rscript plot-roc.R ${R10_ACCURACY} ${OUT_DIR}/roc_r10_headline.pdf $(echo $R10_SIM_1M_HEADLINE_CATEGORIES | sed 's/ /;/g' ) "R10 ROC" $(echo $R10_SIM_1M_HEADLINE_COLORS | sed 's/ /,/g' ) '0.001,0.25,0.945,0.994'
@@ -295,6 +300,14 @@ rm $HIFI_MEMORY
 rm $R10_MEMORY
 rm $ILLUMINA_MEMORY
 rm $ELEMENT_MEMORY
+
+############################################ Cumulative identity plots
+./cum_hist_line.py --categories ${HIFI_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${HIFI_REAL_FULL_HEADLINE_COLORS} --column-name identity --min-val 0.95 --max-val 1 --step 0.001 --title 'Cumulative identity' --output ${OUTPUT_DIR}/identity_hifi.pdf ${HIFI_IDENTITY}
+./cum_hist_line.py --categories ${R10_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${R10_REAL_FULL_HEADLINE_COLORS} --column-name identity --min-val 0.95 --max-val 1 --step 0.001 --title 'Cumulative identity' --output ${OUTPUT_DIR}/identity_r10.pdf ${R10_IDENTITY}
+./cum_hist_line.py --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --column-name identity --min-val 0.95 --max-val 1 --step 0.001 --title 'Cumulative identity' --output ${OUTPUT_DIR}/identity_illumina.pdf ${ILLUMINA_IDENTITY}
+./cum_hist_line.py --categories ${SR_REAL_FULL_HEADLINE_CATEGORIES}  --colors ${SR_REAL_FULL_HEADLINE_COLORS} --column-name identity --min-val 0.95 --max-val 1 --step 0.001 --title 'Cumulative identity' --output ${OUTPUT_DIR}/identity_element.pdf ${ELEMENT_IDENTITY}
+
+
 
 ######################################## SV Calling
 
