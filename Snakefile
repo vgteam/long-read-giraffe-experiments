@@ -2318,7 +2318,9 @@ rule pb_giraffe_sim_reads:
         realness="sim"
     threads: 64
     params:
-        gpus=GPUS
+        gpus=GPUS,
+        temp_fastq1="{root}/aligned/{reference}/{refgraph}/pbgiraffe-{pbminparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.temp_reads1.fq.gz",
+        temp_fastq2="{root}/aligned/{reference}/{refgraph}/pbgiraffe-{pbminparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.temp_reads2.fq.gz"
     container: "docker://nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1"
     resources:
         mem_mb=1000000,
@@ -2327,7 +2329,14 @@ rule pb_giraffe_sim_reads:
         slurm_extra=auto_pb_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     shell: 
-        "pbrun giraffe --align-only --low-memory --num-gpus {params.gpus} --dist-name {input.dist} --minimizer-name {input.minfile} --zipcodes-name {input.zipfile} --gbz-name {input.gbz}  --in-fq {input.fastq1}  {input.fastq2} --out-bam {output.bam} 2>{log}"
+        """
+        zcat {input.fastq1} | awk '{{gsub("_1$", ""); gsub("_2$", ""); print $0}}' | gzip > {params.temp_fastq1}
+        zcat {input.fastq2} | awk '{{gsub("_1$", ""); gsub("_2$", ""); print $0}}' | gzip > {params.temp_fastq2}
+        pbrun giraffe --align-only --low-memory --num-gpus {params.gpus} --dist-name {input.dist} --minimizer-name {input.minfile} --zipcodes-name {input.zipfile} --gbz-name {input.gbz}  --in-fq {params.temp_fastq1}  {params.temp_fastq2} --out-bam {output.bam} 2>{log}
+        rm {params.temp_fastq1}
+        rm {params.temp_fastq2}
+        """
+
 
 rule winnowmap_repetitive_kmers:
     input:
