@@ -55,6 +55,11 @@ def parse_args() -> argparse.Namespace:
                         help="Legend x coordinate")
     parser.add_argument("--legend-y", type=float, default=1.02,
                         help="Legend y coordinate")
+    parser.add_argument("--conditions", nargs="+", default=None,
+                        help="conditions to plot, in order")
+    parser.add_argument("--colors", nargs="+", default=None,
+                        help="color for each condition, in order. If this is given, only plot these conditions")
+
     parser.add_argument("config", type=str, help="Path to the config file")
     return parser.parse_args()
 
@@ -98,7 +103,7 @@ def read_config(config_file: str, column_name: str) -> List[tuple]:
                         raise ValueError()
                 except ValueError:
                     raise ValueError('Format index must be an integer 0-23')
-                color = COLORS[format_index % 8]
+                color = condition_to_color.get(parts[2], COLORS[format_index % 8])
                 label = parts[2]
             elif len(parts) == 4:
                 # Color & linestyle are explicit
@@ -111,7 +116,7 @@ def read_config(config_file: str, column_name: str) -> List[tuple]:
 def plot_cumulative_line(to_plot: List[tuple], column_name: str,
                          bins: np.ndarray, title: str, output_file: str, 
                          width: float, height: float, legend_shrink: float,
-                         legend_x: float, legend_y: float) -> None:
+                         legend_x: float, legend_y: float, condition_to_color: dict) -> None:
     """Plot a cumulative histogram as a line plot.
 
     Parameters
@@ -169,6 +174,17 @@ if __name__ == '__main__':
     bins = np.arange(args.min_val, max_bin, args.step)
     config = read_config(args.config, args.column_name)
 
+
+
+    condition_to_color = dict()
+    if args.conditions is not None:
+        for i in range(len(args.conditions)):
+            if args.colors is not None:
+                condition_to_color[args.conditions[i]] = args.colors[i] 
+            else:
+                condition_to_color[args.conditions[i]] = COLORS[i % len(COLORS)] 
+
+
     plot_cumulative_line(config, args.column_name, bins, args.title, 
                          args.output_file, args.width, args.height,
-                         args.legend_shrink, args.legend_x, args.legend_y)
+                         args.legend_shrink, args.legend_x, args.legend_y, condition_to_color)

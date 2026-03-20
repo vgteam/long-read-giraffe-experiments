@@ -6127,7 +6127,7 @@ rule plot_stat_vs_parameter:
         # TODO: Aren't wildcards available here with {}?
         shell("cat {input.tsv} | grep -v '#' | awk '{{print $" + parameter_col + " \"\\t\" $1}}' | ./scatter.py --title '" + wildcards.statname + " vs. " + wildcards.parameter + "' --x_label " + wildcards.parameter + " --y_label '" + wildcards.statname + "' --legend_overlay 'best' --save {output.plot} /dev/stdin")
 
-# This is used to make the config file for the cumulative identity plot. It is just the condition and the file name
+# This is used to make the config file for the cumulative identity plot. It is just the file name and the condition 
 rule cumulative_identity_config_by_condition:
     input:
         tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.identity.tsv"
@@ -6141,7 +6141,7 @@ rule cumulative_identity_config_by_condition:
         runtime=60,
         slurm_partition=choose_partition(60)
     shell:
-        "printf '{params.condition_name}\\t{input.tsv}' >{output.tsv}"
+        "printf '{input.tsv}\\t{params.condition_name}' >{output.tsv}"
 
 
 rule cumulative_identity_tsv:
