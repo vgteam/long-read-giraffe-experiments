@@ -93,10 +93,24 @@ dv_exps: []
 #"dv_calling"]
 sv_exps: []
 #"sv_calling"]
+graph_indexing_exps: ["graph_indexing"]
 
 non_zipcode_giraffe_versions: ["230872", "v1.62.0"]
 
 experiments:
+
+  graph_indexing:
+    vary:
+      refgraph: ["hprc-v2.0-mc-eval-d46.k31.w50.W",
+                 "hprc-v2.0-mc-eval-d46.k29.w11",
+                 "hprc-v2.0-mc-chm13-eval.ec1M-sampled16o_fragmentlinked-for-real-hifi-HG002-full.k31.w50.W", 
+                 "hprc-v2.0-mc-chm13-eval.ec1M-sampled16o_fragmentlinked-for-real-r10y2025-HG002-full.k31.w50.W", 
+                 "hprc-v2.0-mc-chm13-eval.ec1M-sampled16o_fragmentlinked-for-real-illumina-HG002-full.k29.w11", 
+                 "hprc-v2.0-mc-chm13-eval.ec1M-sampled16o_fragmentlinked-for-real-element-HG002-full.k29.w11", 
+                 "hprc-v2.0-minigraph-eval.k31.w50.W", 
+                 "hprc-v2.0-minigraph-eval.k29.w11"]
+
+
 
   #This is used to test different mappers on r10 reads
   #Add different vg versions with `-commit` instead of `-default`, and make sure the binary

@@ -1727,6 +1727,7 @@ rule r_index_graph:
         gbz="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.gbz"
     output:
         rifile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.ri"
+    benchmark: "{graphs_dir}/indexing_benchmarks/r_indexing{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}"
     threads: 16
     resources:
         mem_mb=lambda w: 120000 if w["full"] == "" else 240000,
@@ -1740,6 +1741,7 @@ rule haplotype_index_graph:
         unpack(r_and_snarl_indexed_graph),
     output:
         haplfile="{graphs_dir}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}.fragment.hapl"
+    benchmark: "{graphs_dir}/indexing_benchmarks/haplotype_indexing_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}"
     params:
         vg_binary=get_vg_version(VG_FRAGMENT_HAPLOTYPE_INDEXING_VERSION)
     threads: 16
@@ -3785,6 +3787,103 @@ rule haplotype_sampling_time_giraffe:
         shell("echo \"{params.condition_name}\t{runtime}\" >{output.tsv}")
 
 ruleorder: haplotype_sampling_time_giraffe > haplotype_sampling_time_empty
+
+#empty time for anything not haplotype sampled
+# Just 0
+rule haplotype_sampling_memory_empty:
+    output:
+        tsv="{root}/experiments/{expname}/{graph}/haplotype_sampling_memory.tsv"
+    params:
+        condition_name=condition_name
+    wildcard_constraints:
+        # Don't operate on sampled refgraphs.
+        # Say we need a refgraph that's a bit not followed by a sampling indicator, followed by a dash and something. Or "primary".
+        refgraph="((?!model)(?!legacy)(?!olddv)(?!newdv)[^/_]+(?!-sampled[0-9]+d?o?)-[^-]+|primary)",
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        shell("echo \"t0\" >{output.tsv}")
+
+
+# For the each graph, list the peak memory use in MB
+rule haplotype_sampling_memory_giraffe:
+    input:
+        kmer_counting=kmer_counts_benchmark,
+        haplotype_sampling=os.path.join(GRAPHS_DIR, "indexing_benchmarks/haplotype_sampling_{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}_fragmentlinked-for-{realness}-{tech}-{sample}{trimmedness}-{subset}.benchmark")
+    params:
+        condition_name=condition_name
+    output:
+        tsv="{root}/experiments/{expname}/{refgraphbase}-{reference}{modifications}{clipping}{full}{chopping}{sampling}_fragmentlinked-for-{realness}-{tech}-{sample}{trimmedness}-{subset}/haplotype_sampling_memory.tsv"
+    wildcard_constraints:
+        sampling="-sampled[0-9]+d?o?",
+        weightedness="\\.W|",
+        k="[0-9]+",
+        w="[0-9]+",
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        max_memory = 0
+        for infile in [input.kmer_counting, input.haplotype_sampling, input.distance_indexing, input.minimizer_indexing]:
+            f = open(infile)
+            assert(f.readline().split("\t")[2] == "max_rss")
+            memory = float(f.readline().split("\t")[2])
+            max_memory = max(max_memory, memory)
+            f.close()
+        shell("echo \"{params.condition_name}\t{max_memory}\" >{output.tsv}")
+
+ruleorder: haplotype_sampling_memory_giraffe > haplotype_sampling_memory_empty
+
+
+# For one graph, get the memory of each indexing step
+rule graph_indexing_memory:
+    input: 
+        distance_indexing: "{graphs_dir}/indexing_benchmarks/distance_indexing_{graph}.benchmark",
+        r_indexing: "{graphs_dir}/indexing_benchmarks/r_indexing_{graph}.benchmark",
+        haplotype_indexing: "{graphs_dir}/indexing_benchmarks/distance_indexing_{graph}.benchmark",
+        minimizer_indexing: "{graphs_dir}/indexing_benchmarks/minimizer_indexing_{graph}{min_params}.benchmark"
+        haplotype_sampling_memory="{root}/experiments/{expname}/{graph}/haplotype_sampling_memory.tsv"
+    output:
+        tsv="{root}/experiments/{expname}/{graph}{min_params}/indexing_memory.tsv"
+    wildcard_constraints:
+        min_params="\.k[0-9]+.w[0-9]+(.W|)"
+    threads: 1
+    resources:
+        mem_mb=200,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    run:
+        shell("printf \"graph\tdistance_indexing_memory\tr_indexing_memory\thaplotype_indexing_memory\tminimizer_indexing_memory\thaplotype_sampling_memory\n\" >{output.tsv}")
+        shell("printf \"{graph}\" >>{output.tsv}")
+        for infile in [input.distance_indexing, index.r_indexing, input.haplotype_indexing, input.minimizer_indexing, input.haplotype_sampling_memory]:
+            f = open(infile)
+            assert(f.readline().split("\t")[2] == "max_rss")
+            memory = f.readline().split("\t")[2]
+            shell("printf \"\t{memory}\" >>{output.tsv}")
+            f.close()
+        shell("echo \"\t$(cat {input.haplotype_sampling_memory})\" >>{output.tsv}")
+
+
+rule experiment_graph_indexing_memory:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{graph}/indexing_memory.tsv")
+    output:
+        table="{root}/experiments/{expname}/results/indexing_memory.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        """
+        printf \"graph\tdistance_indexing_memory\tr_indexing_memory\thaplotype_indexing_memory\tminimizer_indexing_memory\thaplotype_sampling_memory\n\" >{output.tsv}
+        tail -n +2 {input} >{output.table}
+        """
 
 #output tsv of:
 #condition name, index load time plus haplotype sampling time in minutes
@@ -6529,6 +6628,7 @@ ruleorder: sv_summary_table > experiment_stat_table
 #Experiments are specified in the config file
 rule all_paper_figures:
     input:
+        graph_indexing_memory=expand(ALL_OUT_DIR + "/experiments/{expname}/results/indexing_memory.tsv", expname=config["graph_indexing_exps"]),
         mapping_stats_real=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_real.tsv", expname=config["real_exps"]),
         identity=expand(ALL_OUT_DIR + "/experiments/{expname}/results/identity_line_config.tsv", expname=config["real_exps"]),
         mapping_stats_sim=expand(ALL_OUT_DIR + "/experiments/{expname}/results/mapping_stats_sim.tsv", expname=config["sim_exps"]),
