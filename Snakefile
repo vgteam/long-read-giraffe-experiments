@@ -337,7 +337,7 @@ def auto_mapping_full_cluster_nodes(wildcards):
 
 def auto_mapping_memory(wildcards):
     """
-    Determine the memory to use for Giraffe mapping, in MB, from subset and tech.
+    Determine the memory to use for Giraffe mapping, in MB, from subset, realness, and tech.
     """
     thread_count = auto_mapping_threads(wildcards)
 
@@ -346,7 +346,7 @@ def auto_mapping_memory(wildcards):
     if wildcards["tech"] == "illumina" or wildcards["tech"] == "element":
         scale_mb = 200000
     elif wildcards["tech"] == "hifi":
-        scale_mb = 240000
+        scale_mb = 120000
     elif wildcards["tech"] == "r10":
         scale_mb = 600000
     elif wildcards["tech"] == "r10y2025":
@@ -356,6 +356,29 @@ def auto_mapping_memory(wildcards):
 
     # Scale down memory with threads
     return scale_mb / 64 * thread_count + base_mb
+
+def auto_mapping_runtime(wildcards):
+    """
+    Determine the runtime to use for Giraffe mapping, in minutes, from subset and realness.
+    """
+    thread_count = auto_mapping_threads(wildcards)
+    read_count = subset_to_number(wildcards["subset"])
+
+    base_time = 1200 if wildcards["realness"] == "real" else 600
+    scale_down = 1
+    if read_count <= 100000:
+        scale_down = 0.1
+    elif read_count <= 1000000:
+        scale_down = 0.5
+
+    # TODO: Also scale up as threads goes down
+    return base_time * scale_down
+
+def auto_mapping_partition(wildcards):
+    """
+    Determine the partition to use for Giraffe mapping, from subset and realness.
+    """
+    return choose_partition(auto_mapping_runtime(wildcards))
 
 def choose_partition(minutes):
     """
@@ -2277,8 +2300,8 @@ rule giraffe_real_reads:
         exclusive_timing=exclusive_timing 
     resources:
         mem_mb=auto_mapping_memory,
-        runtime=1200,
-        slurm_partition=choose_partition(1200),
+        runtime=auto_mapping_runtime,
+        slurm_partition=auto_mapping_partition,
         slurm_extra=auto_mapping_slurm_extra,
         full_cluster_nodes=auto_mapping_full_cluster_nodes
     run:
@@ -2301,8 +2324,8 @@ rule giraffe_sim_reads:
     threads: auto_mapping_threads
     resources:
         mem_mb=auto_mapping_memory,
-        runtime=600,
-        slurm_partition=choose_partition(600)
+        runtime=auto_mapping_runtime,
+        slurm_partition=auto_mapping_partition
     run:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
@@ -2323,8 +2346,8 @@ rule giraffe_sim_reads_with_correctness:
     threads: auto_mapping_threads
     resources:
         mem_mb=auto_mapping_memory,
-        runtime=600,
-        slurm_partition=choose_partition(600)
+        runtime=auto_mapping_runtime,
+        slurm_partition=auto_mapping_partition
     run:
         vg_binary = get_vg_version(wildcards.vgversion)
         flags=get_vg_flags(wildcards.vgflag)
@@ -5369,7 +5392,20 @@ rule mapped_score_gam:
         slurm_partition=choose_partition(60)
     shell:
         "vg filter -t {threads} --min-primary 1 -T 'score' {input.gam} | grep -v '#' > {output.tsv}"
-        
+
+rule match_bp_from_stats:
+    input:
+        stats="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt"
+    output:
+        tsv="{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.match_bp.tsv"
+    threads: 1
+    resources:
+        mem_mb=4000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "cat {input.stats} | grep '^Matches:' | cut -f2 -d' ' > {output.tsv}"
+
 rule hardclips:
     input:
         "{root}/stats/{reference}/{refgraph}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.hardclips_by_name.tsv"
