@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
+import scipy.stats as stats
 from os.path import exists
 from bidict import bidict
 import argparse
@@ -17,13 +18,17 @@ name is the name of the parameter getting called in giraffe (--name value)
 value_range is a tuple of [range_start, range_end)
 '''
 class Parameter:
-    def __init__(self, name, datatype, min_val, max_val, default, sampling_strategy):
+    def __init__(self, name, datatype, min_val, max_val, default, sampling_strategy, mean):
         self.name = name
         self.datatype = datatype.lower()
         self.min_val = min_val
         self.max_val = max_val
         self.default = default
         self.sampling_strategy = sampling_strategy.lower()
+        if mean=="none":
+            self.mean = default
+        else:
+            self.mean = mean
     
     def sample(self):
         if self.min_val == self.max_val:
@@ -34,6 +39,15 @@ class Parameter:
             elif self.sampling_strategy == "log":
                 log_sample = np.random.uniform(np.log(self.min_val), np.log(self.max_val))
                 return int(np.exp(log_sample))
+            elif self.sampling_strategy == "lognormal":
+                ln_sample = np.random.lognormal(np.log(self.mean), 1)
+                return int(ln_sample)
+            elif self.sampling_strategy == "truncated_normal":
+                mu = self.mean
+                sigma = 1
+                truncated_normal = stats.truncnorm((self.min_val - mu) / sigma, (self.max_val - mu) / sigma, loc=mu, scale=sigma)
+                tn_sample = truncated_normal.rvs(size=1)
+                return int(tn_sample)
             else: 
                 print("No sampling strategy " + self.sampling_strategy + " for type " + self.datatype)
         elif self.datatype=="float":
@@ -43,6 +57,15 @@ class Parameter:
             elif self.sampling_strategy == "log":
                 log_sample = np.random.uniform(np.log(self.min_val), np.log(self.max_val))
                 return np.exp(log_sample)
+            elif self.sampling_strategy == "lognormal":
+                ln_sample = np.random.lognormal(np.log(self.mean), 1)
+                return round(ln_sample, decimal_places)
+            elif self.sampling_strategy == "truncated_normal":
+                mu = self.mean
+                sigma = 1
+                truncated_normal = stats.truncnorm((self.min_val - mu) / sigma, (self.max_val - mu) / sigma, loc=mu, scale=sigma)
+                tn_sample = truncated_normal.rvs(size=1)
+                return round(tn_sample, decimal_places)
             else: 
                 print("No sampling strategy " + self.sampling_strategy + " for type " + self.datatype)
     
@@ -56,12 +79,14 @@ class Parameter:
 ParameterSearch is used to store information about a set of parameters.
 Define the parameters to be searched in the parameter config file (default is CONFIG_FILE)
 This must be a tsv with values:
-#name   type    min_val max_val default sampling_strategy
+#name   type    min_val max_val default sampling_strategy   mean(OPTIONAL)
 Where name is the name of the flag that giraffe uses
 type is the data type (int or float)
 min and max val are the range of values that the parameter can take
 default is the default value from giraffe. This is used to unify old runs missing parameters
 sampling_strategy is how we sample the values from the range ("uniform", "log")
+you can also sample from the truncated normal or lognormal distributions ("lognormal", "truncated_normal")
+if desired, you can add a 7th column to the tsv titled mean for use in normal distributions
 
 Randomly sample the parameter space with sample_parameter_space(), giving it the number of sets to return.
   This will write the sampled parameters to hash_to_parameters_file
@@ -88,11 +113,21 @@ class ParameterSearch:
         for line in f:
             if line[0] != "#":
                 l = line.split()
+                if len(l) == 7:
+                    if l[6] != "none":
+                        mean_value = int(l[6]) if l[1] == "int" else float(l[6])
+                    else:
+                        mean_value = "none"
+                else:
+                    mean_value = "none"
+
                 self.parameters.append(Parameter(l[0], l[1], 
                                                  int(l[2]) if l[1] == "int" else float(l[2]), 
                                                  int(l[3]) if l[1] == "int" else float(l[3]), 
                                                  int(l[4]) if l[1] == "int" else float(l[4]), 
-                                                 l[5]) )
+                                                 l[5],
+                                                 mean_value),
+                                                 )
         f.close()
 
         #This maps a hash string to the set of parameters it represents, as a list of parameter values,
@@ -181,8 +216,23 @@ class ParameterSearch:
 
 
     #Sample the parameter space and write the new parameters to HASH_TO_PARAMETERS
-    def sample_parameter_space(self, count):
+    def sample_parameter_space(self, count, benchmark_default, benchmark_mean):
         f = open(self.hash_to_parameters_file, "a")
+
+        if benchmark_default:
+            #add benchmark of default values
+            benchmark_tuple = tuple(param.default for param in self.parameters)
+            hash_val = self.parameter_tuple_to_hash(benchmark_tuple)
+            self.hash_to_parameters[hash_val] = benchmark_tuple
+            f.write("\n" + hash_val + "\t" + '\t'.join([str(x) for x in benchmark_tuple]))
+
+        if benchmark_mean:
+            #add benchmark of mean values
+            mean_tuple = tuple(param.mean for param in self.parameters)
+            hash_val = self.parameter_tuple_to_hash(mean_tuple)
+            self.hash_to_parameters[hash_val] = mean_tuple
+            f.write("\n" + hash_val + "\t" + '\t'.join([str(x) for x in mean_tuple]))
+
         for i in range(count):
             parameter_tuple = tuple([param.sample() for param in self.parameters])
             hash_val = self.parameter_tuple_to_hash(parameter_tuple)
@@ -201,12 +251,13 @@ def main():
     parser.add_argument('--config_file', default=CONFIG_FILE, help="Config file for which parameters to sample and how") 
     parser.add_argument('--output_file', default=HASH_TO_PARAMETERS_FILE, help="File holding the parameter sets to search and their identifying hash value")
     parser.add_argument('--count', type=int, default=1000, help="How many parameters sets to sample [1000]")
+    parser.add_argument('--benchmark_default', type=bool, default=False, help="Whether or not to additonally run a benchmark of default parameters")
+    parser.add_argument('--benchmark_mean', type=bool, default=False, help="Whether or not to additionally run a benchmark of the mean parameters")
 
     args = parser.parse_args()
 
     param_search = ParameterSearch(args.config_file, args.output_file)
-    param_search.sample_parameter_space(args.count)
-
+    param_search.sample_parameter_space(args.count, args.benchmark_default, args.benchmark_mean)
 
 if __name__ == "__main__":
     main()
