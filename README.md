@@ -76,6 +76,7 @@ To run all the rules, you will need to have installations of:
 * Picard (as `picard.jar` in the current directory)
 * bcftools
 * meryl
+* seqkit
 * Singularity, for running fastqsplitter, [Truvari](https://github.com/ACEnglish/truvari), [mafft](https://mafft.cbrc.jp/alignment/software/installation_without_root.html) which Truvari calls, vcfwave, vcfbub, sniffles, and GraphAligner
 * [toil](https://github.com/DataBiosphere/toil) for DeepVariant
 
@@ -85,7 +86,7 @@ The following conda environment was sufficient to run vg version comparison vari
 ```
 conda create -n long-read-exp -c conda-forge -c bioconda snakemake=9.13.7 \
     toil snakemake-executor-plugin-slurm snakemake-storage-plugin-http singularity \
-    bidict matplotlib meryl 'minimap2>=2.28'
+    bidict matplotlib meryl 'minimap2>=2.28' seqkit
 ```
 Note that the vg installations had to be provided as binaries which had undergone `make static` and `strip -d`.
 
