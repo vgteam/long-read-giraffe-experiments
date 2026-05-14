@@ -1913,7 +1913,7 @@ rule minimizer_index_graph:
         vg_binary=get_vg_version(VG_MINIMIZER_INDEXING_VERSION)
     threads: 16
     resources:
-        mem_mb=lambda w: 600000 if ("hprc-v2" in w["refgraphbase"]  or "hprc-v1.1-nov.11.2024" in w["refgraphbase"]) else 320000 if w["weightedness"] == ".W" else 80000,
+        mem_mb=lambda w: 180000 if "hprc-v2.1" in w["refgraphbase"] else 600000 if ("hprc-v2" in w["refgraphbase"]  or "hprc-v1.1-nov.11.2024" in w["refgraphbase"]) else 320000 if w["weightedness"] == ".W" else 80000,
         runtime=240,
         slurm_partition=choose_partition(240)
     shell:
