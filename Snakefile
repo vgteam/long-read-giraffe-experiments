@@ -502,7 +502,8 @@ def minimap_derivative_mode(wildcards):
         # in minimap2 mapping presets, we replace them with a different
         # character (!) that we substitute with colon when building the command
         # line.
-        # TODO: If these need ! in them we need to decode it too.
+        #
+        # So now we need to decode and recover the condition with colons in it.
         return explicit_mode.replace("!", ":")
 
     MODE_BY_TECH = {
