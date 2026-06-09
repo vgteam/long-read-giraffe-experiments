@@ -231,6 +231,7 @@ rm ${R10_RUNTIME}
 rm ${ILLUMINA_RUNTIME}
 rm ${ELEMENT_RUNTIME}
 ####################################### Memory
+HIFI_MEMORY=${OUT_DIR}/hifi_memory.tsv
 R10_MEMORY=${OUT_DIR}/r10_memory.tsv
 LLUMINA_MEMORY=${OUT_DIR}/illumina_memory.tsv
 LEMENT_MEMORY=${OUT_DIR}/element_memory.tsv

@@ -243,12 +243,20 @@ def main(args):
     category_colors = [x for x in category_colors if x is not None]
 
     # Do the plot
-    pyplot.bar(list(range(len(category_order))), [categories[category] for category in 
-        category_order], bottom=[divisions[category] for category in 
-        category_order], color=category_colors, width=options.bar_width)
-    # Plot the below-division bars.
-    pyplot.bar(list(range(len(category_order))), [divisions[category] for category in 
-        category_order], width=options.bar_width)
+    pyplot.bar(
+        list(range(len(category_order))),
+        [categories[category] for category in category_order],
+        bottom=[divisions[category] for category in category_order] if options.divisions else None,
+        color=category_colors,
+        width=options.bar_width
+    )
+    if options.divisions:
+        # Plot the below-division bars.
+        pyplot.bar(
+            list(range(len(category_order))),
+            [divisions[category] for category in category_order],
+            width=options.bar_width
+        )
         
     # StackOverflow provides us with font sizing
     # http://stackoverflow.com/questions/3899980/how-to-change-the-font-size-on-a-matplotlib-plot
@@ -288,12 +296,28 @@ def main(args):
             
     # Make everything fit
     pyplot.tight_layout()
+
+    # Generate alt text
+    try:
+        from matplotalt import generate_alt_text
+        alt_text = generate_alt_text()
+        print("Plot alt text:\n")
+        print(alt_text)
+    except ImportError:
+        sys.stderr.write("Install the matplotalt package to generate figure alt text\n")
+        alt_text = None
     
     if options.save is not None:
         # Save the figure to a file
         pyplot.savefig(options.save, dpi=options.dpi)
+        if alt_text is not None:
+            open(options.save + ".alt.txt", 'w').write(alt_text)
     else:
         # Show the figure to the user
+        #
+        # matplotalt doesn't seem to support this through its show system
+        # outside of a notebook. See
+        # <https://github.com/make4all/matplotalt/issues/8>
         pyplot.show()
         
     return 0
