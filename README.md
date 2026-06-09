@@ -68,13 +68,15 @@ To run all the rules, you will need to have installations of:
 * wget
 * curl
 * vg
-* minimap2
+* minimap2 (at least 2.28)
 * pbmm2
 * winnowmap
 * samtools
 * Java
 * Picard (as `picard.jar` in the current directory)
 * bcftools
+* meryl
+* seqkit
 * Singularity, for running fastqsplitter, [Truvari](https://github.com/ACEnglish/truvari), [mafft](https://mafft.cbrc.jp/alignment/software/installation_without_root.html) which Truvari calls, vcfwave, vcfbub, sniffles, and GraphAligner
 * [toil](https://github.com/DataBiosphere/toil) for DeepVariant
 
@@ -84,7 +86,7 @@ The following conda environment was sufficient to run vg version comparison vari
 ```
 conda create -n long-read-exp -c conda-forge -c bioconda snakemake=9.13.7 \
     toil snakemake-executor-plugin-slurm snakemake-storage-plugin-http singularity \
-    bidict matplotlib
+    bidict matplotlib meryl 'minimap2>=2.28' seqkit
 ```
 Note that the vg installations had to be provided as binaries which had undergone `make static` and `strip -d`.
 
@@ -101,6 +103,7 @@ In these file name templates, `{root}` is your base output directory, `{expname}
 * `{root}/experiments/{expname}/plots/chain_coverage.{ext}`: A bar chart of the best-chain coverage fraction of each Giraffe condition.
 * `{root}/experiments/{expname}/plots/pr.{ext}`: A precision-recall plot for mapping accuracy showing each condition.
 * `{root}/experiments/{expname}/plots/qq.{ext}`: A "QQ" plot with error bars, showing the calibration of mapping quality for detecting incorrectly-mapped reads.
+* `{root}/experiments/{expname}/plots/identity_line.{ext}`: A cumulative histogram of read identity masquerading as a line plot.
 
 ### For Variant Calling
 * `{root}/experiments/{expname}/results/snp_errors.tsv`: A table of SNP calling error count for each condition in the experiment.
@@ -132,11 +135,28 @@ In these file name templates, `{root}` is your base output directory, `{ext}` is
 
 This repo also includes machinery for doing parameter search experiments, to find the best combinations of parameters for `vg giraffe`, in order to generate Giraffe parameter presets.
 
-To use it, first update `parameter_search_config.tsv` to describe the names of the parameters you want to vary, their Python type (`int` or `float`), their min, max, and current default values, and the sampling strategy to distribute sampled values (`uniform` or `log`). (The default value is used for previously-sampled conditions from before you added the parameter to the file.)
+To use it, first update `parameter_search_config.tsv` to describe the names of the parameters you want to vary, their Python type (`int`, `float`, or `bool`), their min, max, and current default values, and the sampling strategy to distribute sampled values (`uniform` or `log`). (The default value is used for previously-sampled conditions from before you added the parameter to the file.) Note that the workflow is very picky about trailing newlines: there *must not* be any blank lines in the file.
 
-Then, run `parameter_search.py`, with the `--count` option set to the number of points to sample in multi-dimensional parameter space. This populates `./hash_to_parameters.tsv` with several sample point hash values and their corresponding parameter sets.
+Then, run `parameter_search.py`, with the `--count` option set to the number of points to sample in multi-dimensional parameter space. This populates `hash_to_parameters.tsv` with several sample point hash values and their corresponding parameter sets. If there are already conditions in that file, they will be updated with the default values for any new parameters added to the search. To drop old conditions from your search, delete `hash_to_parameters.tsv`.
 
-Then use Snakemake to request any of the parameter search plots, such as `{root}/parameter_search/plots/chm13/hprc-v1.1-mc-sampled4o/giraffe-k29.w11.W-sr-default/HG002.100000/illumina.correct_speed_vs_hit-cap.png`. This will use the current default `vg` binary, with the `sr` preset, on 100000 Illumina reads, against a haplotype-sampled version of the HPRC v1.1 graph, and make a plot of simulated read correctness and real read mapping speed as a function of the `hit-cap` parameter (assuming it's defined as one of the parameters to vary). There are other Snakemake rules available for files in `parameter_search` that can make parametric plots of pairs of real or simulated alignment statistics, or plot those statistics against parameter values. 
+Then use Snakemake to request any of the parameter search plots, such as `{root}/parameter_search/plots/chm13/hprc-v1.1-mc-sampled4o/giraffe-k29.w11.W-sr-default/HG002.100000/illumina.correct_speed_vs_hit-cap.png`. This will use the current default `vg` binary, with the `sr` preset, on 100000 Illumina reads, against a haplotype-sampled version of the HPRC v1.1 graph, and make a plot of simulated read correctness and real read mapping speed as a function of the `hit-cap` parameter (assuming it's defined as one of the parameters to vary). There are other Snakemake rules available for files in `parameter_search` that can make parametric plots of pairs of real or simulated alignment statistics, or plot those statistics against parameter values.
+
+You can ask for:
+* `{root}/parameter_search/plots/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{version}/{sample}.{subset}/{tech}.correct_speed_vs_{parameter}.png` (which plots simulated read correctness and real read speed on the same plot, against a parameter)
+   * Example: `output/parameter_search/plots/chm13/hprc-v1.1-mc-sampled4o/giraffe-k29.w11.W-sr-default/HG002.100000/illumina.correct_speed_vs_hit-cap.png`
+* `{root}/parameter_search/plots/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{version}/{sample}.{subset}/{tech}.{realness}.{stat}_vs_{parameter}.png` (which plots a statistic against a parameter). Statistics include:
+   * `correct`
+   * `wrong`
+   * `clipped_or_unmapped`
+   * `mapping_speed`
+   * `match_bp`
+   * Most of the things you can plot bar chates for in [Available Experiment Outputs](#available-experiment-outputs) above.
+* `{root}/parameter_search/plots/{reference}/{refgraph}/giraffe-{minparams}-{preset}-{version}/{sample}.{subset}/{tech}.parametric.{realness_y}.{stat_y}_vs_{realness_x}.{stat_x}.png` (which plots two statistics against each other as a parametric plot, for optimizing tradeoffs)
+  * Example: `output/parameter_search/plots/chm13/hprc-v2.1-mc-eval-sampled16o/giraffe-k31.w50.W.path-hifi-default/HG002.100k/hifi.parametric.sim.wrong_vs_real.match_bp.png`
+
+Note that the `{flags}` field is not present; `noflags` is always used, plus the flags from the parameter set being tested. If you need to pass something like the flag to enable recombination-awareness, you need to set it in your parameter search as a parameter to be searched, with just one possible value in its range.
+
+To actually figure out which points on the plot are which, you can go into the backing stats files, and even sort them by statistiv and get a list of the best parameter sets for that statistic.
 
 # Multi-User Operation
 
