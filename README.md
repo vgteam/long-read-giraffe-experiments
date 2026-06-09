@@ -92,6 +92,7 @@ Note that the vg installations had to be provided as binaries which had undergon
 
 In these file name templates, `{root}` is your base output directory, `{expname}` is the name of the experiment defined in the config file, and `{ext}` is the image format you want the plot in, such as `png`.
 
+### For Mapping
 * `{root}/experiments/{expname}/plots/correct.{ext}`: A bar chart of the fraction of eligible reads in each condition that are mapped correctly.
 * `{root}/experiments/{expname}/plots/wrong.{ext}`: A bar chart of the fraction of eligible reads in each condition that are mapped incorrectly.
 * `{root}/experiments/{expname}/plots/clipped_or_unmapped.{ext}`: A bar chart of the number of bases left softclipped, hardclipped, or unmapped by each condition.
@@ -100,6 +101,13 @@ In these file name templates, `{root}` is your base output directory, `{expname}
 * `{root}/experiments/{expname}/plots/chain_coverage.{ext}`: A bar chart of the best-chain coverage fraction of each Giraffe condition.
 * `{root}/experiments/{expname}/plots/pr.{ext}`: A precision-recall plot for mapping accuracy showing each condition.
 * `{root}/experiments/{expname}/plots/qq.{ext}`: A "QQ" plot with error bars, showing the calibration of mapping quality for detecting incorrectly-mapped reads.
+
+### For Variant Calling
+* `{root}/experiments/{expname}/results/snp_errors.tsv`: A table of SNP calling error count for each condition in the experiment.
+* `{root}/experiments/{expname}/results/snp_errors.tsv`: A table of indel calling error count for each condition in the experiment.
+* `{root}/experiments/{expname}/results/total_errors.tsv`: A table of total SNP and indel calling error count for each condition in the experiment.
+* `{root}/experiments/{expname}/plots/dv_snp_summary.pdf`: A plot of SNP calling accuracy statistics (precision, recall, and F1).
+* `{root}/experiments/{expname}/plots/dv_indel_summary.pdf`: A plot of indel calling accuracy statistics (precision, recall, and F1).
 
 ## Useful Per-Condition Outputs
 
